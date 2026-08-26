@@ -1,0 +1,120 @@
+"""Insitu: situated identity for agents."""
+
+from __future__ import annotations
+
+__version__ = "0.12.0"
+
+from insitu.catalog import (
+    get_project,
+    get_role,
+    get_skill,
+    get_stanza,
+    list_on_demand,
+    list_projects,
+    list_roles,
+    list_skills,
+    list_stanzas,
+    where_used,
+    where_used_skill,
+)
+from insitu.identity import (
+    InvalidIdentity,
+    validate_pack_id,
+    validate_pack_version,
+    validate_project_key,
+    validate_role_id,
+    validate_skill_id,
+    validate_stanza_id,
+)
+from insitu.library import (
+    fetch_pack,
+    get_pack,
+    install_capability,
+    install_skill,
+    install_stanza,
+    list_packs,
+    load_pack_repos,
+    remove_pack,
+    uninstall_capability,
+    uninstall_skill,
+    uninstall_stanza,
+)
+from insitu.materialize import materialize
+from insitu.mutate import (
+    create_project,
+    create_role,
+    create_skill,
+    create_stanza,
+    delete_project,
+    delete_role,
+    delete_skill,
+    delete_stanza,
+    link_skill,
+    link_stanza,
+    unlink_skill,
+    unlink_stanza,
+    update_project,
+    update_role,
+    update_skill,
+    update_stanza,
+)
+from insitu.resolve import resolve_protocol
+from insitu.status import project_status
+from insitu.store import VaultReadError
+from insitu.validate import validate
+from insitu.vault import resolve_vault_root
+
+__all__ = [
+    "InvalidIdentity",
+    "VaultReadError",
+    "__version__",
+    "get_project",
+    "get_role",
+    "create_project",
+    "create_role",
+    "create_skill",
+    "create_stanza",
+    "delete_project",
+    "delete_role",
+    "delete_skill",
+    "delete_stanza",
+    "fetch_pack",
+    "get_pack",
+    "get_skill",
+    "get_stanza",
+    "install_capability",
+    "install_skill",
+    "install_stanza",
+    "link_skill",
+    "link_stanza",
+    "list_on_demand",
+    "list_packs",
+    "list_projects",
+    "list_roles",
+    "list_skills",
+    "list_stanzas",
+    "load_pack_repos",
+    "materialize",
+    "project_status",
+    "remove_pack",
+    "resolve_protocol",
+    "resolve_vault_root",
+    "uninstall_capability",
+    "uninstall_skill",
+    "uninstall_stanza",
+    "unlink_skill",
+    "unlink_stanza",
+    "update_project",
+    "update_role",
+    "update_skill",
+    "update_stanza",
+    "validate",
+    "validate_pack_id",
+    "validate_pack_version",
+    "validate_project_key",
+    "validate_role_id",
+    "validate_skill_id",
+    "validate_stanza_id",
+    "where_used",
+    "where_used_skill",
+]

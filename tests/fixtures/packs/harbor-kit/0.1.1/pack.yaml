@@ -1,0 +1,12 @@
+id: harbor-kit
+name: Harbor kit
+kind: theme
+primary: methodology
+version: 0.1.1
+stanzas:
+  - methodology/dock-rule
+  - methodology/harbor-watch
+skills:
+  - demo/ignored
+roles:
+  - harbor-kit

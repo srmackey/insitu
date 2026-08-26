@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+uv.lock
+STATUS.md
+PROTOCOL.md
+inbox/
+_system/
+docs/

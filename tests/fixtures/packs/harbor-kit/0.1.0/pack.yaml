@@ -1,0 +1,11 @@
+id: harbor-kit
+name: Harbor kit
+kind: theme
+primary: methodology
+version: 0.1.0
+stanzas:
+  - methodology/dock-rule
+skills:
+  - close-hatch
+roles:
+  - harbor-kit

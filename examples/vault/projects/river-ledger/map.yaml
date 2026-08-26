@@ -1,0 +1,15 @@
+repo: river-ledger
+name: River Ledger
+aka:
+  - rl
+  - ledger
+roles:
+  - clerk
+core:
+  - interaction/how-i-work-with-ai
+on_demand:
+  - methodology/small-diffs
+  - knowledge/operator-profile
+skills:
+  - close-books
+include_global: true

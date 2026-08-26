@@ -1,0 +1,4 @@
+surfaces:
+  - grok
+  - claude
+  - cursor

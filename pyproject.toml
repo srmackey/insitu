@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "insitu"
+version = "0.12.0"
+description = "Situated identity for agents: who you are here"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Scott Mackey" }]
+dependencies = [
+    "fastmcp>=2.0.0",
+    "pydantic>=2.5",
+    "python-frontmatter>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+insitu = "insitu.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/insitu"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-q --tb=short"
+pythonpath = ["src", "tests"]

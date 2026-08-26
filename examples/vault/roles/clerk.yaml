@@ -1,0 +1,5 @@
+name: Clerk
+description: Fictional ledger-clerk pack for the example vault.
+core:
+  - methodology/ledger-clerk
+on_demand: []

@@ -1,0 +1,6 @@
+name: Harbor kit
+description: Fictional dock rules for tests.
+core:
+  - methodology/dock-rule
+  - methodology/harbor-watch
+on_demand: []
