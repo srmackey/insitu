@@ -322,7 +322,7 @@ projects:
 
 **Grant and revoke** are MCP tools that refuse a non-admin caller. Revoking the only admin is refused (`last_admin`): it would leave a vault nobody can reconfigure, and `init` refuses once an admin exists.
 
-Not multi-user ACL (§13). The matching agent instruction ships in an instruction pack, not this repo.
+Not multi-user ACL; it is not in v1.
 
 ## 7. Stanza Format
 
@@ -428,7 +428,7 @@ Every write result includes `affects_projects`. Previews may include the same li
 
 Every mutating map tool takes `working_folder` (0.13, §6.3). Inspect tools do not.
 
-Deliberately absent: `rename_stanza` / `rename_role` / `rename_project` (see §13). Registering the first admin is not a tool; it is `insitu init --admin` on the command line.
+Deliberately absent: `rename_stanza` / `rename_role` / `rename_project`, which are not in v1. Registering the first admin is not a tool; it is `insitu init --admin` on the command line.
 
 ---
 
@@ -586,28 +586,7 @@ default: review
 
 ---
 
-## 13. Future Extensions (out of scope for v1)
-
-- Repo-local override file (folder name ≠ project key, or per-repo vault pointer)
-- `rename_stanza` / `rename_role` / `rename_project`
-- `strict` review mode (cooling-off, dual control) for shared vaults
-- Nested roles (a role listing another role)
-- Git-backed pack history (tags, old versions not in the working tree). v0 repo = current `VERSION`; history is the shelf.
-- Version/ref pinning of *native* stanzas in project maps (pack versions are 0.9)
-- Alias-based project lookup ("the ledger repo" → `river-ledger`)
-- Semantic search over stanzas
-- Dependency / "requires" declarations between stanzas
-- Automatic suggestions for complementary stanzas
-- Richer graph views
-- Multi-user / shared vaults with access control
-- SessionStart (or equivalent) hook that rematerializes for freshness
-- Additional host surfaces beyond `grok` / `claude` / `cursor`
-- Pointer-only Claude adapter (`@PROTOCOL.md` instead of a full-body `.claude/rules/` file) if dogfood shows it is cleaner
-- ~~Chair binding / operator classes~~ **shipped in 0.13.** See §6.3. Orphaned-map detection (a map whose checkout is gone) stays future work, as an admin capability.
-
----
-
-## 14. Implementer contracts
+## 13. Implementer contracts
 
 Locked with review bucket 3 (2026-08-16), plus the 0.4 load-path lock the same day.
 
@@ -625,147 +604,3 @@ Locked with review bucket 3 (2026-08-16), plus the 0.4 load-path lock the same d
 - **Adapter writes must not deadlock.** If a host adapter is locked or the write does not finish, skip that adapter with `adapter_locked` or `adapter_write_failed`. `PROTOCOL.md` is still written. Prefer CLI `materialize` from a process that does not have those files open.
 
 The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
-
----
-
-## 15. Changelog
-
-**0.13 operator classes and the on-demand install grain (2026-08-29)** — Python package bump lands with the release.
-
-- Two operator classes, `admin` and `bound`, stored in `config/operators.yaml`. `bound` is the default and names chair binding: that chair mutates its own map, in its own folder, only. `admin` may name other project keys and other working folders, and is the only class that may grant or revoke.
-- A vault with no `operators.yaml` is pre-init. It behaves as 0.12 did and warns. Failing closed would lock every chair out of a vault with no admin registered to unlock it.
-- `insitu` grew a subcommand surface. `insitu init --admin <key>` registers the first admin and refuses once one exists. Bootstrap is command-line only on purpose: an agent cannot claim admin mid-session. The bare invocation still starts the server.
-- `install_stanza` takes `target`, `core` (default) or `on_demand`, mirroring `link_stanza`. An import record may carry both lists. Before this, `on_demand` was reachable only through a native link or a whole-capability install, so a theme pack, the one kind meant to be installed stanza by stanza, was the one kind that could never ship an on-demand member.
-- `fetch_pack` fix: a confirmed refresh reported success and wrote nothing when the source was a configured repo, because the short-circuit in `pull_pack_version` keyed on an explicit `path` rather than on the caller asking for a refresh.
-- Out of this bump: multi-user ACL, orphaned-map detection, `rename_*`, nested roles.
-
-**0.12 pack-skill install (2026-08-26)** — Python package is `0.12.0`.
-
-- `install_skill` / `uninstall_skill`: same shape as `install_stanza`. Map record `skills:` on `imports:`. Pull onto the shelf if needed. No copy into native `skills/`.
-- Composed skills = native `project.skills` then import `skills:` lists. Whole-capability records stay stanza/role only.
-- `materialize` writes host `/name` copies from the shelf skill, stamp after frontmatter, same orphan rule.
-- `get_skill(..., project=)` looks through that map’s pack skills. Origin `library/<pack>@<version>`.
-- Same skill id from native and pack, or two packs, is `duplicate_import_skill`.
-- Out of this bump: capability auto-attach of pack skills; operator classes.
-
-**Recorded 2026-08-26** — operator classes (admin / bound) as the chair-binding increment. Not a version bump. Not implemented. Spec kept with the author. §13 bullet expanded. Instruction ships in an instruction pack, not this repo.
-
-**0.11 package version (2026-08-25)** — Python package is `0.11.0`. Purpose names stanzas, roles, skills, and packs. Pack `skills/` on the shelf stay ignored until `install_skill`.
-
-**0.11 skills (2026-08-24)** — first-class skill object, project map, host delivery.
-
-- New vault tree `skills/<id>/SKILL.md` plus optional `scripts/` and `references/`. Why-logs under `provenance/skills/`.
-- Map membership is `skills:` only. Roles do not grow a `skills` field. `_global.skills` is not inherited.
-- `link_skill` / `unlink_skill` / `create_skill` / `update_skill` / `delete_skill` / `list_skills` / `get_skill` / `where_used_skill`.
-- `resolve_protocol` adds a skills index (no skill bodies in `core`). Missing skill id is `missing_skill`.
-- `materialize` writes generated copies under host skill directories, stamp after frontmatter, stamp-scoped orphan cleanup.
-- `validate`: `missing_skill`, `skill_name_mismatch`, `skill_missing_description`, `role_skills_not_supported`, `invalid_skill_path`; findings `unreferenced_skill`, `global_skills_not_inherited`, `skill_missing_skill_md`. `fix` drops duplicate map `skills:` entries.
-- Out of scope stays parked: role-carried skills, `_global` skill injection, nested skill ids, user-global skill dirs.
-
-**0.10 bootstrap doctrine (2026-08-22)** — two-layer live routers. Not a version bump.
-
-- Router stays seed. `materialize` is store/retrieve for `PROTOCOL.md` and host adapters.
-- If other host files this host loads are missing, the agent retrieves the multi-platform pack and writes them. No new Python surface. No Claude Home router in this fold.
-- Shipped `install/routers/` and §10.3 body updated. Recopy to user-global rule dirs.
-
-**0.10 project_status (2026-08-22)** — folder inspect card.
-
-- `project_status(working_folder, project=None)` returns map, sourced core ids, size, on-demand ids, disk freshness, and a `card` string. No stanza bodies. Inspect only.
-- Sourced table is first-wins attribution (`_global`, each role, imports, project).
-- Disk `current` is PROTOCOL.md present, header project matches, header stanza list equals live compose in order. Adapters are reported, not part of `current`.
-- Shipped routers name the tool for "Insitu status of this folder." Not session start.
-- `get_project` and `resolve_protocol` unchanged.
-
-**0.8 on-demand (2026-08-18)** — rename the non-core list.
-
-- Prose: `on-demand`. Machine names: `on_demand`. Tool: `list_on_demand` (no `list_available`).
-- `link_stanza` target `on_demand`. `target="available"` is `invalid_target`.
-- Disk alias: `available:` without `on_demand:` loads as on-demand. Writes persist `on_demand` and drop `available`.
-- Both keys on one file: issue `both_keys_present`. Leftover `available:` only: finding `legacy_available_key`; `fix=true` rewrites.
-
-**0.7 provenance tree (2026-08-17)** — why-logs leave the stanza catalog.
-
-- Why-log path is `provenance/<id>.md`, not a sibling `{stem}.prov.md` under `stanzas/`. `stanzas/` is only stanzas.
-- `create_stanza` / `update_stanza` write the new path. `update_stanza` and `delete_stanza` migrate or remove a leftover sibling.
-- `list_stanzas` / `validate` / resolution still ignore `*.prov.md` under `stanzas/` so an unmigrated vault does not load why-logs as stanzas.
-- `resolve_protocol` lists size totals (stanza count, bytes, estimated tokens) before the core bodies so the weight is visible without reading past every stanza.
-
-**0.6 authoring (2026-08-17)** — role and project writes, user-gated delete, validate findings.
-
-- Incremental `create_role` / `update_role` / `create_project` / `update_project`. `link_stanza` / `unlink_stanza` stay project-map-only.
-- `_global` cannot be deleted. Create if missing. Edit it like any other project.
-- `delete_stanza` / `delete_role` / `delete_project` and role-membership writes are preview then `confirm=true` with the preview's `expected`. Attach/detach role and map link/unlink write immediately and report blast radius.
-- `create_stanza` does not auto-link.
-- Every write returns `affects_projects`. If the working-folder project is in that list, rematerialize and start a new session.
-- `validate` gains `findings` (empty projects/roles, `unreferenced`, `not_in_any_protocol`). Findings never fail `ok`. `fix` still only drops map dupes and writes missing frontmatter roles.
-- Agents do not delete. Findings are not a cleanup prompt.
-
-**0.5 roles (2026-08-17)** — named stanza groups, implemented as **roles** before first install.
-
-- Role pack: `roles/<id>.yaml` with ordered `core` / `available`. No nesting. No server-built-in names.
-- Project maps gain `roles: [clerk, …]`. Stanzas declare `roles:` in frontmatter. Membership source of truth is the role file; frontmatter is the checked label.
-- Resolution: `_global` composed (its roles + core), then project roles, then project core. First-wins dedup. `include_global` uses composed `_global` core.
-- `validate` membership match; `fix=true` writes missing frontmatter roles only.
-- `list_roles` / `get_role`; `where_used` and `list_stanzas` know roles.
-- Promotes the 0.4 "named stanza groups / `extends:`" future item. The inbox stanzas such a role would carry are vault content, not part of this server change.
-
-**0.4 load-path lock (2026-08-16)** — constitution injection is a v1 kill condition.
-
-- `materialize` is first-class enforcement, not a no-MCP fallback. `resolve_protocol` is live/inspect/`available`.
-- `PROTOCOL.md` is the portable generated canon. It is not auto-loaded by hosts.
-- Host adapters (full-body copies) land in `.grok/rules/`, `.claude/rules/`, `.cursor/rules/` per a vault-level `config/surfaces.yaml`.
-- Two artifacts: user-global **router** (ContextForge shape, `install/routers/`) and per-project **protocol pack**. Do not put the pack in the global router.
-- `materialize` never edits `AGENTS.md` / `CLAUDE.md`. Missing surfaces file writes `PROTOCOL.md` only and warns.
-- Claude `.claude/rules/` without `paths` locked from official docs; live `/context` probe owed at dogfood.
-
-**0.3 name lock (2026-08-16)** — product name is Insitu. Spec moved to the `insitu/` sibling project as `DESIGN.md`. Protocol Vault remains a historical working title only.
-
-**0.3 bucket 3 (2026-08-16)** — implementer contracts:
-
-- Token estimate is `chars / 4`, labeled an estimate.
-- `validate` is read-only unless `fix=true`.
-- Missing `_global` is empty, not an error.
-- Name/path charset and traversal rules recorded in §14.
-- Git is a safety net (look back, restore). Not a pin or per-project version. Maps read current files.
-- Vault root: `INSITU_HOME` / `--vault` / `~/.insitu`.
-
-**0.3 bucket 2 (2026-08-16)** — personal-plus-OSS cuts:
-
-- Review dial shrunk to `auto` | `review`. `notify` dropped. Default is `review` for every mutation, including `_global`.
-- Stanza why-log: sibling `{stem}.prov.md` (append-only markdown). Git is *what*; the sibling is *why*. No `.prov.yaml`. No project-level why-log in v1.
-- `list_stanzas` is user bootstrapping / authoring (register a new project's protocol, inspect sizes). `resolve_protocol` remains the agent session call and the composed-weight view. `list_projects` / `get_project` expose protocol size summaries for the same authoring reason.
-- `materialize` defaults to `PROTOCOL.md`. Never `AGENTS.md`.
-- `install/` confirmed server-side. Public contents: server + fictional example vault.
-
-**0.3 (2026-08-16)** — identity and vocabulary lock:
-
-- **Stanza / protocol split.** A stanza is one portable section. A protocol is the assembled project-specific "how to work with me" document. `resolve_protocol` returns the protocol. `get_stanza` / `list_stanzas` / `link_stanza` / `unlink_stanza` / `create_stanza` / `update_stanza` replace the old protocol-as-atom tools. `list_protocols` and `get_protocol` are gone.
-- **Inclusion test.** Host-document test in §2. Interaction-relevant identity (`about-me`) is a stanza. Wiki-scale knowledge is not. Folders under `stanzas/` are convention, not a type system.
-- **Project identity.** Project key = `projects/<folder>/` = working folder basename. `repo`, `name`, `aka` added to `map.yaml` as labels. No `vault:` field on the project map. Vault root is `INSITU_HOME` / server flag. Missing project is a structured miss. Repo-local override deferred.
-- **Layout.** `protocols/` renamed to `stanzas/`. Install assets live with the server, not in the user vault.
-- Seed interaction stanza path updated to `stanzas/interaction/summary-first.md`.
-
-**0.2 addendum (2026-08-15)** — Addendum A: seed stanza `interaction/summary-first` (seed interaction style; extract into the vault at project creation). Same day: gated to dense replies only; tipping-point rule; off by default.
-
-**0.2 (2026-08-16)** — incorporates design review:
-
-- Added §2 Scope & Boundaries (user context vs. dev/system context; complement to ContextForge, not overlap)
-- Resolution hardened: hard error on missing references, explicit dedupe rule (first wins), explicit precedence semantics (later refines earlier)
-- Resolved protocol now includes an `available` index; `title` / `description` frontmatter now required
-- Added `validate` and `where_used`; updates surface `where_used` before committing
-- Size/token metadata on list/get/resolve and a size summary on `get_project`
-- Review policy extended to link/unlink; `_global` map mutations default to `review`
-- `include_global: false` opt-out; `_global` scoped as deliberately minimal
-- Removed `notes:` field from `map.yaml` (optional `notes.md` file remains)
-- Added agent integration and install (companion files, mcp.json examples, materialize as fallback with staleness header)
-- `strict` review mode and delete/rename moved to future extensions
-
-**0.1 (2026-08-15)** — initial design locked in conversation.
-
----
-
-## 16. Status
-
-Version 0.13 locked 2026-08-29. Operator classes gate the mutating map tools; the stanza install grain reaches `on_demand`. Review buckets 1–4 and the 0.4 load-path lock remain closed. Skills are first-class. Pack skills install like pack stanzas. `project_status` is the folder inspect card. Pack-install is 0.9. Python package version is `0.12.0`. The non-core list is `on_demand` (prose: on-demand). Role and project authoring, user-gated delete, validate findings, and the `provenance/` why-log tree are specified here and implemented in `src/`. This file is the only spec. Live next-step is `STATUS.md`.
-
-The seed interaction stanza that Addendum A referenced is vault content. Its body is not carried in this repo.
