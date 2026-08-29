@@ -1,13 +1,13 @@
 ---
-id: interaction/digest-then-drill
-title: Digest, then drill
+id: interaction/summary-first
+title: Summary first
 description: Fictional global form for dense replies. Thesis plus a short index.
 tags: [interaction, core]
 created: 2026-08-16
 updated: 2026-08-16
 ---
 
-# Digest, then drill
+# Summary first
 
 Example-vault style rule. Off by default. Use it only when a full reply would be too expensive to read in one sitting.
 

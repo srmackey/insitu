@@ -10,9 +10,9 @@ from insitu.resolve import resolve_protocol
 def _seed_basic(vault: Path) -> None:
     write_stanza(
         vault,
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "GLOBAL-CORE-BODY",
-        title="Digest, then drill",
+        title="Summary first",
         description="Global interaction form",
         tags=["interaction", "core"],
     )
@@ -35,7 +35,7 @@ def _seed_basic(vault: Path) -> None:
     write_project(
         vault,
         "_global",
-        core=["interaction/digest-then-drill"],
+        core=["interaction/summary-first"],
     )
     write_project(
         vault,
@@ -54,7 +54,7 @@ def test_composes_global_then_project(vault: Path) -> None:
     assert result["ok"] is True
     ids = [item["id"] for item in result["core"]]
     assert ids == [
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "interaction/how-i-work-with-ai",
     ]
     bodies = [item["content"] for item in result["core"]]
@@ -168,11 +168,11 @@ def test_size_totals_sum_each_core_stanza(vault: Path) -> None:
 
 
 def test_resolving_global_does_not_double_include(vault: Path) -> None:
-    write_stanza(vault, "interaction/digest-then-drill", "GLOBAL-CORE-BODY")
-    write_project(vault, "_global", core=["interaction/digest-then-drill"])
+    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
+    write_project(vault, "_global", core=["interaction/summary-first"])
     result = resolve_protocol(vault, "_global")
     assert result["ok"] is True
-    assert [item["id"] for item in result["core"]] == ["interaction/digest-then-drill"]
+    assert [item["id"] for item in result["core"]] == ["interaction/summary-first"]
 
 
 def test_prov_files_are_not_stanzas_for_resolution(vault: Path) -> None:

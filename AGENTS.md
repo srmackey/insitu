@@ -4,7 +4,7 @@ Canonical constitution for the Insitu server repo. Claude loads it via the thin 
 
 **Product.** Insitu is a portable MCP server for **situated identity**: who you are *here*. It stores reusable **stanzas**, **roles**, project-mapped **skills**, and versioned **packs**, and composes a **project-specific protocol**. Complementary to ContextForge (system/dev context). Not a second brain.
 
-**Design lock.** `DESIGN.md` is the locked spec (v0.12, 2026-08-26). Implement against it. Role and project authoring, user-gated delete, validate findings, the `provenance/` why-log tree, the on-demand rename, pack-install (0.9), `project_status` (0.10), skills (0.11), and pack-skill install (0.12) are in `src/`. Do not expand past it (search, ACL, rename tools, nested roles, role-carried skills) without an explicit design change.
+**Design lock.** `DESIGN.md` is the locked spec (v0.13, 2026-08-29). Implement against it. Role and project authoring, user-gated delete, validate findings, the `provenance/` why-log tree, the on-demand rename, pack-install (0.9), `project_status` (0.10), skills (0.11), pack-skill install (0.12), and operator classes plus the on-demand install grain (0.13) are in `src/`. Do not expand past it (search, ACL, rename tools, nested roles, role-carried skills) without an explicit design change.
 
 **Session entry.** Read `STATUS.md` and state the Forefront before other work. Live next-step lives there, not in this file.
 
@@ -38,5 +38,5 @@ You are a careful steward of a small, markdown-first MCP. Files on disk are the 
 | `install/` | Global routers + mcp examples (not user-vault data; not the protocol pack) |
 | `examples/vault/` | Fictional example vault (tests and docs) |
 | `inbox/` | Node arrival tray. Process on command. |
-| `STATUS.md` | Nexus-facing where / next (local; not shipped) |
-| `_system/` | System-development method tree (local; gitignored). Pack orchestrator: `methodology/system-home`. |
+| `STATUS.md` | Where / next for this checkout (local; not shipped) |
+| `_system/` | Method tree (local; gitignored). Its contents stay with the author. |

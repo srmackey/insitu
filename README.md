@@ -23,7 +23,7 @@ Size reports on stanzas and on the composed protocol tell you when to trim. Skil
 - A **project map** selects stanzas as core (always loaded) or on-demand (pulled when the work needs them), plus imported packs and mapped skills.
 - A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
 - A **skill** is a procedure the host discovers as `/name`. `materialize` copies mapped skills into `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/`.
-- A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_stanza` pull it and write this map.
+- A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_stanza` pull it and write this map. A single-stanza install may land in `core` or `on_demand`.
 
 ## Install
 
@@ -90,7 +90,7 @@ Once the server, vault, and router are in place, you talk to the agent in the pr
 
 **First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. Constitutions and other host files this host loads are not that output; the router retrieves the multi-platform pack and writes those if they are missing. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change a stanza, skill, or the project map in the vault, then materialize again.
 
-**Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some stanzas are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use digest-then-drill") instead of a path.
+**Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some stanzas are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use summary-first") instead of a path.
 
 **A new project.** Ask what stanzas, roles, skills, and packs exist. Pick the set this project should carry. Install a capability if this folder should use a whole pack. Then materialize. The point is a deliberate subset, not a paste of everything.
 
@@ -119,7 +119,7 @@ get_skill / get_role / get_pack
 
 # authoring
 create_stanza / update_stanza
-link_stanza / unlink_stanza # project maps only
+link_stanza / unlink_stanza # project maps only; target core or on_demand
 create_skill / update_skill / delete_skill / where_used_skill
 link_skill / unlink_skill
 create_role / update_role   # member add/remove is preview then confirm
@@ -134,6 +134,19 @@ delete_stanza / delete_role / delete_project
 # vault admin
 fetch_pack / remove_pack    # seed or drop a shelf version
 validate / where_used
+operators                   # classes, admins, default (inspect)
+grant / revoke              # admin only; first admin is CLI-only
+```
+
+Every tool that writes a project map takes `working_folder`. A **bound** chair
+(the default) may write only the map whose key matches that folder's basename;
+an **admin** chair may name another. A vault with no `config/operators.yaml`
+runs pre-init: writes go through as before and the result says how to fix it.
+
+```
+insitu init --admin <project-key>   # register the first admin; refuses if one exists
+insitu operators                    # show the config
+insitu                              # start the MCP server (unchanged)
 ```
 
 ## Develop

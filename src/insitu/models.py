@@ -47,14 +47,21 @@ class ImportRecord:
     version: str
     stanzas: list[str] | None = None
     skills: list[str] | None = None
+    on_demand: list[str] | None = None
 
     def is_capability(self) -> bool:
-        return self.stanzas is None and self.skills is None
+        return self.stanzas is None and self.skills is None and self.on_demand is None
+
+    def stanza_members(self) -> list[str]:
+        """Every stanza this record imports, whichever list it lands in."""
+        return list(self.stanzas or []) + list(self.on_demand or [])
 
     def as_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {"pack": self.pack, "version": self.version}
         if self.stanzas is not None:
             data["stanzas"] = list(self.stanzas)
+        if self.on_demand is not None:
+            data["on_demand"] = list(self.on_demand)
         if self.skills is not None:
             data["skills"] = list(self.skills)
         return data

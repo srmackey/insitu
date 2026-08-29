@@ -18,11 +18,11 @@ from insitu.status import project_status
 
 
 def _seed(vault: Path) -> None:
-    write_stanza(vault, "interaction/digest-then-drill", "GLOBAL-CORE-BODY")
+    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
     write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
     write_stanza(vault, "methodology/small-diffs", "ON-DEMAND-BODY")
     write_stanza(vault, "methodology/ledger-clerk", "ROLE-CORE-BODY")
-    write_project(vault, "_global", core=["interaction/digest-then-drill"])
+    write_project(vault, "_global", core=["interaction/summary-first"])
     write_role(vault, "clerk", core=["methodology/ledger-clerk"])
     write_project(
         vault,
@@ -94,11 +94,11 @@ def test_happy_path_map_sources_size_card_no_bodies(
     kinds = [row["kind"] for row in result["sources"]]
     assert kinds == ["_global", "role", "project"]
     by_kind = {row["kind"]: row for row in result["sources"]}
-    assert by_kind["_global"]["stanzas"] == ["interaction/digest-then-drill"]
+    assert by_kind["_global"]["stanzas"] == ["interaction/summary-first"]
     assert by_kind["role"]["id"] == "clerk"
     assert by_kind["role"]["stanzas"] == ["methodology/ledger-clerk"]
     assert by_kind["project"]["stanzas"] == ["interaction/how-i-work-with-ai"]
-    assert "interaction/digest-then-drill" in result["card"]
+    assert "interaction/summary-first" in result["card"]
     assert result["disk"]["protocol"]["present"] is False
     assert result["disk"]["current"] is False
 
@@ -106,22 +106,22 @@ def test_happy_path_map_sources_size_card_no_bodies(
 def test_first_wins_attributes_duplicate_to_earlier_source(
     vault: Path, tmp_path: Path
 ) -> None:
-    write_stanza(vault, "interaction/digest-then-drill", "GLOBAL-CORE-BODY")
-    write_project(vault, "_global", core=["interaction/digest-then-drill"])
+    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
+    write_project(vault, "_global", core=["interaction/summary-first"])
     write_project(
         vault,
         "river-ledger",
-        core=["interaction/digest-then-drill"],
+        core=["interaction/summary-first"],
         include_global=True,
     )
     work = tmp_path / "river-ledger"
     work.mkdir()
     result = project_status(vault, work)
     assert result["ok"] is True
-    assert result["core"] == ["interaction/digest-then-drill"]
+    assert result["core"] == ["interaction/summary-first"]
     kinds = [row["kind"] for row in result["sources"]]
     assert kinds == ["_global"]
-    assert result["sources"][0]["stanzas"] == ["interaction/digest-then-drill"]
+    assert result["sources"][0]["stanzas"] == ["interaction/summary-first"]
     assert result["size"]["stanza_count"] == 1
 
 

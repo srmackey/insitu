@@ -514,8 +514,8 @@ def _collect_import_issues(issues: list[dict], vault: Vault, project: str) -> No
                 }
             )
             continue
-        if record.stanzas:
-            for sid in record.stanzas:
+        if record.stanza_members():
+            for sid in record.stanza_members():
                 if sid not in pack.stanzas:
                     issues.append(
                         {

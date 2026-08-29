@@ -14,6 +14,7 @@ from insitu.library import (
     install_stanza,
     list_packs,
     load_pack_repos,
+    pull_pack_version,
     remove_pack,
     uninstall_capability,
     uninstall_stanza,
@@ -352,3 +353,160 @@ def test_load_vault_reads_imports(tmp_path: Path) -> None:
     assert loaded.projects["alpha"].imports[0].pack == "harbor-kit"
     assert loaded.projects["alpha"].imports[0].version == "0.1.0"
     assert loaded.projects["alpha"].imports[0].stanzas is None
+
+
+def test_confirmed_refresh_from_a_repo_actually_writes(tmp_path: Path) -> None:
+    """The 2026-08-28 miss: confirmed refresh reported ok and wrote nothing.
+
+    `pull_pack_version` short-circuited on `existing is not None and path is
+    None`, so the preview and confirm gate above it were dead on the repo
+    path. Only an explicit `path` defeated the guard.
+    """
+    vault, repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+
+    source = repo / "harbor-kit" / "pack.yaml"
+    shelf = vault / "library" / "harbor-kit" / "0.1.0" / "pack.yaml"
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\n# edited in place\n", encoding="utf-8"
+    )
+    assert shelf.read_text(encoding="utf-8") != source.read_text(encoding="utf-8")
+
+    plan = fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert plan == {
+        "ok": True,
+        "written": False,
+        "expected": {"pack": "harbor-kit", "version": "0.1.0", "refresh": True},
+    }
+
+    done = fetch_pack(
+        vault,
+        "harbor-kit",
+        "0.1.0",
+        repo="fixture",
+        confirm=True,
+        expected=plan["expected"],
+    )
+    assert done["ok"] is True
+    assert done["refreshed"] is True
+    assert shelf.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
+
+
+def test_unconfirmed_fetch_of_an_unchanged_pack_stays_a_no_op(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+    again = fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert again["ok"] is True
+    assert again["refreshed"] is False
+
+
+def test_pull_pack_version_still_short_circuits_without_refresh(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+    result = pull_pack_version(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert result["ok"] is True
+    assert result["pulled"] is False
+    assert result["reason"] == "already_present"
+
+
+# --- on-demand at the stanza grain ---------------------------------------
+# Before this, `install_stanza` had no target and `record_member_ids`
+# short-circuited `on_demand` to empty for a non-capability record. A theme
+# pack, the one kind meant to be installed stanza by stanza, was the one kind
+# that could never ship an on-demand member.
+
+
+def _on_demand_ids(result: dict) -> list[str]:
+    return [item["id"] for item in result["on_demand"]]
+
+
+def test_install_stanza_can_target_on_demand(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    result = install_stanza(
+        vault, "alpha", "methodology/dock-rule", "0.1.0", target="on_demand"
+    )
+    assert result["ok"] is True
+    assert result["target"] == "on_demand"
+
+    resolved = resolve_protocol(vault, "alpha")
+    assert _core_ids(resolved) == []
+    assert _on_demand_ids(resolved) == ["methodology/dock-rule"]
+
+
+def test_install_stanza_defaults_to_core(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.0")["ok"] is True
+    resolved = resolve_protocol(vault, "alpha")
+    assert _core_ids(resolved) == ["methodology/dock-rule"]
+    assert _on_demand_ids(resolved) == []
+
+
+def test_install_stanza_rejects_an_unknown_target(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    result = install_stanza(
+        vault, "alpha", "methodology/dock-rule", "0.1.0", target="whenever"
+    )
+    assert result["ok"] is False
+    assert result["error"] == "invalid_target"
+    assert result["value"] == "whenever"
+
+
+def test_one_pack_version_can_split_across_core_and_on_demand(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.1")
+    assert install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.1")["ok"] is True
+    assert install_stanza(
+        vault, "alpha", "methodology/harbor-watch", "0.1.1", target="on_demand"
+    )["ok"] is True
+
+    data = yaml.safe_load((vault / "projects" / "alpha" / "map.yaml").read_text("utf-8"))
+    assert len(data["imports"]) == 1
+    record = data["imports"][0]
+    assert record["stanzas"] == ["methodology/dock-rule"]
+    assert record["on_demand"] == ["methodology/harbor-watch"]
+
+    resolved = resolve_protocol(vault, "alpha")
+    assert _core_ids(resolved) == ["methodology/dock-rule"]
+    assert _on_demand_ids(resolved) == ["methodology/harbor-watch"]
+
+
+def test_on_demand_import_survives_a_reload(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.0", target="on_demand")
+    reloaded = load_vault(vault)
+    record = reloaded.projects["alpha"].imports[0]
+    assert record.on_demand == ["methodology/dock-rule"]
+    assert record.stanzas is None
+    assert record.is_capability() is False
+
+
+def test_uninstall_stanza_drops_an_on_demand_member(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.1")
+    install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.1")
+    install_stanza(
+        vault, "alpha", "methodology/harbor-watch", "0.1.1", target="on_demand"
+    )
+    result = uninstall_stanza(
+        vault, "alpha", "methodology/harbor-watch", "harbor-kit", "0.1.1"
+    )
+    assert result["ok"] is True
+    resolved = resolve_protocol(vault, "alpha")
+    assert _core_ids(resolved) == ["methodology/dock-rule"]
+    assert _on_demand_ids(resolved) == []
+
+
+def test_uninstall_the_last_on_demand_member_drops_the_record(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.0", target="on_demand")
+    assert uninstall_stanza(
+        vault, "alpha", "methodology/dock-rule", "harbor-kit", "0.1.0"
+    )["ok"] is True
+    data = yaml.safe_load((vault / "projects" / "alpha" / "map.yaml").read_text("utf-8"))
+    assert "imports" not in data
+
+
+def test_an_on_demand_only_import_still_validates(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.0", target="on_demand")
+    report = validate(vault)
+    assert report["ok"] is True
+    assert [i for i in report["issues"] if i["kind"] == "missing_stanza"] == []

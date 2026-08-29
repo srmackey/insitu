@@ -36,7 +36,7 @@ def test_rejects_absolute_and_drive_project_keys() -> None:
 
 
 def test_accepts_kebab_stanza_segments() -> None:
-    assert validate_stanza_id("interaction/digest-then-drill") == "interaction/digest-then-drill"
+    assert validate_stanza_id("interaction/summary-first") == "interaction/summary-first"
     assert validate_stanza_id("one") == "one"
 
 

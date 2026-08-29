@@ -182,12 +182,14 @@ def load_import_records(raw: dict[str, Any]) -> list[ImportRecord]:
             continue
         stanzas = item["stanzas"] if "stanzas" in item else None
         skills = item["skills"] if "skills" in item else None
+        on_demand = item["on_demand"] if "on_demand" in item else None
         records.append(
             ImportRecord(
                 pack=str(pack),
                 version=str(version),
                 stanzas=_as_str_list(stanzas) if stanzas is not None else None,
                 skills=_as_str_list(skills) if skills is not None else None,
+                on_demand=_as_str_list(on_demand) if on_demand is not None else None,
             )
         )
     return records
