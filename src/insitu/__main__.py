@@ -1,3 +1,3 @@
 from insitu.cli import main
 
-main()
+raise SystemExit(main())

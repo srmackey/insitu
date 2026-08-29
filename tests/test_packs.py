@@ -14,6 +14,7 @@ from insitu.library import (
     install_stanza,
     list_packs,
     load_pack_repos,
+    pull_pack_version,
     remove_pack,
     uninstall_capability,
     uninstall_stanza,
@@ -352,3 +353,57 @@ def test_load_vault_reads_imports(tmp_path: Path) -> None:
     assert loaded.projects["alpha"].imports[0].pack == "harbor-kit"
     assert loaded.projects["alpha"].imports[0].version == "0.1.0"
     assert loaded.projects["alpha"].imports[0].stanzas is None
+
+
+def test_confirmed_refresh_from_a_repo_actually_writes(tmp_path: Path) -> None:
+    """The 2026-08-28 miss: confirmed refresh reported ok and wrote nothing.
+
+    `pull_pack_version` short-circuited on `existing is not None and path is
+    None`, so the preview and confirm gate above it were dead on the repo
+    path. Only an explicit `path` defeated the guard.
+    """
+    vault, repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+
+    source = repo / "harbor-kit" / "pack.yaml"
+    shelf = vault / "library" / "harbor-kit" / "0.1.0" / "pack.yaml"
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\n# edited in place\n", encoding="utf-8"
+    )
+    assert shelf.read_text(encoding="utf-8") != source.read_text(encoding="utf-8")
+
+    plan = fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert plan == {
+        "ok": True,
+        "written": False,
+        "expected": {"pack": "harbor-kit", "version": "0.1.0", "refresh": True},
+    }
+
+    done = fetch_pack(
+        vault,
+        "harbor-kit",
+        "0.1.0",
+        repo="fixture",
+        confirm=True,
+        expected=plan["expected"],
+    )
+    assert done["ok"] is True
+    assert done["refreshed"] is True
+    assert shelf.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
+
+
+def test_unconfirmed_fetch_of_an_unchanged_pack_stays_a_no_op(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+    again = fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert again["ok"] is True
+    assert again["refreshed"] is False
+
+
+def test_pull_pack_version_still_short_circuits_without_refresh(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+    result = pull_pack_version(vault, "harbor-kit", "0.1.0", repo="fixture")
+    assert result["ok"] is True
+    assert result["pulled"] is False
+    assert result["reason"] == "already_present"

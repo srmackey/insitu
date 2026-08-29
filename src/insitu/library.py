@@ -220,6 +220,7 @@ def pull_pack_version(
     *,
     repo: str | None = None,
     path: str | Path | None = None,
+    refresh: bool = False,
 ) -> dict:
     try:
         pack_id = validate_pack_id(pack_id)
@@ -230,10 +231,15 @@ def pull_pack_version(
         return {"ok": False, "error": "invalid_identity", "value": version}
     vault = _as_vault(vault_or_root)
     existing = vault.library.get(pack_id, {}).get(version)
-    if existing is not None and path is None:
+    if existing is not None and path is None and not refresh:
+        # Already on the shelf and no refresh asked for. `refresh` has to be
+        # part of this guard: without it a confirmed fetch_pack refresh from a
+        # configured repo returned ok with nothing written, because only an
+        # explicit `path` defeated the short-circuit.
         return {
             "ok": True,
             "pulled": False,
+            "reason": "already_present",
             "pack": pack_id,
             "version": version,
             "path": str(existing.path),
@@ -345,7 +351,9 @@ def fetch_pack(
         )
         if gated is not None:
             return gated
-    pulled = pull_pack_version(vault, pack_id, version, repo=repo, path=path)
+    pulled = pull_pack_version(
+        vault, pack_id, version, repo=repo, path=path, refresh=confirm
+    )
     if not pulled.get("ok"):
         return pulled
     return {
