@@ -143,9 +143,9 @@ def test_role_skills_not_supported(vault: Path) -> None:
 def test_global_skills_not_inherited(vault: Path) -> None:
     _close_books(vault)
     write_skill(vault, "other-skill", "Other procedure.")
-    write_stanza(vault, "interaction/digest-then-drill", "GLOBAL")
+    write_stanza(vault, "interaction/summary-first", "GLOBAL")
     write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT")
-    write_project(vault, "_global", core=["interaction/digest-then-drill"], skills=["close-books"])
+    write_project(vault, "_global", core=["interaction/summary-first"], skills=["close-books"])
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
     resolved = resolve_protocol(vault, "river-ledger")
     assert resolved["ok"] is True

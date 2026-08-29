@@ -36,7 +36,7 @@ def test_examples_vault_composes_river_ledger() -> None:
     assert result["roles"] == ["clerk"]
     ids = [item["id"] for item in result["core"]]
     assert ids == [
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "methodology/ledger-clerk",
         "interaction/how-i-work-with-ai",
     ]

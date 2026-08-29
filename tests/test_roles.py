@@ -29,9 +29,9 @@ def _seed_composed(vault: Path) -> None:
     )
     write_stanza(
         vault,
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "GLOBAL-CORE-BODY",
-        title="Digest, then drill",
+        title="Summary first",
         description="Global form",
     )
     write_stanza(
@@ -83,7 +83,7 @@ def _seed_composed(vault: Path) -> None:
         vault,
         "_global",
         roles=["voice"],
-        core=["interaction/digest-then-drill"],
+        core=["interaction/summary-first"],
     )
     write_project(
         vault,
@@ -144,7 +144,7 @@ def test_compose_order_is_global_composed_then_role_then_map(vault: Path) -> Non
     assert result["roles"] == ["clerk"]
     assert [item["id"] for item in result["core"]] == [
         "interaction/voice",
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "methodology/clerk-intake",
         "interaction/how-i-work-with-ai",
     ]
@@ -218,7 +218,7 @@ def test_include_global_injects_composed_global_not_raw_core(vault: Path) -> Non
     assert result["roles"] == []
     assert [item["id"] for item in result["core"]] == [
         "interaction/voice",
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "interaction/how-i-work-with-ai",
     ]
 

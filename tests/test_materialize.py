@@ -16,9 +16,9 @@ materialize_mod = importlib.import_module("insitu.materialize")
 
 
 def _seed(vault: Path) -> None:
-    write_stanza(vault, "interaction/digest-then-drill", "GLOBAL-CORE-BODY")
+    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
     write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
-    write_project(vault, "_global", core=["interaction/digest-then-drill"])
+    write_project(vault, "_global", core=["interaction/summary-first"])
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
 
 
@@ -42,7 +42,7 @@ def test_materialize_writes_protocol_and_adapters(vault: Path, tmp_path: Path) -
     header, _, _rest = protocol.partition("-->")
     assert str(vault.resolve()) in header or str(vault) in header
     assert "river-ledger" in header
-    assert "interaction/digest-then-drill" in header
+    assert "interaction/summary-first" in header
     assert "interaction/how-i-work-with-ai" in header
     assert "timestamp" in header.lower()
     assert "GLOBAL-CORE-BODY" in protocol

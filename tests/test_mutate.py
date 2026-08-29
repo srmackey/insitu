@@ -200,16 +200,16 @@ def test_review_policy_stages_and_auto_commits(vault: Path) -> None:
     _init_git(vault)
     create_stanza(
         vault,
-        "interaction/digest-then-drill",
-        title="Digest, then drill",
+        "interaction/summary-first",
+        title="Summary first",
         description="Form",
         content="Thesis first.",
         why="Add the form.",
     )
     staged = _git(vault, "diff", "--cached", "--name-only")
     names = {line.replace("\\", "/") for line in staged.stdout.splitlines() if line}
-    assert "stanzas/interaction/digest-then-drill.md" in names
-    assert "provenance/interaction/digest-then-drill.md" in names
+    assert "stanzas/interaction/summary-first.md" in names
+    assert "provenance/interaction/summary-first.md" in names
     head = _git(vault, "log", "-1", "--pretty=%s")
     assert "seed" in head.stdout
 

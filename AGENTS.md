@@ -38,5 +38,5 @@ You are a careful steward of a small, markdown-first MCP. Files on disk are the 
 | `install/` | Global routers + mcp examples (not user-vault data; not the protocol pack) |
 | `examples/vault/` | Fictional example vault (tests and docs) |
 | `inbox/` | Node arrival tray. Process on command. |
-| `STATUS.md` | Nexus-facing where / next (local; not shipped) |
-| `_system/` | System-development method tree (local; gitignored). Pack orchestrator: `methodology/system-home`. |
+| `STATUS.md` | Where / next for this checkout (local; not shipped) |
+| `_system/` | Method tree (local; gitignored). Its contents stay with the author. |

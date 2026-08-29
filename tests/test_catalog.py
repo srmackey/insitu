@@ -17,9 +17,9 @@ from insitu.catalog import (
 def _seed(vault: Path) -> None:
     write_stanza(
         vault,
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "GLOBAL-ONLY-BODY",
-        title="Digest, then drill",
+        title="Summary first",
         description="Global form",
         tags=["interaction", "core"],
     )
@@ -39,7 +39,7 @@ def _seed(vault: Path) -> None:
         description="Keep changes small",
         tags=["methodology"],
     )
-    write_project(vault, "_global", core=["interaction/digest-then-drill"])
+    write_project(vault, "_global", core=["interaction/summary-first"])
     write_project(
         vault,
         "river-ledger",
@@ -54,14 +54,14 @@ def _seed(vault: Path) -> None:
 
 def test_list_stanzas_ignores_prov_and_supports_filters(vault: Path) -> None:
     _seed(vault)
-    (vault / "stanzas" / "interaction" / "digest-then-drill.prov.md").write_text(
+    (vault / "stanzas" / "interaction" / "summary-first.prov.md").write_text(
         "# why\n", encoding="utf-8"
     )
     all_rows = list_stanzas(vault)
     assert all_rows["ok"] is True
     ids = {row["id"] for row in all_rows["stanzas"]}
     assert ids == {
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "interaction/how-i-work-with-ai",
         "methodology/small-diffs",
     }
@@ -70,7 +70,7 @@ def test_list_stanzas_ignores_prov_and_supports_filters(vault: Path) -> None:
 
     prefixed = list_stanzas(vault, prefix="interaction")
     assert {row["id"] for row in prefixed["stanzas"]} == {
-        "interaction/digest-then-drill",
+        "interaction/summary-first",
         "interaction/how-i-work-with-ai",
     }
 
@@ -131,7 +131,7 @@ def test_list_on_demand_is_non_core_index(vault: Path) -> None:
 
 def test_where_used_lists_core_and_available_refs(vault: Path) -> None:
     _seed(vault)
-    used_global = where_used(vault, "interaction/digest-then-drill")
+    used_global = where_used(vault, "interaction/summary-first")
     assert used_global["ok"] is True
     assert used_global["used_by"] == [{"project": "_global", "lists": ["core"]}]
 

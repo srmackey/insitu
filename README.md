@@ -90,7 +90,7 @@ Once the server, vault, and router are in place, you talk to the agent in the pr
 
 **First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. Constitutions and other host files this host loads are not that output; the router retrieves the multi-platform pack and writes those if they are missing. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change a stanza, skill, or the project map in the vault, then materialize again.
 
-**Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some stanzas are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use digest-then-drill") instead of a path.
+**Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some stanzas are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use summary-first") instead of a path.
 
 **A new project.** Ask what stanzas, roles, skills, and packs exist. Pick the set this project should carry. Install a capability if this folder should use a whole pack. Then materialize. The point is a deliberate subset, not a paste of everything.
 

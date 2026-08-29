@@ -65,7 +65,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 vault/
 ├── stanzas/                      # all stanzas live here
 │   ├── interaction/
-│   │   ├── digest-then-drill.md
+│   │   ├── summary-first.md
 │   │   └── how-i-work-with-ai.md
 │   ├── methodology/
 │   │   └── ai-system-development.md
@@ -74,7 +74,7 @@ vault/
 │   └── ...
 ├── provenance/                   # why-logs; same path as the stanza id
 │   ├── interaction/
-│   │   └── digest-then-drill.md
+│   │   └── summary-first.md
 │   └── skills/                   # 0.11; why-logs for skills
 │       └── close-books.md
 ├── skills/                       # 0.11; first-class skill objects
@@ -82,8 +82,8 @@ vault/
 │       ├── SKILL.md
 │       └── scripts/              # optional; copied on materialize
 ├── roles/                        # named packs (0.5)
-│   ├── node.yaml
-│   └── nexus.yaml
+│   ├── clerk.yaml
+│   └── steward.yaml
 ├── projects/
 │   ├── _global/
 │   │   └── map.yaml
@@ -148,7 +148,7 @@ repo: river-ledger                # repo identity (label)
 name: River Ledger                # optional display name
 aka: [rl, riverledger]            # optional colloquial names
 roles:                            # optional; ordered role packs (0.5)
-  - spoke
+  - clerk
 core:                             # ordered; always injected
   - interaction/how-i-work-with-ai
 on_demand:                        # associated but not auto-injected
@@ -175,7 +175,7 @@ include_global: true              # optional; default true. Set false to
 
 ### 6.1 Role packs
 
-A **role** is a named, ordered pack of stanzas. It is how a kind of project (node, nexus, librarian) carries a shared set of rules without listing every member on every map, and without stuffing `_global`.
+A **role** is a named, ordered pack of stanzas. It is how a kind of project (clerk, steward, archivist) carries a shared set of rules without listing every member on every map, and without stuffing `_global`.
 
 Roles are vault content, not server builtins. The server has no built-in role names.
 
@@ -184,11 +184,11 @@ Roles are vault content, not server builtins. The server has no built-in role na
 **On disk.** One file per role: `roles/<id>.yaml`. Missing `roles/` is empty (same idea as missing `_global`). Filename stem is the role id.
 
 ```yaml
-# roles/node.yaml
-name: Node                       # optional display name
-description: Receive inbox; propose extra-project notes to the nexus.
+# roles/clerk.yaml
+name: Clerk                      # optional display name
+description: Receive the inbox; propose cross-project notes upward.
 core:
-  - methodology/node-inbox
+  - methodology/clerk-inbox
 on_demand: []                     # optional; default empty
 ```
 
@@ -283,17 +283,17 @@ Detail, extra tools, and tests are kept with the author, not in this repo.
 
 **Not a mode.** A role is composition, not a runtime hat. Including `node` means those stanzas are in the protocol. It does not switch Architect vs Maintainer or otherwise change tool privilege.
 
-**Intended first vault roles** (the user's personal vault, not shipped defaults):
+**Illustrative roles** (example shapes, not shipped defaults):
 
 | Role | Typical members | On |
 |---|---|---|
-| `node` | `methodology/node-inbox` | every life-domain project |
-| `nexus` | `methodology/nexus-handoff` | the hub project |
-| `librarian` | `methodology/librarian-inbox` | the wiki project (with `node` as well) |
+| `clerk` | `methodology/clerk-inbox` | every working project |
+| `steward` | `methodology/steward-handoff` | the coordinating project |
+| `archivist` | `methodology/archivist-inbox` | the reference project (with `clerk` as well) |
 
-Those stanza files are authored when the nexus/node inbox protocol is encoded. The role *mechanism* ships before that vault exists.
+Those stanza files are authored in a vault. The role *mechanism* ships before any of them exist.
 
-**`_global` vs roles.** `_global` stays the tiny "every project, always" prefix (reply shape, output voice). A role is "every project of this kind." Do not put node behavior on `_global` so you can skip roles. Nexus sets `include_global: true` only for true universals, then `roles: [nexus]`. A nexus that must not receive node rules does not include `node`.
+**`_global` vs roles.** `_global` stays the tiny "every project, always" prefix (reply shape, output voice). A role is "every project of this kind." Do not put role behavior on `_global` so you can skip roles. A project sets `include_global: true` only for true universals, then names its roles. A project that must not receive another kind's rules does not include that role.
 
 ---
 
@@ -322,7 +322,7 @@ projects:
 
 **Grant and revoke** are MCP tools that refuse a non-admin caller. Revoking the only admin is refused (`last_admin`): it would leave a vault nobody can reconfigure, and `init` refuses once an admin exists.
 
-Not multi-user ACL (§13). Doctrine also in `identity/node` (2026-08-22) and the operator's instruction pack.
+Not multi-user ACL (§13). The matching agent instruction ships in an instruction pack, not this repo.
 
 ## 7. Stanza Format
 
@@ -334,7 +334,7 @@ id: interaction/how-i-work-with-ai
 title: How I Work with AI
 description: Standing interaction and collaboration preferences
 tags: [interaction, core]
-roles: [spoke]                    # optional; required once a role file lists this stanza
+roles: [clerk]                    # optional; required once a role file lists this stanza
 created: 2026-08-15
 updated: 2026-08-16
 ---
@@ -553,7 +553,7 @@ Minimal why-log shape:
 # Provenance — interaction/how-i-work-with-ai
 
 ## 2026-08-16
-Why: Split output-style rules out of this stanza so digest-then-drill can stand alone.
+Why: Split output-style rules out of this stanza so summary-first can stand alone.
 ```
 
 **Review dial** (configurable; two modes only):
@@ -703,11 +703,11 @@ The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
 **0.5 roles (2026-08-17)** — named stanza groups, implemented as **roles** before first install.
 
 - Role pack: `roles/<id>.yaml` with ordered `core` / `available`. No nesting. No server-built-in names.
-- Project maps gain `roles: [spoke, …]`. Stanzas declare `roles:` in frontmatter. Membership source of truth is the role file; frontmatter is the checked label.
+- Project maps gain `roles: [clerk, …]`. Stanzas declare `roles:` in frontmatter. Membership source of truth is the role file; frontmatter is the checked label.
 - Resolution: `_global` composed (its roles + core), then project roles, then project core. First-wins dedup. `include_global` uses composed `_global` core.
 - `validate` membership match; `fix=true` writes missing frontmatter roles only.
 - `list_roles` / `get_role`; `where_used` and `list_stanzas` know roles.
-- Promotes the 0.4 "named stanza groups / `extends:`" future item. Hub/spoke inbox stanzas (`spoke`, `hub`, `librarian`) are the first intended vault content, not part of this server change.
+- Promotes the 0.4 "named stanza groups / `extends:`" future item. The inbox stanzas such a role would carry are vault content, not part of this server change.
 
 **0.4 load-path lock (2026-08-16)** — constitution injection is a v1 kill condition.
 
@@ -743,9 +743,9 @@ The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
 - **Inclusion test.** Host-document test in §2. Interaction-relevant identity (`about-me`) is a stanza. Wiki-scale knowledge is not. Folders under `stanzas/` are convention, not a type system.
 - **Project identity.** Project key = `projects/<folder>/` = working folder basename. `repo`, `name`, `aka` added to `map.yaml` as labels. No `vault:` field on the project map. Vault root is `INSITU_HOME` / server flag. Missing project is a structured miss. Repo-local override deferred.
 - **Layout.** `protocols/` renamed to `stanzas/`. Install assets live with the server, not in the user vault.
-- Seed interaction stanza path updated to `stanzas/interaction/digest-then-drill.md`.
+- Seed interaction stanza path updated to `stanzas/interaction/summary-first.md`.
 
-**0.2 addendum (2026-08-15)** — Addendum A: seed stanza `interaction/digest-then-drill` (hub interaction style; extract into the vault at project creation). Same day: gated to dense replies only; tipping-point rule; off by default.
+**0.2 addendum (2026-08-15)** — Addendum A: seed stanza `interaction/summary-first` (seed interaction style; extract into the vault at project creation). Same day: gated to dense replies only; tipping-point rule; off by default.
 
 **0.2 (2026-08-16)** — incorporates design review:
 
@@ -768,57 +768,4 @@ The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
 
 Version 0.13 locked 2026-08-29. Operator classes gate the mutating map tools; the stanza install grain reaches `on_demand`. Review buckets 1–4 and the 0.4 load-path lock remain closed. Skills are first-class. Pack skills install like pack stanzas. `project_status` is the folder inspect card. Pack-install is 0.9. Python package version is `0.12.0`. The non-core list is `on_demand` (prose: on-demand). Role and project authoring, user-gated delete, validate findings, and the `provenance/` why-log tree are specified here and implemented in `src/`. This file is the only spec. Live next-step is `STATUS.md`.
 
-First personal vault exists (2026-08-17): `digest-then-drill` on `_global.core`; roles `hub`, `spoke`, `librarian` in the vault. Hub/spoke inbox stanzas are vault content, not server code. Further vault flesh-out is the hub once-through (hub `STATUS.md`).
-
-
-### Draft stanza
-
-```markdown
----
-id: interaction/digest-then-drill
-title: Digest, then drill
-description: Gated form for dense replies only. Thesis plus a priority-ordered index; expand one bucket at a time (cap 7). Off by default.
-tags: [interaction, core]
-created: 2026-08-15
-updated: 2026-08-16
----
-
-# Digest, then drill
-
-**Off by default.** This is not how every reply is shaped. It is a cost-control form for replies that would otherwise be too expensive to process in one sitting.
-
-**Tipping point.** Use this form only when the cost of walking the protocol (read a thesis, pick a bucket, come back) is *lower* than the cost of reading and answering the full response. If the useful answer already fits in one short sitting, give the answer. Do not wrap it.
-
-**Use it for:** spec or design reviews, multi-thread critiques, "evaluate this," "full feedback," and any reply that would naturally grow a tree of independent points the human would need to track.
-
-**Do not use it for:** commit messages, status, confirmations, yes/no, a single artifact they asked for, a short explanation, one-file edits, or a single decision. "Give me a commit message" gets a commit message.
-
-**When in doubt, skip it.** Over-applying the protocol is worse than sending a slightly long ordinary reply. Under-use is the safe bias.
-
-The limit is throughput, not depth. A 40-point brief is a work session, not a reply. Stretch and precision stay. Dumping the whole analysis in one message does not. The protocol itself has overhead; do not spend that overhead on small work.
-
-## Shape
-
-1. **Thesis first.** 3-5 sentences. Overall signal, not a preview of every point.
-2. **Then an index of 2-5 buckets.** Invent titles that fit this material. Do not force a fixed taxonomy. Reserved labels such as "critical / concerns / open questions" are not required and must not be used as a stuffing scheme.
-3. **Sort buckets by attention needed.** First bucket is the one that most needs the human. Priority lives in order, not in reserved names.
-4. **Each index entry:** title, 1-2 sentences, item count. Enough to decide whether to open it. No points yet.
-5. **The human opens one bucket** by title or number. Expand only that bucket, at most 7 items, with refs so they can reply by number.
-6. **Then wait.** Discuss that bucket. Next turn they can open another bucket, say `more` if that bucket was capped, `decisions only`, `full dump` (rare), or stop.
-7. **One item, one bucket.** If something spans two titles, put it in the earlier (higher-attention) bucket.
-8. **The agent keeps the ledger.** The human should not have to dedup or remember what is still held.
-
-## Phrases
-
-- A bucket title or `1` opens that bucket
-- `more` — next slice of the same bucket if it was capped
-- `decisions only` — only items that need a human call
-- `full dump` — rare; the whole remaining analysis
-- `digest` — restate or re-serve in this form
-
-## Overrides
-
-The human can ask for a different cap or for a full dump. If another project constitution mandates a different dense format, that project's rule applies inside that project unless the human asks for this form in-session.
-```
-
-When the first user vault is created: copy the draft above into `stanzas/interaction/digest-then-drill.md`, link it from `_global` `core`, and delete this addendum's "extract later" reminder (keep a one-line pointer in the changelog if useful).
+The seed interaction stanza that Addendum A referenced is vault content. Its body is not carried in this repo.
