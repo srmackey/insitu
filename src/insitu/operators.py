@@ -153,6 +153,156 @@ def init_admin(root: str | Path, project: str) -> dict:
     }
 
 
+def chair_key(working_folder: str | Path) -> str:
+    """The calling chair is the basename of the folder the session sits in."""
+    return Path(str(working_folder).strip()).name.strip().casefold()
+
+
+def check_map_write(
+    root: str | Path,
+    *,
+    project: str,
+    working_folder: str | Path,
+) -> tuple[dict | None, str | None]:
+    """Gate a mutating map write.
+
+    Returns (refusal, warning). A refusal of None means the write may
+    proceed. A warning rides a successful result rather than blocking it.
+    """
+    folder = str(working_folder or "").strip()
+    if not folder:
+        return (
+            {
+                "ok": False,
+                "error": "working_folder_required",
+                "detail": (
+                    "mutating map tools need the folder this session sits in, "
+                    "so the vault can tell which chair is asking"
+                ),
+            },
+            None,
+        )
+
+    config = load_operators(root)
+    if not config.initialized:
+        # Pre-init. Behave as the server did before classes existed, and say
+        # so. Failing closed here would lock every chair out of a vault with
+        # no admin registered to unlock it.
+        return None, PRE_INIT_WARNING
+
+    chair = chair_key(folder)
+    if config.is_admin(chair):
+        return None, None
+
+    target = _norm(project)
+    if chair == target:
+        return None, None
+
+    return (
+        {
+            "ok": False,
+            "error": "chair_bound",
+            "chair": chair,
+            "project": target,
+            "working_folder": folder,
+            "detail": (
+                f"chair {chair!r} is bound to its own map and cannot write "
+                f"{target!r}. An admin chair may name another project key."
+            ),
+        },
+        None,
+    )
+
+
+def check_grant(root: str | Path, *, working_folder: str | Path) -> dict | None:
+    """Only an admin chair may change another map's class."""
+    folder = str(working_folder or "").strip()
+    if not folder:
+        return {"ok": False, "error": "working_folder_required"}
+    config = load_operators(root)
+    if not config.initialized:
+        return {
+            "ok": False,
+            "error": "not_initialized",
+            "detail": PRE_INIT_WARNING,
+        }
+    chair = chair_key(folder)
+    if config.is_admin(chair):
+        return None
+    return {
+        "ok": False,
+        "error": "admin_required",
+        "chair": chair,
+        "detail": f"chair {chair!r} is not admin; grant and revoke are admin only",
+    }
+
+
+def grant(
+    root: str | Path,
+    *,
+    project: str,
+    operator_class: str,
+    working_folder: str | Path,
+) -> dict:
+    """Set a project's class. Admin only."""
+    refusal = check_grant(root, working_folder=working_folder)
+    if refusal is not None:
+        return refusal
+    key = _norm(project)
+    if not key:
+        return {"ok": False, "error": "empty_key", "detail": "project key is required"}
+    klass = str(operator_class or "").strip().casefold()
+    if klass not in KNOWN_CLASSES:
+        return {
+            "ok": False,
+            "error": "unknown_class",
+            "value": operator_class,
+            "known": list(KNOWN_CLASSES),
+        }
+    config = load_operators(root)
+    config.projects[key] = klass
+    write_operators(root, config)
+    return {"ok": True, "project": key, "class": klass, "admins": config.admins}
+
+
+def revoke(
+    root: str | Path,
+    *,
+    project: str,
+    working_folder: str | Path,
+) -> dict:
+    """Drop a project back to the default class. Admin only.
+
+    The last admin cannot revoke itself: that would leave a vault nobody can
+    reconfigure, and `init` refuses once any admin exists.
+    """
+    refusal = check_grant(root, working_folder=working_folder)
+    if refusal is not None:
+        return refusal
+    key = _norm(project)
+    config = load_operators(root)
+    if key not in config.projects:
+        return {"ok": False, "error": "not_listed", "project": key}
+    if config.projects[key] == CLASS_ADMIN and config.admins == [key]:
+        return {
+            "ok": False,
+            "error": "last_admin",
+            "project": key,
+            "detail": (
+                "revoking the only admin would leave the vault unreconfigurable, "
+                "and init refuses once an admin exists. Grant another admin first."
+            ),
+        }
+    config.projects.pop(key)
+    write_operators(root, config)
+    return {
+        "ok": True,
+        "project": key,
+        "class": config.default_class,
+        "admins": config.admins,
+    }
+
+
 def operator_status(root: str | Path) -> dict:
     """Read-only view of the operator config, for the CLI and for callers."""
     config = load_operators(root)

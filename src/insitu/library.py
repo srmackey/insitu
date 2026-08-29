@@ -116,7 +116,7 @@ def record_member_ids(record: ImportRecord, pack: PackVersion, field: str) -> li
             return [str(item) for item in (pack.pack_yaml.get("stanzas") or [])]
         return []
     if field == "on_demand":
-        return []
+        return list(record.on_demand or [])
     if field == "skills":
         return list(record.skills or [])
     return list(record.stanzas or [])
@@ -430,7 +430,11 @@ def _append_capability(records: list[ImportRecord], pack_id: str, version: str) 
 
 
 def _append_stanza(
-    records: list[ImportRecord], pack_id: str, version: str, stanza_id: str
+    records: list[ImportRecord],
+    pack_id: str,
+    version: str,
+    stanza_id: str,
+    target: str = "core",
 ) -> list[ImportRecord] | dict:
     for record in records:
         if record.pack == pack_id and record.version == version and record.is_capability():
@@ -441,31 +445,41 @@ def _append_stanza(
         if (
             record.pack == pack_id
             and record.version == version
-            and record.stanzas is not None
+            and not record.is_capability()
+            and not added
         ):
-            stanzas = list(record.stanzas)
-            if stanza_id not in stanzas:
-                stanzas.append(stanza_id)
+            stanzas = list(record.stanzas) if record.stanzas is not None else None
+            on_demand = list(record.on_demand) if record.on_demand is not None else None
+            if target == "on_demand":
+                on_demand = on_demand or []
+                if stanza_id not in on_demand:
+                    on_demand.append(stanza_id)
+            else:
+                stanzas = stanzas or []
+                if stanza_id not in stanzas:
+                    stanzas.append(stanza_id)
             updated.append(
                 ImportRecord(
                     pack=pack_id,
                     version=version,
                     stanzas=stanzas,
                     skills=record.skills,
+                    on_demand=on_demand,
                 )
             )
             added = True
             continue
         updated.append(record)
     if not added:
+        field = "on_demand" if target == "on_demand" else "stanzas"
         updated.append(
-            ImportRecord(pack=pack_id, version=version, stanzas=[stanza_id])
+            ImportRecord(pack=pack_id, version=version, **{field: [stanza_id]})
         )
     seen: set[str] = set()
     for record in updated:
-        members = record.stanzas if record.stanzas is not None else []
         if record.is_capability():
             continue
+        members = record.stanza_members()
         for sid in members:
             if sid in seen and sid == stanza_id:
                 return {
@@ -554,6 +568,7 @@ def install_stanza(
     stanza_id: str,
     version: str,
     pack: str | None = None,
+    target: str = "core",
 ) -> dict:
     try:
         key = validate_project_key(project)
@@ -561,16 +576,18 @@ def install_stanza(
         requested = validate_pack_version(version)
     except InvalidIdentity as exc:
         return _identity_error(stanza_id, exc)
+    if target not in {"core", "on_demand"}:
+        return {"ok": False, "error": "invalid_target", "value": target}
     vault = _as_vault(vault_or_root)
     proj = vault.projects.get(key)
     if proj is None:
         return {"ok": False, "error": "project_missing", "project": key}
     pack_id: str
     if pack is None:
-        target = requested
+        probe_version = requested
         if requested == "latest":
-            target = newest_version(available_versions(vault, "")) or requested
-        inferred = _infer_pack(vault, sid, target)
+            probe_version = newest_version(available_versions(vault, "")) or requested
+        inferred = _infer_pack(vault, sid, probe_version)
         if isinstance(inferred, dict):
             return inferred
         pack_id = inferred
@@ -587,7 +604,7 @@ def install_stanza(
     if pack_ver is None or sid not in pack_ver.stanzas:
         return {"ok": False, "error": "missing_stanza", "id": sid, "pack": pack_id, "version": concrete}
     proj = vault.projects[key]
-    records = _append_stanza(list(proj.imports), pack_id, requested, sid)
+    records = _append_stanza(list(proj.imports), pack_id, requested, sid, target)
     if isinstance(records, dict):
         return records
     _write_map_imports(proj.path, proj.raw, records)
@@ -598,6 +615,7 @@ def install_stanza(
         "version": requested,
         "resolved_version": concrete,
         "stanza": sid,
+        "target": target,
     }
 
 
@@ -656,11 +674,20 @@ def uninstall_stanza(
         if record.is_capability():
             kept.append(record)
             continue
-        if record.stanzas is None:
+        if record.stanzas is None and record.on_demand is None:
             kept.append(record)
             continue
-        stanzas = [item for item in record.stanzas if item != sid]
-        if not stanzas and not record.skills:
+        stanzas = (
+            [item for item in record.stanzas if item != sid]
+            if record.stanzas is not None
+            else None
+        )
+        on_demand = (
+            [item for item in record.on_demand if item != sid]
+            if record.on_demand is not None
+            else None
+        )
+        if not stanzas and not on_demand and not record.skills:
             continue
         kept.append(
             ImportRecord(
@@ -668,6 +695,7 @@ def uninstall_stanza(
                 version=record.version,
                 stanzas=stanzas or None,
                 skills=record.skills,
+                on_demand=on_demand or None,
             )
         )
     _write_map_imports(proj.path, proj.raw, kept)
@@ -701,6 +729,7 @@ def _append_skill(
                     version=version,
                     stanzas=record.stanzas,
                     skills=skills,
+                    on_demand=record.on_demand,
                 )
             )
             added = True
@@ -848,7 +877,7 @@ def uninstall_skill(
             kept.append(record)
             continue
         skills = [item for item in record.skills if item != sid]
-        if not skills and not record.stanzas:
+        if not skills and not record.stanza_members():
             continue
         kept.append(
             ImportRecord(
@@ -856,6 +885,7 @@ def uninstall_skill(
                 version=record.version,
                 stanzas=record.stanzas,
                 skills=skills or None,
+                on_demand=record.on_demand,
             )
         )
     _write_map_imports(proj.path, proj.raw, kept)
@@ -979,7 +1009,7 @@ def list_packs(vault_or_root: Path | str | Vault) -> dict:
                             {
                                 "project": key,
                                 "kind": "stanzas",
-                                "stanzas": list(record.stanzas or []),
+                                "stanzas": record.stanza_members(),
                             }
                         )
             versions.append(

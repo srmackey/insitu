@@ -53,6 +53,9 @@ from insitu.mutate import (
 from insitu.resolve import resolve_protocol as resolve_protocol_fn
 from insitu.status import project_status as project_status_fn
 from insitu.validate import validate as validate_fn
+from insitu.operators import chair_key, check_map_write, operator_status
+from insitu.operators import grant as grant_fn
+from insitu.operators import revoke as revoke_fn
 from insitu.vault import resolve_vault_root
 
 INSTRUCTIONS = """\
@@ -79,6 +82,24 @@ def current_vault() -> Path:
     if _process_vault is None:
         return resolve_vault_root()
     return _process_vault
+
+
+def _gated(project: str, working_folder: str, run) -> dict:
+    """Run a mutating map write behind the operator gate.
+
+    A bound chair may only write its own map, in its own folder. An admin
+    chair may name any project. A vault with no operators.yaml is pre-init:
+    the write proceeds and the result carries the warning.
+    """
+    refusal, warning = check_map_write(
+        current_vault(), project=project, working_folder=working_folder
+    )
+    if refusal is not None:
+        return refusal
+    result = run()
+    if warning and isinstance(result, dict) and result.get("ok"):
+        result.setdefault("warning", warning)
+    return result
 
 
 @mcp.tool
@@ -202,15 +223,23 @@ def get_skill(skill_id: str, project: str | None = None) -> dict:
 
 
 @mcp.tool
-def link_skill(project: str, skill_id: str) -> dict:
+def link_skill(working_folder: str, project: str, skill_id: str) -> dict:
     """Add a skill to a project's skills list. Writes now. Does not edit role files."""
-    return link_skill_fn(current_vault(), project, skill_id)
+    return _gated(
+        project,
+        working_folder,
+        lambda: link_skill_fn(current_vault(), project, skill_id),
+    )
 
 
 @mcp.tool
-def unlink_skill(project: str, skill_id: str) -> dict:
+def unlink_skill(working_folder: str, project: str, skill_id: str) -> dict:
     """Remove a skill from a project's map. Writes now."""
-    return unlink_skill_fn(current_vault(), project, skill_id)
+    return _gated(
+        project,
+        working_folder,
+        lambda: unlink_skill_fn(current_vault(), project, skill_id),
+    )
 
 
 @mcp.tool
@@ -271,15 +300,25 @@ def where_used_skill(skill_id: str) -> dict:
 
 
 @mcp.tool
-def link_stanza(project: str, stanza_id: str, target: str = "core") -> dict:
+def link_stanza(
+    working_folder: str, project: str, stanza_id: str, target: str = "core"
+) -> dict:
     """Add a stanza to a project's core or on-demand list. Does not edit role files."""
-    return link_stanza_fn(current_vault(), project, stanza_id, target=target)
+    return _gated(
+        project,
+        working_folder,
+        lambda: link_stanza_fn(current_vault(), project, stanza_id, target=target),
+    )
 
 
 @mcp.tool
-def unlink_stanza(project: str, stanza_id: str) -> dict:
+def unlink_stanza(working_folder: str, project: str, stanza_id: str) -> dict:
     """Remove a stanza from a project's map. Does not edit role files."""
-    return unlink_stanza_fn(current_vault(), project, stanza_id)
+    return _gated(
+        project,
+        working_folder,
+        lambda: unlink_stanza_fn(current_vault(), project, stanza_id),
+    )
 
 
 @mcp.tool
@@ -364,6 +403,7 @@ def delete_role(
 
 @mcp.tool
 def create_project(
+    working_folder: str,
     project: str,
     repo: str | None = None,
     name: str | None = None,
@@ -377,24 +417,29 @@ def create_project(
     why: str | None = None,
 ) -> dict:
     """Create a project map and optional notes. Creating _global when missing is allowed."""
-    return create_project_fn(
-        current_vault(),
+    return _gated(
         project,
-        repo=repo,
-        name=name,
-        aka=aka,
-        roles=roles,
-        core=core,
-        on_demand=on_demand,
-        include_global=include_global,
-        notes=notes,
-        skills=skills,
-        why=why,
+        working_folder,
+        lambda: create_project_fn(
+            current_vault(),
+            project,
+            repo=repo,
+            name=name,
+            aka=aka,
+            roles=roles,
+            core=core,
+            on_demand=on_demand,
+            include_global=include_global,
+            notes=notes,
+            skills=skills,
+            why=why,
+        ),
     )
 
 
 @mcp.tool
 def update_project(
+    working_folder: str,
     project: str,
     repo: str | None = None,
     name: str | None = None,
@@ -412,40 +457,74 @@ def update_project(
     why: str | None = None,
 ) -> dict:
     """Incrementally update a project map. Attach/detach role writes immediately and reports members, weight, and affects_projects."""
-    return update_project_fn(
-        current_vault(),
+    return _gated(
         project,
-        repo=repo,
-        name=name,
-        aka=aka,
-        include_global=include_global,
-        notes=notes,
-        add_roles=add_roles,
-        remove_roles=remove_roles,
-        add_core=add_core,
-        remove_core=remove_core,
-        add_on_demand=add_on_demand,
-        add_skills=add_skills,
-        remove_skills=remove_skills,
-        remove_on_demand=remove_on_demand,
-        why=why,
+        working_folder,
+        lambda: update_project_fn(
+            current_vault(),
+            project,
+            repo=repo,
+            name=name,
+            aka=aka,
+            include_global=include_global,
+            notes=notes,
+            add_roles=add_roles,
+            remove_roles=remove_roles,
+            add_core=add_core,
+            remove_core=remove_core,
+            add_on_demand=add_on_demand,
+            add_skills=add_skills,
+            remove_skills=remove_skills,
+            remove_on_demand=remove_on_demand,
+            why=why,
+        ),
     )
 
 
 @mcp.tool
 def delete_project(
+    working_folder: str,
     project: str,
     confirm: bool = False,
     expected: dict | None = None,
     why: str | None = None,
 ) -> dict:
     """Delete a project directory. Preview unless confirm=true with the preview's expected. Cannot delete _global. Do not call unless the user explicitly asked to delete this project. Findings are not a reason to delete."""
-    return delete_project_fn(
-        current_vault(),
+    return _gated(
         project,
-        confirm=confirm,
-        expected=expected,
-        why=why,
+        working_folder,
+        lambda: delete_project_fn(
+            current_vault(),
+            project,
+            confirm=confirm,
+            expected=expected,
+            why=why,
+        ),
+    )
+
+
+@mcp.tool
+def operators() -> dict:
+    """Inspect: operator classes, the registered admins, and the default class."""
+    return operator_status(current_vault())
+
+
+@mcp.tool
+def grant(working_folder: str, project: str, operator_class: str) -> dict:
+    """Admin only: set a project's operator class to admin or bound."""
+    return grant_fn(
+        current_vault(),
+        project=project,
+        operator_class=operator_class,
+        working_folder=working_folder,
+    )
+
+
+@mcp.tool
+def revoke(working_folder: str, project: str) -> dict:
+    """Admin only: drop a project back to the default class. Cannot revoke the last admin."""
+    return revoke_fn(
+        current_vault(), project=project, working_folder=working_folder
     )
 
 
@@ -458,7 +537,13 @@ def where_used(stanza_id: str) -> dict:
 @mcp.tool
 def materialize(working_folder: str, project: str | None = None) -> dict:
     """Write PROTOCOL.md and configured host adapters into the working folder."""
-    return materialize_fn(current_vault(), working_folder, project=project)
+    # No project named means this folder's own map, which the gate always
+    # allows. Passing the raw path here would compare a path to a key.
+    return _gated(
+        project or chair_key(working_folder),
+        working_folder,
+        lambda: materialize_fn(current_vault(), working_folder, project=project),
+    )
 
 
 @mcp.tool
@@ -474,53 +559,92 @@ def get_pack(pack: str) -> dict:
 
 
 @mcp.tool
-def install_capability(project: str, pack: str, version: str) -> dict:
-    """This project uses the whole pack at version or latest. Pull onto the shelf if needed."""
-    return install_capability_fn(current_vault(), project, pack, version)
-
-
-@mcp.tool
-def install_stanza(
-    project: str,
-    stanza_id: str,
-    version: str,
-    pack: str | None = None,
+def install_capability(
+    working_folder: str, project: str, pack: str, version: str
 ) -> dict:
-    """This project uses one stanza from a pack version. Pull onto the shelf if needed."""
-    return install_stanza_fn(
-        current_vault(), project, stanza_id, version, pack=pack
+    """This project uses the whole pack at version or latest. Pull onto the shelf if needed."""
+    return _gated(
+        project,
+        working_folder,
+        lambda: install_capability_fn(current_vault(), project, pack, version),
     )
 
 
 @mcp.tool
-def uninstall_capability(project: str, pack: str, version: str) -> dict:
-    """Drop this map's whole-capability record. Shelf unchanged."""
-    return uninstall_capability_fn(current_vault(), project, pack, version)
+def install_stanza(
+    working_folder: str,
+    project: str,
+    stanza_id: str,
+    version: str,
+    pack: str | None = None,
+    target: str = "core",
+) -> dict:
+    """This project uses one stanza from a pack version. Pull onto the shelf if needed. target is core or on_demand."""
+    return _gated(
+        project,
+        working_folder,
+        lambda: install_stanza_fn(
+            current_vault(), project, stanza_id, version, pack=pack, target=target
+        ),
+    )
 
 
 @mcp.tool
-def uninstall_stanza(project: str, stanza_id: str, pack: str, version: str) -> dict:
+def uninstall_capability(
+    working_folder: str, project: str, pack: str, version: str
+) -> dict:
+    """Drop this map's whole-capability record. Shelf unchanged."""
+    return _gated(
+        project,
+        working_folder,
+        lambda: uninstall_capability_fn(current_vault(), project, pack, version),
+    )
+
+
+@mcp.tool
+def uninstall_stanza(
+    working_folder: str, project: str, stanza_id: str, pack: str, version: str
+) -> dict:
     """Drop this stanza from this map's import record. Shelf unchanged."""
-    return uninstall_stanza_fn(current_vault(), project, stanza_id, pack, version)
+    return _gated(
+        project,
+        working_folder,
+        lambda: uninstall_stanza_fn(
+            current_vault(), project, stanza_id, pack, version
+        ),
+    )
 
 
 @mcp.tool
 def install_skill(
+    working_folder: str,
     project: str,
     skill_id: str,
     version: str,
     pack: str | None = None,
 ) -> dict:
     """This project uses one skill from a pack version. Pull onto the shelf if needed. Does not copy into native skills/."""
-    return install_skill_fn(
-        current_vault(), project, skill_id, version, pack=pack
+    return _gated(
+        project,
+        working_folder,
+        lambda: install_skill_fn(
+            current_vault(), project, skill_id, version, pack=pack
+        ),
     )
 
 
 @mcp.tool
-def uninstall_skill(project: str, skill_id: str, pack: str, version: str) -> dict:
+def uninstall_skill(
+    working_folder: str, project: str, skill_id: str, pack: str, version: str
+) -> dict:
     """Drop this pack skill from this map's import record. Shelf unchanged."""
-    return uninstall_skill_fn(current_vault(), project, skill_id, pack, version)
+    return _gated(
+        project,
+        working_folder,
+        lambda: uninstall_skill_fn(
+            current_vault(), project, skill_id, pack, version
+        ),
+    )
 
 
 @mcp.tool

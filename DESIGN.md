@@ -1,8 +1,8 @@
 # Insitu — Design Spec
 
-**Version 0.12 · locked 2026-08-26** (supersedes 0.11 · 2026-08-24)
+**Version 0.13 · locked 2026-08-29** (supersedes 0.12 · 2026-08-26)
 
-Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. Python package version is `0.12.0`. Detail is kept with the author, not in this repo.
+Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. Python package version is `0.12.0` until 0.13 ships. Detail is kept with the author, not in this repo.
 
 Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. A **stanza** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
@@ -156,10 +156,11 @@ on_demand:                        # associated but not auto-injected
   - methodology/specialized-y
 imports:                          # optional; 0.9 capability / stanza installs
   - pack: system-development
-    version: 0.1.0                # or latest; omit stanzas = whole capability
+    version: 0.1.0                # or latest; omit members = whole capability
   # - pack: voices
   #   version: 1.1
-  #   stanzas: [identity/x]
+  #   stanzas: [identity/x]       # 0.13: core members
+  #   on_demand: [identity/z]     # 0.13: indexed, not injected
 skills:                           # optional; 0.11; omit when empty
   - close-books
 include_global: true              # optional; default true. Set false to
@@ -241,11 +242,13 @@ User-facing: “install capability X 1.0,” “install identity x at 1.1,” �
 
 **Shelf.** `library/<pack-id>/<version>/` is a mini-vault (`stanzas/`, `roles/`, `pack.yaml`, `VERSION`, optional `skills/`). Pack-delivered skills stay on the shelf. `install_skill` maps one id onto this project; `materialize` writes host copies from that shelf version. Native vault skills stay 0.11 (`link_skill`). Whole-capability install does not attach the pack skill list. Multiple versions of one id sit side by side. `library/lock.yaml` inventories versions on disk. Native `stanzas/` / `roles/` / `skills/` are never merged into.
 
+**Operator gate (0.13).** See §6.3. Pack install and uninstall are map writes and pass the gate. `fetch_pack` / `remove_pack` are vault-store admin and stay store-scoped.
+
 **Local repo (v0).** A pack repo folder is a working copy with one `VERSION`. A repo query returns that version only. Older versions live on the shelf once pulled. Git tags later.
 
 **`version` on a record:** semver (sticky) or `latest` (float on each resolve/materialize). Exact pin plus a newer copy: compose the exact pin, notice `newer_available`. Do not auto-upgrade. Do not force other nodes onto a newer version.
 
-**Composition.** `expand(imports)` walks map records in order. Resolve `latest` first. Whole capability (no `stanzas` / `skills` keys): expand that version’s `roles/<pack>.yaml` like a native role. Stanza members: inject only those stanza files from that version. Skill members (`skills:` on the record): compose those pack skills after native `project.skills`. Same stanza or skill id from two records on one project is a hard error.
+**Composition.** `expand(imports)` walks map records in order. Resolve `latest` first. Whole capability (no `stanzas` / `skills` keys): expand that version’s `roles/<pack>.yaml` like a native role. Stanza members: inject only those stanza files from that version. A record's `stanzas:` are core members and its `on_demand:` are indexed rather than injected, the same split a pack role expresses for a whole capability (0.13). Skill members (`skills:` on the record): compose those pack skills after native `project.skills`. Same stanza or skill id from two records on one project is a hard error.
 
 ```
 protocol.core =
@@ -272,7 +275,7 @@ Detail, extra tools, and tests are kept with the author, not in this repo.
 - Every stanza id inside a role file exists.
 - **Membership match:** if `roles/<id>.yaml` lists stanza S, S's frontmatter must include `id` in `roles:`. If S's frontmatter lists a role, that role file must list S (in `core` or `on_demand`). Mismatches are reported. `fix=true` writes the missing frontmatter role onto the stanza; it does **not** add a stanza to a role file (that would change every project using the role).
 - Duplicate stanza ids inside one role file, and duplicates created only by expansion, are reported the same way as map dupes. Expansion itself already drops later copies.
-- **Packs (0.9):** each exact `imports:` record has `library/<pack>/<version>/` on disk; listed `stanzas:` exist in that tree; `unreferenced_version` is a finding (`fix` does not delete); broken exact pin is a hard error. Same stanza id from two import records on one project is a hard error.
+- **Packs (0.9):** each exact `imports:` record has `library/<pack>/<version>/` on disk; listed `stanzas:` and `on_demand:` members exist in that tree; `unreferenced_version` is a finding (`fix` does not delete); broken exact pin is a hard error. Same stanza id from two import records on one project is a hard error.
 
 **`where_used`.** A stanza is used by: project maps that list it in `core` or `on_demand`; role files that list it; project maps whose `roles:` or `imports:` expand to include it (report `lists: [role:<id>]` or `lists: [import:<pack>@<version>]`).
 
@@ -293,6 +296,33 @@ Those stanza files are authored when the nexus/node inbox protocol is encoded. T
 **`_global` vs roles.** `_global` stays the tiny "every project, always" prefix (reply shape, output voice). A role is "every project of this kind." Do not put node behavior on `_global` so you can skip roles. Nexus sets `include_global: true` only for true universals, then `roles: [nexus]`. A nexus that must not receive node rules does not include `node`.
 
 ---
+
+### 6.3 Operator classes (0.13)
+
+Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml` and `surfaces.yaml`. Vault state, not install-folder state: `INSITU_HOME` moves and the code checkout is shared. This is a discipline gate against casual cross-map writes, not a security boundary; the file is hand-editable by anything with a shell.
+
+```yaml
+default_class: bound
+projects:
+  river-ledger: admin
+```
+
+| Class | Mutate maps | `materialize` | Grant / revoke |
+|---|---|---|---|
+| **admin** | any project key | any working folder | yes |
+| **bound** (default) | this project only | this folder only | no |
+
+**The calling chair** is the basename of `working_folder`, case-folded. All thirteen mutating map tools require it: `link_stanza`, `unlink_stanza`, `link_skill`, `unlink_skill`, `install_capability`, `uninstall_capability`, `install_stanza`, `uninstall_stanza`, `install_skill`, `uninstall_skill`, `create_project`, `update_project`, `delete_project`. A bound chair whose key is not `project` gets `chair_bound`. `materialize` already took `working_folder` and joins the same gate; naming no project means this folder's own map, which is always allowed.
+
+**Inspect stays free.** `list_*`, `get_*`, `where_used`, `validate`, `project_status`, `resolve_protocol`, and `operators` may name another project. Vault-store tools (`create_stanza`, `fetch_pack`, `remove_pack`, pack authoring) stay store-scoped: they write the store, never another project's map.
+
+**Pre-init.** No `operators.yaml` means the vault behaves as 0.12 did, and every gated result carries a warning naming the fix. Failing closed would lock every chair out of a vault with no admin registered to unlock it. `working_folder` is required either way: that half of the break is unconditional.
+
+**Bootstrap** is `insitu init --admin <key>` on the command line, guarded to succeed only when no admin exists. Deliberately not an MCP tool, so an agent cannot claim admin mid-session. Bare `insitu` still starts the server.
+
+**Grant and revoke** are MCP tools that refuse a non-admin caller. Revoking the only admin is refused (`last_admin`): it would leave a vault nobody can reconfigure, and `init` refuses once an admin exists.
+
+Not multi-user ACL (§13). Doctrine also in `identity/node` (2026-08-22) and the operator's instruction pack.
 
 ## 7. Stanza Format
 
@@ -382,11 +412,13 @@ protocol = global_composed  +  expand(project.roles).core  +  expand(project.imp
 | `list_packs` | **0.9.** Shelf inventory: pack ids, versions, which maps use which, unreferenced versions. |
 | `get_pack` | **0.9.** One pack id: versions on disk, manifests, pins. |
 | `install_capability` | **0.9.** This project uses the whole pack at `version` or `latest`. Pull onto the shelf if needed. User-facing: “install capability X 1.0.” Does not attach pack skills. |
-| `install_stanza` | **0.9.** This project uses one stanza from a pack version. User-facing: “install identity x at 1.1.” |
+| `install_stanza` | **0.9.** This project uses one stanza from a pack version. User-facing: “install identity x at 1.1.” **0.13:** `target` is `core` (default) or `on_demand`, mirroring `link_stanza`. |
 | `install_skill` | **0.12.** This project uses one skill from a pack version. User-facing: “install skill X at 1.1.” Does not copy into native `skills/`. |
 | `uninstall_capability` / `uninstall_stanza` / `uninstall_skill` | **0.9 / 0.12.** Drop this map’s record (or that member) only. Shelf unchanged. |
 | `fetch_pack` | **0.9 admin.** Seed `library/<id>/<version>/`. No map change. |
 | `remove_pack` | **0.9 admin.** Preview then confirm. Remove a shelf version (or all versions of an id). |
+| `operators` | **0.13 inspect.** Operator classes, registered admins, default class. Warns when the vault is pre-init. |
+| `grant` / `revoke` | **0.13 admin only.** Set a project's class, or drop it to the default. Refuses a bound caller. `revoke` refuses the last admin. Registering the first admin is CLI-only (`insitu init --admin`). |
 
 Native vault skills use `link_skill`. Pack skills use `install_skill`. `link_stanza(..., target="skills")` remains `invalid_target`.
 
@@ -394,7 +426,9 @@ There is no `list_protocols` or `get_protocol`. A protocol is not a catalog row.
 
 Every write result includes `affects_projects`. Previews may include the same list. After an authoring write, if the working-folder basename is in that list, rematerialize and start a new session. Agents do not delete: do not call `delete_*` unless the user explicitly asked to delete that object. Findings are not a cleanup prompt.
 
-Deliberately absent: `rename_stanza` / `rename_role` / `rename_project` (see §13).
+Every mutating map tool takes `working_folder` (0.13, §6.3). Inspect tools do not.
+
+Deliberately absent: `rename_stanza` / `rename_role` / `rename_project` (see §13). Registering the first admin is not a tool; it is `insitu init --admin` on the command line.
 
 ---
 
@@ -569,7 +603,7 @@ default: review
 - SessionStart (or equivalent) hook that rematerializes for freshness
 - Additional host surfaces beyond `grok` / `claude` / `cursor`
 - Pointer-only Claude adapter (`@PROTOCOL.md` instead of a full-body `.claude/rules/` file) if dogfood shows it is cleaner
-- Chair binding / operator classes (recorded 2026-08-26, not implemented): spec kept with the author. Two classes, not stanza-pack roles. **bound** (default): mutating map tools require `working_folder`; hard error when its basename (case-fold) is not `project`; `materialize` this folder only. **admin**: vault config maps project keys to class; only admin may grant or revoke; on a named charter, mutate listed maps and `materialize` listed checkouts. Inspect tools may name another key. Vault-store tools (`create_stanza`, `fetch_pack`) stay store-scoped. Not multi-user ACL. Doctrine also in `identity/node` (2026-08-22). Instruction ships first in the operator's instruction pack.
+- ~~Chair binding / operator classes~~ **shipped in 0.13.** See §6.3. Orphaned-map detection (a map whose checkout is gone) stays future work, as an admin capability.
 
 ---
 
@@ -595,6 +629,15 @@ The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
 ---
 
 ## 15. Changelog
+
+**0.13 operator classes and the on-demand install grain (2026-08-29)** — Python package bump lands with the release.
+
+- Two operator classes, `admin` and `bound`, stored in `config/operators.yaml`. `bound` is the default and names chair binding: that chair mutates its own map, in its own folder, only. `admin` may name other project keys and other working folders, and is the only class that may grant or revoke.
+- A vault with no `operators.yaml` is pre-init. It behaves as 0.12 did and warns. Failing closed would lock every chair out of a vault with no admin registered to unlock it.
+- `insitu` grew a subcommand surface. `insitu init --admin <key>` registers the first admin and refuses once one exists. Bootstrap is command-line only on purpose: an agent cannot claim admin mid-session. The bare invocation still starts the server.
+- `install_stanza` takes `target`, `core` (default) or `on_demand`, mirroring `link_stanza`. An import record may carry both lists. Before this, `on_demand` was reachable only through a native link or a whole-capability install, so a theme pack, the one kind meant to be installed stanza by stanza, was the one kind that could never ship an on-demand member.
+- `fetch_pack` fix: a confirmed refresh reported success and wrote nothing when the source was a configured repo, because the short-circuit in `pull_pack_version` keyed on an explicit `path` rather than on the caller asking for a refresh.
+- Out of this bump: multi-user ACL, orphaned-map detection, `rename_*`, nested roles.
 
 **0.12 pack-skill install (2026-08-26)** — Python package is `0.12.0`.
 
@@ -723,7 +766,7 @@ The 2026-08-16 review buckets are closed. The 0.4 load-path lock is closed.
 
 ## 16. Status
 
-Version 0.12 locked 2026-08-26. Review buckets 1–4 and the 0.4 load-path lock remain closed. Skills are first-class. Pack skills install like pack stanzas. `project_status` is the folder inspect card. Pack-install is 0.9. Python package version is `0.12.0`. The non-core list is `on_demand` (prose: on-demand). Role and project authoring, user-gated delete, validate findings, and the `provenance/` why-log tree are specified here and implemented in `src/`. This file is the only spec. Live next-step is `STATUS.md`.
+Version 0.13 locked 2026-08-29. Operator classes gate the mutating map tools; the stanza install grain reaches `on_demand`. Review buckets 1–4 and the 0.4 load-path lock remain closed. Skills are first-class. Pack skills install like pack stanzas. `project_status` is the folder inspect card. Pack-install is 0.9. Python package version is `0.12.0`. The non-core list is `on_demand` (prose: on-demand). Role and project authoring, user-gated delete, validate findings, and the `provenance/` why-log tree are specified here and implemented in `src/`. This file is the only spec. Live next-step is `STATUS.md`.
 
 First personal vault exists (2026-08-17): `digest-then-drill` on `_global.core`; roles `hub`, `spoke`, `librarian` in the vault. Hub/spoke inbox stanzas are vault content, not server code. Further vault flesh-out is the hub once-through (hub `STATUS.md`).
 
