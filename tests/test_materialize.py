@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,7 @@ import importlib
 
 from helpers import write_project, write_stanza
 
-from insitu.materialize import materialize, vault_git_ref
+from insitu.materialize import materialize
 
 materialize_mod = importlib.import_module("insitu.materialize")
 
@@ -95,16 +94,16 @@ def test_unknown_surface_is_hard_error(vault: Path, tmp_path: Path) -> None:
     assert not (work / "PROTOCOL.md").exists()
 
 
-def test_vault_git_ref_timeout_returns_none(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    (tmp_path / ".git").mkdir()
-
-    def fake_run(*_args, **kwargs):
-        raise subprocess.TimeoutExpired(cmd="git", timeout=kwargs.get("timeout") or 15)
-
-    monkeypatch.setattr(materialize_mod.subprocess, "run", fake_run)
-    assert vault_git_ref(tmp_path) is None
+def test_generated_header_carries_no_git_ref(vault: Path, tmp_path: Path) -> None:
+    """0.14 dropped the git: stamp. Staged-not-committed vaults made it reliably wrong."""
+    _seed(vault)
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+    result = materialize(vault, work, project="river-ledger")
+    assert result["ok"] is True
+    header = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert "git:" not in header
+    assert "timestamp:" in header and "stanzas:" in header
 
 
 def test_materialize_skips_locked_adapter_still_writes_protocol(

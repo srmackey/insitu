@@ -50,8 +50,10 @@ def test_create_stanza_writes_file_and_why_log(vault: Path) -> None:
     assert result["id"] == "interaction/how-i-work-with-ai"
     assert result["title"] == "How I work with AI"
     assert "Say the decision" in result["content"]
-    assert result["review"] == "review"
-    assert result["committed"] is False
+    assert result["files"] == [
+        "stanzas/interaction/how-i-work-with-ai.md",
+        "provenance/interaction/how-i-work-with-ai.md",
+    ]
     assert result["why_log"] == "provenance/interaction/how-i-work-with-ai.md"
 
     path = vault / "stanzas" / "interaction" / "how-i-work-with-ai.md"
@@ -195,10 +197,10 @@ def test_link_rejects_missing_project_and_stanza(vault: Path) -> None:
     assert link_stanza(vault, "river-ledger", "methodology/ghost")["error"] == "missing_stanza"
 
 
-@pytest.mark.skipif(GIT is None, reason="git not available")
-def test_review_policy_stages_and_auto_commits(vault: Path) -> None:
+def test_create_stanza_reports_files_without_touching_git(vault: Path) -> None:
+    """0.14: no staging, no commit. The tool says what it wrote and stops."""
     _init_git(vault)
-    create_stanza(
+    created = create_stanza(
         vault,
         "interaction/summary-first",
         title="Summary first",
@@ -206,27 +208,14 @@ def test_review_policy_stages_and_auto_commits(vault: Path) -> None:
         content="Thesis first.",
         why="Add the form.",
     )
+    assert created["files"] == [
+        "stanzas/interaction/summary-first.md",
+        "provenance/interaction/summary-first.md",
+    ]
     staged = _git(vault, "diff", "--cached", "--name-only")
-    names = {line.replace("\\", "/") for line in staged.stdout.splitlines() if line}
-    assert "stanzas/interaction/summary-first.md" in names
-    assert "provenance/interaction/summary-first.md" in names
+    assert staged.stdout.strip() == ""
     head = _git(vault, "log", "-1", "--pretty=%s")
     assert "seed" in head.stdout
-
-    policy = vault / "config" / "review-policy.yaml"
-    policy.write_text("default: auto\n", encoding="utf-8")
-    created = create_stanza(
-        vault,
-        "methodology/small-diffs",
-        title="Small diffs",
-        description="Keep changes small",
-        content="Small.",
-        why="Add the method.",
-    )
-    assert created["review"] == "auto"
-    assert created["committed"] is True
-    head = _git(vault, "log", "-1", "--pretty=%s")
-    assert "create stanza methodology/small-diffs" in head.stdout
 
 
 def test_update_migrates_leftover_sibling_why_log(vault: Path) -> None:
@@ -258,8 +247,7 @@ def test_update_migrates_leftover_sibling_why_log(vault: Path) -> None:
     assert "Why: Move the why-log." in log
 
 
-@pytest.mark.skipif(GIT is None, reason="git not available")
-def test_validate_fix_follows_review_dial(vault: Path) -> None:
+def test_validate_fix_reports_files_written(vault: Path) -> None:
     write_stanza(vault, "interaction/shared", "S")
     write_stanza(vault, "interaction/local", "L")
     write_project(vault, "_global", core=["interaction/shared"])
@@ -268,14 +256,8 @@ def test_validate_fix_follows_review_dial(vault: Path) -> None:
         "river-ledger",
         core=["interaction/shared", "interaction/local", "interaction/local"],
     )
-    _init_git(vault)
-    (vault / "config" / "review-policy.yaml").write_text("default: auto\n", encoding="utf-8")
-    _git(vault, "add", "config/review-policy.yaml")
-    _git(vault, "commit", "-m", "policy")
 
     report = validate(vault, fix=True)
     assert any(item.get("kind") == "duplicate" for item in report.get("fixed", []))
-    assert report["review"] == "auto"
-    assert report["committed"] is True
-    head = _git(vault, "log", "-1", "--pretty=%s")
-    assert "validate" in head.stdout
+    assert "projects/river-ledger/map.yaml" in report["files"]
+    assert "committed" not in report

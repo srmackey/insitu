@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,7 +27,6 @@ SKILL_ROOTS = {
 }
 
 CONSTITUTION_NAMES = frozenset({"AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"})
-GIT_TIMEOUT_SECONDS = 15
 ADAPTER_WRITE_TIMEOUT_SECONDS = 8
 
 
@@ -36,25 +34,6 @@ def _as_vault(vault_or_root: Vault | Path | str) -> Vault:
     if isinstance(vault_or_root, Vault):
         return vault_or_root
     return load_vault(vault_or_root)
-
-
-def vault_git_ref(vault_root: Path) -> str | None:
-    if not (vault_root / ".git").exists():
-        return None
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(vault_root), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GIT_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if proc.returncode != 0:
-        return None
-    sha = proc.stdout.strip()
-    return sha or None
 
 
 def parse_header(text: str) -> dict | None:
@@ -106,14 +85,12 @@ def split_frontmatter(text: str) -> tuple[str, str]:
 
 
 def render_skill_stamp(vault_root: Path, project: str, skill_id: str) -> str:
-    git_ref = vault_git_ref(vault_root) or "none"
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return "\n".join(
         [
             "<!--",
             "insitu-generated: true",
             f"vault: {vault_root}",
-            f"git: {git_ref}",
             f"timestamp: {timestamp}",
             f"project: {project}",
             f"skill: {skill_id}",
@@ -205,13 +182,11 @@ def _write_mapped_skills(
 
 
 def render_header(vault_root: Path, project: str, stanza_ids: list[str]) -> str:
-    git_ref = vault_git_ref(vault_root) or "none"
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
         "<!--",
         "insitu-generated: true",
         f"vault: {vault_root}",
-        f"git: {git_ref}",
         f"timestamp: {timestamp}",
         f"project: {project}",
         "stanzas:",

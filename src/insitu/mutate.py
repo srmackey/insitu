@@ -25,9 +25,8 @@ from insitu.identity import (
     validate_skill_id,
     validate_stanza_id,
 )
-from insitu.review import apply_review, load_review_policy
 from insitu.size import size_fields
-from insitu.store import load_vault, read_frontmatter
+from insitu.store import files_written, load_vault, read_frontmatter
 
 
 def _identity_error(value: str, exc: InvalidIdentity) -> dict:
@@ -109,12 +108,6 @@ def _clean_why(why: str | None) -> str | None:
         return None
     stripped = why.strip()
     return stripped or None
-
-
-def _review_message(action: str, why: str | None) -> str:
-    if why:
-        return f"insitu: {action}: {why}"
-    return f"insitu: {action}"
 
 
 def _write_map(
@@ -241,9 +234,6 @@ def create_stanza(
         return {"ok": False, "error": "missing_why"}
     if not str(title).strip() or not str(description).strip():
         return {"ok": False, "error": "missing_frontmatter", "id": sid}
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     path, prov = _stanza_paths(vault_root, sid)
     if path.exists():
         return {"ok": False, "error": "stanza_exists", "id": sid}
@@ -263,14 +253,7 @@ def create_stanza(
     path.write_text(_dump_markdown(meta, content or ""), encoding="utf-8")
     extra = _migrate_legacy_why_log(vault_root, sid)
     _append_why_log(prov, sid, reason)
-    reviewed = apply_review(
-        vault_root,
-        [path, prov, *extra],
-        f"insitu: create stanza {sid}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [path, prov, *extra])
     result = get_stanza(vault_root, sid)
     result.update(reviewed)
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
@@ -297,9 +280,6 @@ def update_stanza(
     reason = _clean_why(why)
     if reason is None:
         return {"ok": False, "error": "missing_why"}
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     stanza = vault.stanzas.get(sid)
     if stanza is None:
@@ -337,14 +317,7 @@ def update_stanza(
     _, prov = _stanza_paths(vault_root, sid)
     extra = _migrate_legacy_why_log(vault_root, sid)
     _append_why_log(prov, sid, reason)
-    reviewed = apply_review(
-        vault_root,
-        [stanza.path, prov, *extra],
-        f"insitu: update stanza {sid}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [stanza.path, prov, *extra])
     result = get_stanza(vault_root, sid)
     result.update(reviewed)
     result["where_used"] = used
@@ -371,9 +344,6 @@ def link_stanza(
     if target not in {"core", "on_demand"}:
         return {"ok": False, "error": "invalid_target", "value": target}
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -397,14 +367,7 @@ def link_stanza(
     else:
         on_demand.append(sid)
     path = _write_map(proj.path, proj.raw, core, on_demand)
-    reviewed = apply_review(
-        vault_root,
-        [path],
-        f"insitu: link {sid} to {key} {target}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [path])
     result = {
         "ok": True,
         "project": key,
@@ -432,9 +395,6 @@ def unlink_stanza(
     except InvalidIdentity as exc:
         return _identity_error(stanza_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -444,14 +404,7 @@ def unlink_stanza(
     core = [item for item in proj.core if item != sid]
     on_demand = [item for item in proj.on_demand if item != sid]
     path = _write_map(proj.path, proj.raw, core, on_demand)
-    reviewed = apply_review(
-        vault_root,
-        [path],
-        f"insitu: unlink {sid} from {key}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [path])
     result = {
         "ok": True,
         "project": key,
@@ -506,9 +459,6 @@ def create_skill(
     vault_root = Path(vault_or_root)
     if not str(description).strip():
         return {"ok": False, "error": "missing_frontmatter", "id": sid}
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     path = _skill_md_path(vault_root, sid)
     if path.exists():
         return {"ok": False, "error": "skill_exists", "id": sid}
@@ -521,14 +471,7 @@ def create_skill(
         prov = _skill_why_log_path(vault_root, sid)
         _append_why_log(prov, sid, reason)
         paths.append(prov)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"create skill {sid}", reason),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = get_skill(vault_root, sid)
     result.update(reviewed)
     result["affects_projects"] = []
@@ -553,9 +496,6 @@ def update_skill(
     except InvalidIdentity as exc:
         return _identity_error(skill_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     skill = vault.skills.get(sid)
     if skill is None:
@@ -600,14 +540,7 @@ def update_skill(
         prov = _skill_why_log_path(vault_root, sid)
         _append_why_log(prov, sid, reason)
         paths.append(prov)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"update skill {sid}", reason),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = get_skill(vault_root, sid)
     result.update(reviewed)
     result["where_used"] = used
@@ -629,9 +562,6 @@ def link_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict:
     except InvalidIdentity as exc:
         return _identity_error(skill_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -648,14 +578,7 @@ def link_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict:
     skills = list(proj.skills)
     skills.append(sid)
     path = _write_map(proj.path, proj.raw, skills=skills)
-    reviewed = apply_review(
-        vault_root,
-        [path],
-        f"insitu: link skill {sid} to {key}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [path])
     result = {
         "ok": True,
         "project": key,
@@ -677,9 +600,6 @@ def unlink_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict
     except InvalidIdentity as exc:
         return _identity_error(skill_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -688,14 +608,7 @@ def unlink_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict
         return {"ok": False, "error": "not_linked", "id": sid, "project": key}
     skills = [item for item in proj.skills if item != sid]
     path = _write_map(proj.path, proj.raw, skills=skills)
-    reviewed = apply_review(
-        vault_root,
-        [path],
-        f"insitu: unlink skill {sid} from {key}",
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [path])
     result = {
         "ok": True,
         "project": key,
@@ -733,9 +646,6 @@ def delete_skill(
     except InvalidIdentity as exc:
         return _identity_error(skill_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     if sid not in vault.skills:
         return {"ok": False, "error": "not_found", "id": sid}
@@ -756,14 +666,7 @@ def delete_skill(
     if prov.is_file():
         prov.unlink()
         paths.append(prov)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"delete skill {sid}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)
     return result
@@ -825,9 +728,6 @@ def delete_stanza(
     if reason is None:
         return {"ok": False, "error": "missing_why"}
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     if sid not in vault.stanzas:
         return {"ok": False, "error": "not_found", "id": sid}
@@ -857,14 +757,7 @@ def delete_stanza(
     if legacy.is_file():
         legacy.unlink()
         paths.append(legacy)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"delete stanza {sid}", reason),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)
     return result
@@ -911,9 +804,6 @@ def delete_role(
     except InvalidIdentity as exc:
         return _identity_error(role_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     if rid not in vault.roles:
         return {"ok": False, "error": "not_found", "id": rid}
@@ -935,14 +825,7 @@ def delete_role(
     role_path = vault.roles[rid].path
     role_path.unlink(missing_ok=True)
     paths.append(role_path)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"delete role {rid}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)
     return result
@@ -963,9 +846,6 @@ def delete_project(
     if key == GLOBAL_PROJECT:
         return {"ok": False, "error": "cannot_delete_global"}
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -990,14 +870,7 @@ def delete_project(
         return gated
     folder = proj.path
     shutil.rmtree(folder)
-    reviewed = apply_review(
-        vault_root,
-        [folder],
-        _review_message(f"delete project {key}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, [folder])
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)
     return result
@@ -1018,9 +891,6 @@ def create_role(
     except InvalidIdentity as exc:
         return _identity_error(role_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     if rid in vault.roles:
         return {"ok": False, "error": "already_exists", "id": rid}
@@ -1046,14 +916,7 @@ def create_role(
         stanza = vault.stanzas[sid]
         _add_frontmatter_role(stanza.path, rid)
         paths.append(stanza.path)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"create role {rid}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {
         "ok": True,
         "id": rid,
@@ -1130,9 +993,6 @@ def update_role(
     except InvalidIdentity as exc:
         return _identity_error(role_id, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     role = vault.roles.get(rid)
     if role is None:
@@ -1154,14 +1014,7 @@ def update_role(
         if "on_demand" not in data:
             data["on_demand"] = list(role.on_demand)
         path = _write_role_file(vault_root, rid, data)
-        reviewed = apply_review(
-            vault_root,
-            [path],
-            _review_message(f"update role {rid}", _clean_why(why)),
-            policy=policy,
-        )
-        if not reviewed["ok"]:
-            return reviewed
+        reviewed = files_written(vault_root, [path])
         result = {
             "ok": True,
             "id": rid,
@@ -1230,14 +1083,7 @@ def update_role(
             continue
         _remove_frontmatter_role(stanza.path, rid)
         paths.append(stanza.path)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"update role {rid}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)
     return result
@@ -1263,9 +1109,6 @@ def create_project(
     except InvalidIdentity as exc:
         return _identity_error(project, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     if key in vault.projects:
         return {"ok": False, "error": "already_exists", "id": key}
@@ -1321,14 +1164,7 @@ def create_project(
         notes_path = folder / "notes.md"
         notes_path.write_text(notes, encoding="utf-8")
         paths.append(notes_path)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"create project {key}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
     result = {
         "ok": True,
         "project": key,
@@ -1367,9 +1203,6 @@ def update_project(
     except InvalidIdentity as exc:
         return _identity_error(project, exc)
     vault_root = Path(vault_or_root)
-    policy = load_review_policy(vault_root)
-    if not policy["ok"]:
-        return policy
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -1504,14 +1337,7 @@ def update_project(
         notes_path = proj.path / "notes.md"
         notes_path.write_text(notes, encoding="utf-8")
         paths.append(notes_path)
-    reviewed = apply_review(
-        vault_root,
-        paths,
-        _review_message(f"update project {key}", _clean_why(why)),
-        policy=policy,
-    )
-    if not reviewed["ok"]:
-        return reviewed
+    reviewed = files_written(vault_root, paths)
 
     members: list[dict] = []
     seen_members: set[str] = set()

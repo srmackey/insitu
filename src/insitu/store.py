@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,16 @@ from insitu.identity import (
     validate_stanza_id,
 )
 from insitu.models import ImportRecord, PackRepo, PackVersion, Project, Role, Skill, Stanza, Vault
+
+
+def files_written(vault_root: str | Path, paths: Iterable[Path]) -> dict:
+    """Report the vault files a mutation wrote, relative to the vault root.
+
+    Replaces the pre-0.14 git staging step. Insitu writes files and says which
+    ones; tracking the vault in git is the operator's action, not the server's.
+    """
+    root = Path(vault_root).resolve()
+    return {"files": [Path(p).resolve().relative_to(root).as_posix() for p in paths]}
 
 
 class VaultReadError(ValueError):

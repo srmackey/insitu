@@ -128,8 +128,8 @@ install_capability / install_stanza / install_skill
 uninstall_capability / uninstall_stanza / uninstall_skill
 delete_stanza / delete_role / delete_project
                             # delete is user-gated: preview, then confirm
-                            # mutations follow config/review-policy.yaml
-                            # (review = write/stage, auto = commit if git)
+                            # mutations write files and report them in `files`
+                            # Insitu never runs git; tracking the vault is yours
 
 # vault admin
 fetch_pack / remove_pack    # seed or drop a shelf version
