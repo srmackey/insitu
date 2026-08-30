@@ -87,33 +87,6 @@ def test_well_formed_vault_still_loads(vault: Path) -> None:
 BAD_YAML = "default: review: strict\n"
 
 
-def test_malformed_review_policy_names_its_file(vault: Path) -> None:
-    path = vault / "config" / "review-policy.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(BAD_YAML, encoding="utf-8")
-
-    from insitu.review import load_review_policy
-
-    with pytest.raises(VaultReadError) as excinfo:
-        load_review_policy(vault)
-
-    assert excinfo.value.path == path
-
-
-def test_invalid_review_policy_value_stays_a_structured_error(vault: Path) -> None:
-    path = vault / "config" / "review-policy.yaml"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("default: nonsense\n", encoding="utf-8")
-
-    from insitu.review import load_review_policy
-
-    assert load_review_policy(vault) == {
-        "ok": False,
-        "error": "invalid_review_policy",
-        "value": "nonsense",
-    }
-
-
 def test_malformed_surfaces_names_its_file(vault: Path) -> None:
     path = vault / "config" / "surfaces.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)

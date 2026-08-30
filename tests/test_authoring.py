@@ -440,45 +440,21 @@ def test_create_role_already_exists(vault: Path) -> None:
     assert result["error"] == "already_exists"
 
 
-@pytest.mark.skipif(GIT is None, reason="git not available")
-def test_review_stages_bundled_delete_auto_commits_once(vault: Path) -> None:
+def test_bundled_delete_reports_every_file_it_wrote(vault: Path) -> None:
+    """One confirm is one unit. The report names the unit; git is the operator's business."""
     _seed_linked(vault)
-    _init_git(vault)
 
     preview = delete_stanza(vault, "methodology/clerk-intake", why="bundle delete")
-    reviewed = delete_stanza(
+    result = delete_stanza(
         vault,
         "methodology/clerk-intake",
         why="bundle delete",
         confirm=True,
         expected=preview["expected"],
     )
-    assert reviewed["review"] == "review"
-    assert reviewed["committed"] is False
-    staged = _git(vault, "diff", "--cached", "--name-only")
-    names = {line.replace("\\", "/") for line in staged.stdout.splitlines() if line}
-    assert "stanzas/methodology/clerk-intake.md" in names
-    assert "roles/clerk.yaml" in names
-    assert "projects/river-ledger/map.yaml" in names
-    head = _git(vault, "log", "-1", "--pretty=%s")
-    assert "seed" in head.stdout
-    _git(vault, "commit", "-m", "accept review delete")
-
-    (vault / "config" / "review-policy.yaml").write_text("default: auto\n", encoding="utf-8")
-    _git(vault, "add", "config/review-policy.yaml")
-    _git(vault, "commit", "-m", "policy")
-
-    preview2 = delete_stanza(vault, "methodology/orphan", why="auto delete")
-    auto = delete_stanza(
-        vault,
-        "methodology/orphan",
-        why="auto delete",
-        confirm=True,
-        expected=preview2["expected"],
-    )
-    assert auto["review"] == "auto"
-    assert auto["committed"] is True
-    head = _git(vault, "log", "-1", "--pretty=%s")
-    assert "delete stanza methodology/orphan" in head.stdout
-    log = _git(vault, "log", "--oneline")
-    assert log.stdout.count("\n") >= 2
+    assert result["ok"] is True
+    files = set(result["files"])
+    assert "stanzas/methodology/clerk-intake.md" in files
+    assert "roles/clerk.yaml" in files
+    assert "projects/river-ledger/map.yaml" in files
+    assert "review" not in result and "staged" not in result and "committed" not in result

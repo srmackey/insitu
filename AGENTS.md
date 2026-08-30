@@ -4,7 +4,9 @@ Canonical constitution for the Insitu server repo. Claude loads it via the thin 
 
 **Product.** Insitu is a portable MCP server for **situated identity**: who you are *here*. It stores reusable **stanzas**, **roles**, project-mapped **skills**, and versioned **packs**, and composes a **project-specific protocol**. Complementary to ContextForge (system/dev context). Not a second brain.
 
-**Design lock.** `DESIGN.md` is the locked spec (v0.13, 2026-08-29). Implement against it. Role and project authoring, user-gated delete, validate findings, the `provenance/` why-log tree, the on-demand rename, pack-install (0.9), `project_status` (0.10), skills (0.11), pack-skill install (0.12), and operator classes plus the on-demand install grain (0.13) are in `src/`. Do not expand past it (search, ACL, rename tools, nested roles, role-carried skills) without an explicit design change.
+**Design lock.** `DESIGN.md` is the locked spec (v0.14, 2026-08-30). Implement against it. Role and project authoring, user-gated delete, validate findings, the `provenance/` why-log tree, the on-demand rename, pack-install (0.9), `project_status` (0.10), skills (0.11), pack-skill install (0.12), operator classes plus the on-demand install grain (0.13), and the removal of all git operations (0.14) are in `src/`. Do not add surface it does not name (search, ACL, rename tools, nested roles, role-carried skills) without an explicit design change.
+
+DESIGN is the current shape, not a settled demand. Best practices, first-principles thinking, optimization, and enabling the operator to iterate quickly should always be considered. Proposing defensible improvements is always in scope.
 
 **Session entry.** Read `STATUS.md` and state the Forefront before other work. Live next-step lives there, not in this file.
 

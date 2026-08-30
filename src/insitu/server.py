@@ -160,7 +160,7 @@ def list_on_demand(project: str) -> dict:
 
 @mcp.tool
 def validate(fix: bool = False) -> dict:
-    """Vault health check. Read-only unless fix=true. Issues fail ok; findings do not. Fixes follow the review dial and never consume findings."""
+    """Vault health check. Read-only unless fix=true. Issues fail ok; findings do not. Fixes report the files they wrote and never consume findings."""
     return validate_fn(current_vault(), fix=fix)
 
 
@@ -174,7 +174,7 @@ def create_stanza(
     tags: list[str] | None = None,
     roles: list[str] | None = None,
 ) -> dict:
-    """Create a stanza and append a why-log entry. Does not link it to a project. Subject to review policy."""
+    """Create a stanza and append a why-log entry. Does not link it to a project. Returns the files written."""
     return create_stanza_fn(
         current_vault(),
         stanza_id,
@@ -197,7 +197,7 @@ def update_stanza(
     tags: list[str] | None = None,
     roles: list[str] | None = None,
 ) -> dict:
-    """Update a stanza, append a why-log entry, and return where_used. Subject to review policy."""
+    """Update a stanza, append a why-log entry, and return where_used. Returns the files written."""
     return update_stanza_fn(
         current_vault(),
         stanza_id,

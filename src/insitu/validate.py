@@ -24,9 +24,9 @@ from insitu.resolve import (
     expand_role_groups,
     first_wins,
 )
-from insitu.review import apply_review, load_review_policy
 from insitu.store import (
     both_keys_present,
+    files_written,
     load_on_demand_list,
     load_vault,
     read_frontmatter,
@@ -739,9 +739,6 @@ def validate(vault_or_root: Vault | Path | str, fix: bool = False) -> dict:
     applied: list[dict] = []
     extra: dict = {}
     if fix:
-        policy = load_review_policy(vault.root)
-        if not policy["ok"]:
-            return policy
         applied.extend(_apply_duplicate_fixes(vault))
         vault = load_vault(vault.root)
         applied.extend(_apply_legacy_key_fixes(vault))
@@ -750,25 +747,9 @@ def validate(vault_or_root: Vault | Path | str, fix: bool = False) -> dict:
         vault = load_vault(vault.root)
         issues = _collect_issues(vault)
         if applied:
-            reviewed = apply_review(
-                vault.root,
-                _paths_for_fixes(vault, applied),
-                "insitu: validate --fix",
-                policy=policy,
-            )
-            if not reviewed["ok"]:
-                return {
-                    **reviewed,
-                    "issues": issues,
-                    "findings": _collect_findings(vault),
-                    "fixed": applied,
-                }
-            extra.update(reviewed)
-            extra.pop("ok", None)
+            extra.update(files_written(vault.root, _paths_for_fixes(vault, applied)))
         else:
-            extra["review"] = policy["default"]
-            extra["staged"] = False
-            extra["committed"] = False
+            extra["files"] = []
     return {
         "ok": not issues,
         "issues": issues,

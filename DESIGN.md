@@ -1,8 +1,8 @@
 # Insitu — Design Spec
 
-**Version 0.13 · locked 2026-08-29** (supersedes 0.12 · 2026-08-26)
+**Version 0.14 · locked 2026-08-30** (supersedes 0.13 · 2026-08-29)
 
-Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. Python package version is `0.12.0` until 0.13 ships. Detail is kept with the author, not in this repo.
+Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. Python package version is `0.12.0`; 0.13 and 0.14 are unreleased. Detail is kept with the author, not in this repo.
 
 Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. A **stanza** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
@@ -92,7 +92,6 @@ vault/
 │   │   └── notes.md              # optional free-form project notes
 │   └── ...
 ├── config/
-│   ├── review-policy.yaml        # optional
 │   ├── surfaces.yaml             # which host adapters materialize writes
 │   └── pack-repos.yaml           # 0.9; optional; zero to many pack repos
 ├── library/                      # 0.9; pulled pack versions
@@ -556,20 +555,23 @@ Minimal why-log shape:
 Why: Split output-style rules out of this stanza so summary-first can stand alone.
 ```
 
-**Review dial** (configurable; two modes only):
+**Insitu runs no git commands** (0.14). It writes files under the vault root and reports which ones. Git tracking of the vault is the operator's action, owned by whoever stewards that repo.
 
-- `auto`: write the files (and the why-log entry) and commit if git is present
-- `review`: write or stage; do not commit until the human says yes
+Removed in 0.14: `git add` staging on every mutation, the `auto` mode commit, the `rev-parse HEAD` stamp in generated headers, `config/review-policy.yaml`, and the `insitu.review` module. `review` / `staged` / `committed` no longer appear in any result.
 
-Default for every mutation, including `_global` map edits: `review`. Flip the non-global default later if the approval tax gets old.
+Rationale. Staging never delivered the stated safety net: the restore point is the last commit, and `git checkout HEAD -- <path>` behaves identically whether a change is staged or not. What staging did deliver was a shared global lock on the vault index, an inherited process environment (PATH, credential helpers, hooks, antivirus), and the ability to silently add files to a commit the operator was already building. The `git:` header stamp was worse than unused: because the default mode staged without committing, `HEAD` routinely lagged the composed contents, so the stamp pointed at a tree that did not contain the stanzas in the file it stamped.
 
-**Scope:** every mutation, including 0.6 role and project writes and user-gated deletes. One confirm is one git unit, even when a delete touches several maps and frontmatter files. Previews do not touch git. Optional `why` on role and project writes is used only in the git message. There is no role or project why-log file. Map changes alter what gets injected, so they are reviewed writes even without a project why-log.
+**What replaced it.** Every mutating tool returns `files`, the vault-relative paths it wrote:
 
-Default policy lives in `config/review-policy.yaml`:
-
-```yaml
-default: review
+```json
+{"ok": true, "id": "interaction/summary-first",
+ "files": ["stanzas/interaction/summary-first.md",
+           "provenance/interaction/summary-first.md"]}
 ```
+
+This is the structured form of what staging approximated. One confirm is still one unit: a delete that touches several maps and frontmatter files reports every path in one `files` list.
+
+**Scope:** every mutation, including role and project writes, user-gated deletes, and `validate --fix`. Previews write nothing and report no files. Optional `why` on role and project writes goes to the why-log where one exists; it is no longer a git message. Insitu has no subprocess surface.
 
 ---
 
