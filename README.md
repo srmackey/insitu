@@ -138,10 +138,16 @@ operators                   # classes, admins, default (inspect)
 grant / revoke              # admin only; first admin is CLI-only
 ```
 
-Every tool that writes a project map takes `working_folder`. A **bound** chair
-(the default) may write only the map whose key matches that folder's basename;
-an **admin** chair may name another. A vault with no `config/operators.yaml`
-runs pre-init: writes go through as before and the result says how to fix it.
+Every mutating tool takes `working_folder`. A **bound** chair (the default) may
+write only the map whose key matches that folder's basename; an **admin** chair
+may name another.
+
+Stanzas, roles, and skills belong to no single map, so they are gated by reach
+instead: creating is always allowed, and editing or deleting one is refused once
+a map other than yours composes it. Editing a role is the sharp case, since its
+membership reaches every map that carries it. A vault with no
+`config/operators.yaml` runs pre-init: writes go through as before and the
+result says how to fix it.
 
 ```
 insitu init --admin <project-key>   # register the first admin; refuses if one exists

@@ -58,7 +58,10 @@ def test_composes_global_then_project(vault: Path) -> None:
         "interaction/how-i-work-with-ai",
     ]
     bodies = [item["content"] for item in result["core"]]
-    assert bodies == ["GLOBAL-CORE-BODY", "PROJECT-CORE-BODY"]
+    assert bodies == [
+        "# Summary first\n\nGLOBAL-CORE-BODY",
+        "# How I work with AI\n\nPROJECT-CORE-BODY",
+    ]
 
 
 def test_include_global_false_skips_global_core(vault: Path) -> None:
@@ -141,8 +144,11 @@ def test_size_uses_chars_over_four_and_is_labeled_estimate(vault: Path) -> None:
     result = resolve_protocol(vault, "river-ledger")
     assert result["ok"] is True
     item = result["core"][0]
-    assert item["bytes"] == len(body.encode("utf-8"))
-    assert item["estimated_tokens"] == 10 // 4
+    # Size measures what composition emits, which carries the heading.
+    composed = "# Title\n\n" + body  # 19 chars
+    assert item["content"] == composed
+    assert item["bytes"] == len(composed.encode("utf-8"))
+    assert item["estimated_tokens"] == len(composed) // 4
     assert "estimate" in item["token_estimate_note"].lower()
     assert "chars / 4" in item["token_estimate_note"]
     totals = result["size"]
@@ -154,14 +160,15 @@ def test_size_uses_chars_over_four_and_is_labeled_estimate(vault: Path) -> None:
 
 
 def test_size_totals_sum_each_core_stanza(vault: Path) -> None:
-    write_stanza(vault, "interaction/one", "abcd")  # 4 chars -> 1 token
-    write_stanza(vault, "interaction/two", "abcdefgh")  # 8 chars -> 2 tokens
+    # Each body composes as "# Title\n\n" + body, so 9 chars of heading each.
+    write_stanza(vault, "interaction/one", "abcd")  # 13 chars -> 3 tokens
+    write_stanza(vault, "interaction/two", "abcdefgh")  # 17 chars -> 4 tokens
     write_project(vault, "river-ledger", core=["interaction/one", "interaction/two"])
     result = resolve_protocol(vault, "river-ledger")
     assert result["ok"] is True
     assert result["size"]["stanza_count"] == 2
     assert result["size"]["bytes"] == sum(item["bytes"] for item in result["core"])
-    assert result["size"]["estimated_tokens"] == 3
+    assert result["size"]["estimated_tokens"] == 7
     assert result["size"]["estimated_tokens"] == sum(
         item["estimated_tokens"] for item in result["core"]
     )
@@ -188,3 +195,40 @@ def test_prov_files_are_not_stanzas_for_resolution(vault: Path) -> None:
     assert [item["id"] for item in result["core"]] == ["interaction/how-i-work-with-ai"]
     assert "not a stanza" not in result["core"][0]["content"]
     assert "also not a stanza" not in result["core"][0]["content"]
+
+
+def test_body_without_a_heading_is_headed_from_the_title(vault: Path) -> None:
+    write_stanza(vault, "interaction/one", "PLAIN-BODY", title="Plain body")
+    write_project(vault, "river-ledger", core=["interaction/one"])
+    result = resolve_protocol(vault, "river-ledger")
+    assert result["ok"] is True
+    assert result["core"][0]["content"] == "# Plain body\n\nPLAIN-BODY"
+
+
+def test_body_that_already_has_a_heading_is_not_doubled(vault: Path) -> None:
+    write_stanza(vault, "interaction/one", "# Plain body\n\nPLAIN-BODY", title="Plain body")
+    write_project(vault, "river-ledger", core=["interaction/one"])
+    result = resolve_protocol(vault, "river-ledger")
+    assert result["ok"] is True
+    assert result["core"][0]["content"] == "# Plain body\n\nPLAIN-BODY"
+
+
+def test_the_title_wins_when_the_body_heading_disagrees(vault: Path) -> None:
+    write_stanza(vault, "interaction/one", "# Stale name\n\nBODY", title="Current name")
+    write_project(vault, "river-ledger", core=["interaction/one"])
+    result = resolve_protocol(vault, "river-ledger")
+    assert result["ok"] is True
+    assert result["core"][0]["content"] == "# Current name\n\nBODY"
+
+
+def test_every_composed_stanza_opens_its_own_heading(vault: Path) -> None:
+    # The failure this replaces: an unheaded body read as more prose under the
+    # stanza before it, and the composed file looked plausible either way.
+    write_stanza(vault, "interaction/one", "FIRST-BODY", title="First")
+    write_stanza(vault, "interaction/two", "SECOND-BODY", title="Second")
+    write_project(vault, "river-ledger", core=["interaction/one", "interaction/two"])
+    result = resolve_protocol(vault, "river-ledger")
+    assert result["ok"] is True
+    bodies = [item["content"] for item in result["core"]]
+    assert [body.splitlines()[0] for body in bodies] == ["# First", "# Second"]
+    assert "\n\n".join(bodies).count("\n# ") == 1

@@ -1,8 +1,8 @@
 # Insitu — Design Spec
 
-**Version 0.14 · locked 2026-08-30** (supersedes 0.13 · 2026-08-29)
+**Version 0.15 · locked 2026-08-30** (supersedes 0.14 · 2026-08-30)
 
-Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. The spec version and the package version are one number: `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts this header agrees. Detail is kept with the author, not in this repo.
+The operator gate reaches shared vault objects, and every advertised tool declares its MCP annotations (0.15). Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. The spec version and the package version are one number: `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts this header agrees. Detail is kept with the author, not in this repo.
 
 Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. A **stanza** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
@@ -296,7 +296,7 @@ Those stanza files are authored in a vault. The role *mechanism* ships before an
 
 ---
 
-### 6.3 Operator classes (0.13)
+### 6.3 Operator classes (0.13, extended 0.15)
 
 Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml` and `surfaces.yaml`. Vault state, not install-folder state: `INSITU_HOME` moves and the code checkout is shared. This is a discipline gate against casual cross-map writes, not a security boundary; the file is hand-editable by anything with a shell.
 
@@ -306,14 +306,24 @@ projects:
   river-ledger: admin
 ```
 
-| Class | Mutate maps | `materialize` | Grant / revoke |
-|---|---|---|---|
-| **admin** | any project key | any working folder | yes |
-| **bound** (default) | this project only | this folder only | no |
+| Class | Mutate maps | Mutate shared objects | `materialize` | Grant / revoke |
+|---|---|---|---|---|
+| **admin** | any project key | yes | any working folder | yes |
+| **bound** (default) | this project only | only what no other map composes | this folder only | no |
 
 **The calling chair** is the basename of `working_folder`, case-folded. All thirteen mutating map tools require it: `link_stanza`, `unlink_stanza`, `link_skill`, `unlink_skill`, `install_capability`, `uninstall_capability`, `install_stanza`, `uninstall_stanza`, `install_skill`, `uninstall_skill`, `create_project`, `update_project`, `delete_project`. A bound chair whose key is not `project` gets `chair_bound`. `materialize` already took `working_folder` and joins the same gate; naming no project means this folder's own map, which is always allowed.
 
-**Inspect stays free.** `list_*`, `get_*`, `where_used`, `validate`, `project_status`, `resolve_protocol`, and `operators` may name another project. Vault-store tools (`create_stanza`, `fetch_pack`, `remove_pack`, pack authoring) stay store-scoped: they write the store, never another project's map.
+**Reach, not ownership (0.15).** A stanza, role, or skill belongs to no single map, so binding it to one key would be wrong. What is gated instead is reach: a write that changes what a map other than the calling chair composes is composition authority, and that is admin. The ten writers of shared objects therefore also take `working_folder`: `create_stanza`, `update_stanza`, `delete_stanza`, `create_role`, `update_role`, `delete_role`, `create_skill`, `update_skill`, `delete_skill`, and `validate` when `fix=true`.
+
+Three consequences follow, and they are the whole rule:
+
+- **Authoring is open to every chair.** `create_*` touches nothing that exists, so it is always allowed. A bound chair writing its own guidance never meets the gate.
+- **Editing is open until something else composes it.** A stanza no map carries, or one only this chair carries, is this chair's to change. The moment a second map composes it, the write is refused with `shared_object`, naming the maps in `used_by`.
+- **A role is the sharp case.** Role membership reaches every map carrying that role without touching any of them, which is exactly the change a bound chair should not be able to make alone.
+
+Reach is measured as composition, not as a direct link: a stanza pulled in through a role counts, and a stanza on `_global` reaches everything. `validate --fix` rewrites shared vault files, so it takes the same gate against every map in the vault.
+
+**Inspect stays free.** `list_*`, `get_*`, `where_used`, `project_status`, `resolve_protocol`, `operators`, and read-only `validate` may name another project. Vault-store tools (`fetch_pack`, `remove_pack`, pack authoring) stay store-scoped: they write the store, never another project's map.
 
 **Pre-init.** No `operators.yaml` means the vault behaves as 0.12 did, and every gated result carries a warning naming the fix. Failing closed would lock every chair out of a vault with no admin registered to unlock it. `working_folder` is required either way: that half of the break is unconditional.
 
@@ -366,7 +376,7 @@ protocol = global_composed  +  expand(project.roles).core  +  expand(project.imp
 - **Missing `roles/`:** treat as no role packs. A map that names a role then fails (hard error).
 - **Missing stanza or role references are a hard error.** If any map, including `_global`, or any role file references a stanza that does not exist, or a map names a role that does not exist, resolution fails with an explicit error naming the broken reference. Determinism over convenience.
 - **An unparseable file is a hard error naming that file.** A malformed stanza, skill, role, map, lock, pack, or `config/` file fails with its own path and the parse position (`VaultReadError`), wherever it is read. One bad file is never skipped silently, and the caller never gets a bare parser message that does not say which file it came from. Pack trees count: content Insitu did not author still gets named, not swallowed. Same principle as a broken reference.
-- **Syntax and semantics fail differently.** A file that will not parse raises `VaultReadError`. A file that parses but carries a bad value keeps its existing structured miss (`invalid_review_policy`, unknown surface name, and the like). Do not collapse the two: the first says the file is unreadable, the second says it was read and is wrong.
+- **Syntax and semantics fail differently.** A file that will not parse raises `VaultReadError`. A file that parses but carries a bad value keeps its existing structured miss (unknown surface name, an unknown operator class, and the like). Do not collapse the two: the first says the file is unreadable, the second says it was read and is wrong.
 - On-demand stanzas are **not** included in the protocol content. The resolved protocol **does include an index** of `expand(project.roles).on_demand` plus `expand(project.imports).on_demand` plus the project's `on_demand` list (id, title, description, size) so the agent knows what it can request via `get_stanza`.
 - **Skills index (0.11 / 0.12).** After the on-demand index, `resolve_protocol` lists composed skills (`id`, `name`, `description`, size): native `project.skills` then pack import `skills:` lists. No skill `content`. Skill text is never injected into `core`. Missing skill id on a map is a hard error (`missing_skill`), same as a missing stanza. Duplicate native-and-pack or two-pack ids is `duplicate_import_skill`. Size totals stay stanza-only; `skills_size` (count, bytes, estimated tokens) is a separate skill-index summary.
 - The resolved protocol reports **size metadata** on the result *before* the core bodies: stanza count, total bytes, and estimated tokens (`chars / 4`, labeled an estimate), plus the same fields on each core stanza. Size is an authoring surface, not just telemetry: a user (or an agent helping them) should be able to see protocol weight and trim stanzas before they bloat every session.
@@ -425,7 +435,9 @@ There is no `list_protocols` or `get_protocol`. A protocol is not a catalog row.
 
 Every write result includes `affects_projects`. Previews may include the same list. After an authoring write, if the working-folder basename is in that list, rematerialize and start a new session. Agents do not delete: do not call `delete_*` unless the user explicitly asked to delete that object. Findings are not a cleanup prompt.
 
-Every mutating map tool takes `working_folder` (0.13, §6.3). Inspect tools do not.
+Every mutating tool takes `working_folder`: map writes since 0.13, shared vault objects since 0.15 (§6.3). Inspect tools do not.
+
+Every advertised tool declares all four MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), matched to what its handler does (0.15). Reads are read-only and idempotent, `create_*` is not idempotent, `delete_*` and `remove_pack` are destructive, and nothing is open-world: since 0.14 there is no network and no subprocess, and `fetch_pack` resolves a pack from a local path or a configured local source.
 
 Deliberately absent: `rename_stanza` / `rename_role` / `rename_project`, which are not in v1. Registering the first admin is not a tool; it is `insitu init --admin` on the command line.
 

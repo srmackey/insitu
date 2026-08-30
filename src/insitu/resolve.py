@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from insitu.identity import (
@@ -86,15 +87,34 @@ def _identity_error(value: str, exc: InvalidIdentity) -> dict:
     }
 
 
+_LEADING_H1 = re.compile(r"\A\s*#[ \t]+[^\n]*\n?")
+
+
+def composed_body(stanza: Stanza) -> str:
+    """The stanza body as it appears in a composed protocol, always headed.
+
+    The heading comes from frontmatter `title`, and a leading H1 already in
+    the body is replaced rather than doubled. Composition joins bodies with a
+    blank line, so a body that opened without a heading used to read as more
+    prose under the stanza before it. There is no way to author that now.
+    """
+    body = _LEADING_H1.sub("", stanza.content or "", count=1).strip()
+    heading = "# " + stanza.title.rstrip()
+    if not body:
+        return heading
+    return heading + "\n\n" + body
+
+
 def _core_item(stanza: Stanza) -> dict:
+    content = composed_body(stanza)
     item = {
         "id": stanza.id,
         "title": stanza.title,
         "description": stanza.description,
         "tags": list(stanza.tags),
-        "content": stanza.content,
+        "content": content,
     }
-    item.update(size_fields(stanza.content))
+    item.update(size_fields(content))
     return item
 
 

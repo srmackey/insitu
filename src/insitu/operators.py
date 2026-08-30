@@ -214,6 +214,72 @@ def check_map_write(
     )
 
 
+def check_vault_write(
+    root: str | Path,
+    *,
+    working_folder: str | Path,
+    used_by: list[str],
+    kind: str,
+    object_id: str,
+) -> tuple[dict | None, str | None]:
+    """Gate a write to a shared vault object: a stanza, a role, or a skill.
+
+    Authoring is open to every chair. What is gated is reach: a write that
+    changes what a map other than this chair's composes is composition
+    authority, and that is admin. So creating is always allowed, editing an
+    object only this chair carries is allowed, and editing one that four
+    other maps compose is not.
+
+    `used_by` is the set of maps that compose the object today. Returns
+    (refusal, warning), matching check_map_write.
+    """
+    folder = str(working_folder or "").strip()
+    if not folder:
+        return (
+            {
+                "ok": False,
+                "error": "working_folder_required",
+                "detail": (
+                    "vault writes need the folder this session sits in, so the "
+                    "vault can tell which chair is asking"
+                ),
+            },
+            None,
+        )
+
+    config = load_operators(root)
+    if not config.initialized:
+        return None, PRE_INIT_WARNING
+
+    chair = chair_key(folder)
+    if config.is_admin(chair):
+        return None, None
+
+    others = sorted({_norm(key) for key in used_by} - {chair})
+    if not others:
+        return None, None
+
+    return (
+        {
+            "ok": False,
+            "error": "shared_object",
+            "chair": chair,
+            "kind": kind,
+            "id": object_id,
+            "used_by": others,
+            "working_folder": folder,
+            "detail": (
+                f"chair {chair!r} is bound, and this {kind} is composed by "
+                + ", ".join(repr(key) for key in others)
+                + ". Changing it would change what those chairs compose, "
+                "which is an admin action. Create your own instead, or ask "
+                "an admin chair."
+            ),
+        },
+        None,
+    )
+
+
 def check_grant(root: str | Path, *, working_folder: str | Path) -> dict | None:
     """Only an admin chair may change another map's class."""
     folder = str(working_folder or "").strip()

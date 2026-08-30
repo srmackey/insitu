@@ -150,10 +150,10 @@ def test_compose_order_is_global_composed_then_role_then_map(vault: Path) -> Non
     ]
     bodies = [item["content"] for item in result["core"]]
     assert bodies == [
-        "VOICE-BODY",
-        "GLOBAL-CORE-BODY",
-        "CLERK-CORE-BODY",
-        "PROJECT-CORE-BODY",
+        "# Voice\n\nVOICE-BODY",
+        "# Summary first\n\nGLOBAL-CORE-BODY",
+        "# Clerk intake\n\nCLERK-CORE-BODY",
+        "# How I work with AI\n\nPROJECT-CORE-BODY",
     ]
 
 
