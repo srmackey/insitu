@@ -74,6 +74,28 @@ def projects_composed_including(vault: Vault, stanza_id: str) -> list[str]:
     return found
 
 
+def projects_carrying_role(vault: Vault, role_id: str) -> list[str]:
+    """Maps whose subscription lists this role.
+
+    A role is a bundle, so editing its membership changes what every one of
+    these maps composes without touching any of them.
+    """
+    return [
+        key
+        for key in project_keys(vault)
+        if role_id in list(vault.projects[key].roles or [])
+    ]
+
+
+def projects_listing_skill(vault: Vault, skill_id: str) -> list[str]:
+    """Maps whose subscription lists this skill."""
+    return [
+        key
+        for key in project_keys(vault)
+        if skill_id in list(vault.projects[key].skills or [])
+    ]
+
+
 def stanza_already_in_protocol(
     vault: Vault,
     project: str,

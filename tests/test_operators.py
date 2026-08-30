@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from helpers import write_project, write_stanza
+from helpers import write_project, write_role, write_skill, write_stanza
 
 from insitu.cli import build_parser, main
 from insitu.operators import (
@@ -469,3 +469,198 @@ def test_materialize_without_a_project_stays_folder_local(
     init_admin(vault, "river-ledger")
     result = served.materialize(working_folder=str(_chair(tmp_path, "alpha")))
     assert result["ok"] is True
+
+
+# --- the reach gate on shared vault objects --------------------------------
+#
+# Stanzas, roles, and skills belong to no single map. Authoring stays open to
+# every chair; changing something other maps already compose is composition
+# authority, which is admin.
+
+
+@pytest.fixture
+def shared(vault: Path, monkeypatch):
+    """A vault where alpha and beta both compose one stanza, plus a shared role."""
+    import insitu.server as server
+
+    write_stanza(vault, "methodology/shared-rule", "Body.")
+    write_stanza(vault, "methodology/alpha-only", "Body.")
+    write_stanza(vault, "methodology/orphan-rule", "Body.")
+    write_role(vault, "clerk", core=["methodology/shared-rule"])
+    write_skill(vault, "shared-skill", "Body.")
+    write_project(
+        vault, "alpha", core=["methodology/alpha-only"], roles=["clerk"],
+        skills=["shared-skill"], include_global=False,
+    )
+    write_project(vault, "beta", roles=["clerk"], skills=["shared-skill"],
+                  include_global=False)
+    monkeypatch.setattr(server, "_process_vault", vault.resolve(), raising=False)
+    return server
+
+
+def test_a_bound_chair_may_author_a_new_stanza(shared, vault: Path, tmp_path: Path) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.create_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/new-rule",
+        title="New rule",
+        description="Authored from a bound chair",
+        content="Body.",
+        why="authoring is open to any chair",
+    )
+    assert result["ok"] is True
+
+
+def test_a_bound_chair_may_edit_a_stanza_only_its_own_map_composes(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/alpha-only",
+        why="only this chair composes it",
+        content="Revised body.",
+    )
+    assert result["ok"] is True
+
+
+def test_a_bound_chair_may_edit_a_stanza_no_map_composes(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/orphan-rule",
+        why="nothing composes it yet",
+        content="Revised body.",
+    )
+    assert result["ok"] is True
+
+
+def test_a_bound_chair_cannot_edit_a_stanza_another_map_composes(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/shared-rule",
+        why="should be refused",
+        content="Revised body.",
+    )
+    assert result["ok"] is False
+    assert result["error"] == "shared_object"
+    assert result["kind"] == "stanza"
+    assert result["used_by"] == ["beta"]
+
+
+def test_the_refused_stanza_is_left_alone(shared, vault: Path, tmp_path: Path) -> None:
+    init_admin(vault, "river-ledger")
+    path = vault / "stanzas" / "methodology" / "shared-rule.md"
+    before = path.read_text(encoding="utf-8")
+    shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/shared-rule",
+        why="should be refused",
+        content="Revised body.",
+    )
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_an_admin_chair_may_edit_a_shared_stanza(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "alpha")
+    result = shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/shared-rule",
+        why="admin may change what other chairs compose",
+        content="Revised body.",
+    )
+    assert result["ok"] is True
+
+
+def test_a_bound_chair_cannot_change_a_role_another_map_carries(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_role(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        role_id="clerk",
+        description="Renamed from a bound chair",
+    )
+    assert result["ok"] is False
+    assert result["error"] == "shared_object"
+    assert result["kind"] == "role"
+    assert result["used_by"] == ["beta"]
+
+
+def test_a_bound_chair_cannot_delete_a_shared_stanza(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.delete_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/shared-rule",
+        why="should be refused",
+        confirm=True,
+    )
+    assert result["ok"] is False
+    assert result["error"] == "shared_object"
+    assert (vault / "stanzas" / "methodology" / "shared-rule.md").exists()
+
+
+def test_a_bound_chair_cannot_edit_a_skill_another_map_lists(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_skill(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        skill_id="shared-skill",
+        description="Rewritten from a bound chair",
+    )
+    assert result["ok"] is False
+    assert result["error"] == "shared_object"
+    assert result["kind"] == "skill"
+
+
+def test_a_vault_write_without_a_working_folder_is_a_structured_miss(
+    shared, vault: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.update_stanza(
+        working_folder="",
+        stanza_id="methodology/shared-rule",
+        why="no chair named",
+        content="Revised body.",
+    )
+    assert result["ok"] is False
+    assert result["error"] == "working_folder_required"
+
+
+def test_a_pre_init_vault_still_writes_and_carries_the_warning(
+    shared, tmp_path: Path
+) -> None:
+    result = shared.update_stanza(
+        working_folder=str(_chair(tmp_path, "alpha")),
+        stanza_id="methodology/shared-rule",
+        why="pre-init behaves as before classes existed",
+        content="Revised body.",
+    )
+    assert result["ok"] is True
+    assert result["warning"] == PRE_INIT_WARNING
+
+
+def test_read_only_validate_needs_no_class(shared, vault: Path, tmp_path: Path) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.validate(working_folder=str(_chair(tmp_path, "alpha")))
+    assert "ok" in result
+
+
+def test_validate_fix_is_refused_for_a_bound_chair(
+    shared, vault: Path, tmp_path: Path
+) -> None:
+    init_admin(vault, "river-ledger")
+    result = shared.validate(working_folder=str(_chair(tmp_path, "alpha")), fix=True)
+    assert result["ok"] is False
+    assert result["error"] == "shared_object"
+    assert result["kind"] == "vault"
