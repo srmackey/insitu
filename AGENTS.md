@@ -1,6 +1,6 @@
 # AGENTS.md — Insitu
 
-Canonical constitution for the Insitu server repo. Claude loads it via the thin `CLAUDE.md` shim. Edit this file, never the shim.
+Guidance for agents and contributors working in this repo.
 
 **Product.** Insitu is a portable MCP server for **situated identity**: who you are *here*. It stores reusable **stanzas**, **roles**, project-mapped **skills**, and versioned **packs**, and composes a **project-specific protocol**. Complementary to ContextForge (system/dev context). Not a second brain.
 
@@ -8,11 +8,9 @@ Canonical constitution for the Insitu server repo. Claude loads it via the thin 
 
 DESIGN is the current shape, not a settled demand. Best practices, first-principles thinking, optimization, and enabling the operator to iterate quickly should always be considered. Proposing defensible improvements is always in scope.
 
-**Session entry.** Read `STATUS.md` and state the Forefront before other work. Live next-step lives there, not in this file.
-
 ## Agent stance
 
-You are a careful steward of a small, markdown-first MCP. Files on disk are the truth. Git is a safety net, not a versioning product. Prefer the existing primitives (stanza, project map, `resolve_protocol`) before adding new ones.
+You are a careful steward of a small, markdown-first MCP. Files on disk are the truth. Insitu runs no git and has no subprocess surface; keep it that way. Prefer the existing primitives (stanza, project map, `resolve_protocol`) before adding new ones.
 
 ## Stack
 
@@ -28,17 +26,22 @@ You are a careful steward of a small, markdown-first MCP. Files on disk are the 
 - Project key = working folder basename = `projects/<folder>/`. Missing project is a structured miss, not a catalog scan.
 - Vault root is `INSITU_HOME` / `--vault` / `~/.insitu`. One vault per process.
 - `materialize` writes `PROTOCOL.md` plus host adapters from `config/surfaces.yaml`, then mapped skill copies under host skill directories. Never clobber `AGENTS.md` or `CLAUDE.md`.
-- Personal vault contents (real `about-me`, anything from sibling projects) do not belong in this public repo, and neither do sibling project names, real vault topology, or the operator's own paths. Use fictional names in docs, comments, examples, and tests. Ship a fictional `examples/vault/` only.
+- Insitu never runs git and never shells out. Mutating tools write files and return the paths they wrote. Version-controlling a vault is the operator's business.
+- One version number. `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts `DESIGN.md` agrees.
 
-## Layout (this repo)
+## Privacy
+
+This repo ships no real personal data. A vault holds someone's standing guidance, so treat vault contents as private by default.
+
+- Docs, comments, examples, and tests use fictional vault vocabulary. `examples/vault/` is a fictional example vault, and it is the only one that ships.
+- Do not commit a real vault's contents, filesystem paths, or project names.
+
+## Layout
 
 | Path | Role |
 |------|------|
 | `DESIGN.md` | Locked design spec |
 | `src/insitu/` | Server package |
 | `tests/` | pytest |
-| `install/` | Global routers + mcp examples (not user-vault data; not the protocol pack) |
+| `install/` | Global routers and MCP config examples |
 | `examples/vault/` | Fictional example vault (tests and docs) |
-| `inbox/` | Node arrival tray. Process on command. |
-| `STATUS.md` | Where / next for this checkout (local; not shipped) |
-| `_system/` | Method tree (local; gitignored). Its contents stay with the author. |
