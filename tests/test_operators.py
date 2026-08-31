@@ -471,6 +471,27 @@ def test_materialize_without_a_project_stays_folder_local(
     assert result["ok"] is True
 
 
+def test_admin_cannot_materialize_a_project_into_another_chairs_folder(
+    served, vault: Path, tmp_path: Path
+) -> None:
+    """The gate waves an admin through, so the destination check is what stops this.
+
+    A sweep passes each project's own checkout. Naming one project while
+    pointing at another's folder is the slip this refuses.
+    """
+    init_admin(vault, "river-ledger")
+    own = _chair(tmp_path, "river-ledger")
+    (own / "PROTOCOL.md").write_text("ADMIN-OWN-PROTOCOL", encoding="utf-8")
+
+    result = served.materialize(working_folder=str(own), project="beta")
+
+    assert result["ok"] is False
+    assert result["error"] == "folder_project_mismatch"
+    assert result["project"] == "beta"
+    assert result["folder"] == "river-ledger"
+    assert (own / "PROTOCOL.md").read_text(encoding="utf-8") == "ADMIN-OWN-PROTOCOL"
+
+
 # --- the reach gate on shared vault objects --------------------------------
 #
 # Stanzas, roles, and skills belong to no single map. Authoring stays open to

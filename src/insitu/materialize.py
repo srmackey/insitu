@@ -253,6 +253,18 @@ def _render_cursor_adapter(project: str, protocol_text: str) -> str:
     )
 
 
+def _folder_key(work: Path) -> str | None:
+    """The project key this folder is the checkout for, or None if it is not one.
+
+    Same normalization the key itself gets when no project is named, so the
+    comparison is between two keys rather than a key and a raw basename.
+    """
+    try:
+        return validate_project_key(work.name)
+    except InvalidIdentity:
+        return None
+
+
 def materialize(
     vault_or_root: Vault | Path | str,
     working_folder: str | Path,
@@ -260,7 +272,6 @@ def materialize(
 ) -> dict:
     vault = _as_vault(vault_or_root)
     work = Path(working_folder)
-    work.mkdir(parents=True, exist_ok=True)
 
     raw_key = project if project is not None else work.name
     try:
@@ -272,6 +283,31 @@ def materialize(
             "value": raw_key,
             "reason": str(exc),
         }
+
+    # A named project must be the project this folder belongs to. Everywhere
+    # else working_folder identifies the caller; here it is the destination,
+    # and the operator gate only compares the two for a bound chair. An admin
+    # is waved past that check, so without this one an admin sweep can write
+    # one project's protocol over another project's checkout, and the skill
+    # prune below would delete the generated skills it found there. Project key
+    # is defined as the folder basename, so a mismatch is an error for every
+    # class, including a pre-init vault.
+    if project is not None and _folder_key(work) != key:
+        return {
+            "ok": False,
+            "error": "folder_project_mismatch",
+            "project": key,
+            "folder": work.name,
+            "working_folder": str(work),
+            "detail": (
+                f"working folder {work.name!r} is not the checkout for {key!r}. "
+                "materialize writes into the folder it is given, so that "
+                "folder's basename must be the project key. A sweep names each "
+                "project's own checkout."
+            ),
+        }
+
+    work.mkdir(parents=True, exist_ok=True)
 
     resolved = resolve_protocol(vault, key)
     if not resolved["ok"]:
