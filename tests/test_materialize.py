@@ -161,3 +161,79 @@ def test_materialize_skips_hanging_adapter_write(
     assert (work / "PROTOCOL.md").is_file()
     assert "adapter_locked" in result["warnings"]
     assert result["adapters"] == []
+
+
+# --- the destination must be the named project's checkout ------------------
+#
+# Everywhere else working_folder identifies the calling chair. Here it is the
+# folder that gets written, and the operator gate only compares the two for a
+# bound chair. These cover the admin case the gate waves through.
+
+
+def test_a_named_project_must_match_the_folder_it_is_written_into(
+    vault: Path, tmp_path: Path
+) -> None:
+    _seed(vault)
+    work = tmp_path / "harbor"
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is False
+    assert result["error"] == "folder_project_mismatch"
+    assert result["project"] == "river-ledger"
+    assert result["folder"] == "harbor"
+    assert not work.exists(), "a refused call must not create the folder"
+
+
+def test_a_mismatch_leaves_an_existing_checkout_untouched(
+    vault: Path, tmp_path: Path
+) -> None:
+    """The prune is the destructive half: it removes stamped skills the named
+    project does not compose, which is every skill when that project has none."""
+    _seed(vault)
+    (vault / "config" / "surfaces.yaml").write_text(
+        yaml.safe_dump({"surfaces": ["grok"]}),
+        encoding="utf-8",
+    )
+    work = tmp_path / "harbor"
+    work.mkdir()
+    protocol = work / "PROTOCOL.md"
+    protocol.write_text("HARBOR-PROTOCOL", encoding="utf-8")
+    skill_dir = work / ".grok" / "skills" / "dock-tool"
+    skill_dir.mkdir(parents=True)
+    skill_md = skill_dir / "SKILL.md"
+    # Stamped by the renderer rather than a literal, so the stamp stays real if
+    # its format moves, and so this source carries no generated-file marker.
+    skill_md.write_text(
+        materialize_mod.render_skill_copy(
+            "---\nname: dock-tool\n---\n\nDOCK-TOOL-BODY\n",
+            vault,
+            "harbor",
+            "dock-tool",
+        ),
+        encoding="utf-8",
+    )
+    assert materialize_mod.has_insitu_skill_stamp(
+        skill_md.read_text(encoding="utf-8")
+    ), "the prune only reaches stamped skills, so the fixture must be stamped"
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is False
+    assert result["error"] == "folder_project_mismatch"
+    assert protocol.read_text(encoding="utf-8") == "HARBOR-PROTOCOL"
+    assert skill_md.is_file(), "a refused call must not prune the folder's skills"
+
+
+def test_a_mixed_case_folder_still_matches_its_lowercase_key(
+    vault: Path, tmp_path: Path
+) -> None:
+    """Folder basenames may be mixed-case; stored keys are lowercase."""
+    _seed(vault)
+    work = tmp_path / "River-Ledger"
+    work.mkdir()
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is True
+    assert (work / "PROTOCOL.md").is_file()
