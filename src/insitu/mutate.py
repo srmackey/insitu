@@ -171,32 +171,8 @@ def _write_role_file(vault_root: Path, role_id: str, data: dict[str, Any]) -> Pa
     return path
 
 
-def _frontmatter_roles(meta: dict[str, Any]) -> list[str]:
-    roles = meta.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-    return [str(item) for item in roles]
 
 
-def _add_frontmatter_role(path: Path, role_id: str) -> None:
-    post = read_frontmatter(path)
-    meta = dict(post.metadata or {})
-    roles = _frontmatter_roles(meta)
-    if role_id not in roles:
-        roles.append(role_id)
-    meta["roles"] = roles
-    path.write_text(_dump_markdown(meta, post.content or ""), encoding="utf-8")
-
-
-def _remove_frontmatter_role(path: Path, role_id: str) -> None:
-    post = read_frontmatter(path)
-    meta = dict(post.metadata or {})
-    roles = [item for item in _frontmatter_roles(meta) if item != role_id]
-    if roles:
-        meta["roles"] = roles
-    else:
-        meta.pop("roles", None)
-    path.write_text(_dump_markdown(meta, post.content or ""), encoding="utf-8")
 
 
 def _preview_gate(confirm: bool, expected: dict | None, plan: dict) -> dict | None:
@@ -222,7 +198,6 @@ def create_stanza(
     content: str,
     why: str,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
     try:
         sid = validate_stanza_id(stanza_id)
@@ -244,8 +219,6 @@ def create_stanza(
     }
     if tags:
         meta["tags"] = list(tags)
-    if roles:
-        meta["roles"] = list(roles)
     today = _today()
     meta["created"] = today
     meta["updated"] = today
@@ -270,7 +243,6 @@ def update_stanza(
     description: str | None = None,
     content: str | None = None,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
     try:
         sid = validate_stanza_id(stanza_id)
@@ -284,7 +256,7 @@ def update_stanza(
     stanza = vault.stanzas.get(sid)
     if stanza is None:
         return {"ok": False, "error": "missing_stanza", "id": sid}
-    if all(value is None for value in (title, description, content, tags, roles)):
+    if all(value is None for value in (title, description, content, tags)):
         return {"ok": False, "error": "no_changes", "id": sid}
     post = read_frontmatter(stanza.path)
     meta = dict(post.metadata or {})
@@ -298,9 +270,6 @@ def update_stanza(
         changed = True
     if tags is not None and list(tags) != list(stanza.tags):
         meta["tags"] = list(tags)
-        changed = True
-    if roles is not None and list(roles) != list(stanza.roles):
-        meta["roles"] = list(roles)
         changed = True
     if content is not None and _normalize_body(content) != stanza.content:
         body = content
@@ -816,12 +785,6 @@ def delete_role(
         proj = vault.projects[key]
         roles = [item for item in proj.roles if item != rid]
         paths.append(_write_map(proj.path, proj.raw, roles=roles))
-    for sid in plan["expected"]["stanzas"]:
-        stanza = vault.stanzas.get(sid)
-        if stanza is None:
-            continue
-        _remove_frontmatter_role(stanza.path, rid)
-        paths.append(stanza.path)
     role_path = vault.roles[rid].path
     role_path.unlink(missing_ok=True)
     paths.append(role_path)
@@ -912,10 +875,6 @@ def create_role(
     data["on_demand"] = on_demand_ids
     path = _write_role_file(vault_root, rid, data)
     paths = [path]
-    for sid in core_ids + on_demand_ids:
-        stanza = vault.stanzas[sid]
-        _add_frontmatter_role(stanza.path, rid)
-        paths.append(stanza.path)
     reviewed = files_written(vault_root, paths)
     result = {
         "ok": True,
@@ -1074,15 +1033,6 @@ def update_role(
     if description is not None:
         data["description"] = description
     paths = [_write_role_file(vault_root, rid, data)]
-    for sid in sorted(final_members - original_members):
-        _add_frontmatter_role(vault.stanzas[sid].path, rid)
-        paths.append(vault.stanzas[sid].path)
-    for sid in sorted(original_members - final_members):
-        stanza = vault.stanzas.get(sid)
-        if stanza is None:
-            continue
-        _remove_frontmatter_role(stanza.path, rid)
-        paths.append(stanza.path)
     reviewed = files_written(vault_root, paths)
     result = {**plan, "ok": True, "written": True}
     result.update(reviewed)

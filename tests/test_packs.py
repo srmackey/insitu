@@ -510,3 +510,38 @@ def test_an_on_demand_only_import_still_validates(tmp_path: Path) -> None:
     report = validate(vault)
     assert report["ok"] is True
     assert [i for i in report["issues"] if i["kind"] == "missing_stanza"] == []
+
+
+def _make_theme(repo: Path, pack_id: str) -> None:
+    path = repo / pack_id / "pack.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["kind"] = "theme"
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+def test_theme_pack_refuses_whole_capability_install(tmp_path: Path) -> None:
+    """A theme pack is a menu, so subscribing to the whole thing is a request it
+    cannot answer. The refusal names the members instead of relying on an empty
+    role file to make the install silently do nothing."""
+    vault, repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    _make_theme(repo, "harbor-kit")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+
+    result = install_capability(vault, "alpha", "harbor-kit", "0.1.0")
+    assert result["ok"] is False
+    assert result["error"] == "theme_pack_not_capability"
+    assert result["members"] == ["methodology/dock-rule"]
+    assert result["skills"] == ["close-hatch"]
+
+    alpha = get_project(vault, "alpha")
+    assert alpha["imports"] == []
+
+
+def test_theme_pack_still_installs_one_member(tmp_path: Path) -> None:
+    vault, repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    _make_theme(repo, "harbor-kit")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+
+    result = install_stanza(vault, "alpha", "methodology/dock-rule", "0.1.0", pack="harbor-kit")
+    assert result["ok"] is True
+    assert _core_ids(resolve_protocol(vault, "alpha")) == ["methodology/dock-rule"]

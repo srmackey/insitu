@@ -209,7 +209,6 @@ def test_role_add_member_preview_and_confirm(vault: Path) -> None:
         "methodology/clerk-intake",
         "CLERK",
         title="Clerk intake",
-        extra_fm={"roles": ["clerk"]},
     )
     write_stanza(vault, "methodology/clerk-extra", "EXTRA", title="Clerk extra")
     write_role(vault, "clerk", name="Clerk", core=["methodology/clerk-intake"])
@@ -237,8 +236,7 @@ def test_role_add_member_preview_and_confirm(vault: Path) -> None:
     assert result["affects_projects"] == ["river-ledger"]
     after_role = yaml.safe_load((vault / "roles" / "clerk.yaml").read_text(encoding="utf-8"))
     assert after_role["core"] == ["methodology/clerk-intake", "methodology/clerk-extra"]
-    loaded = load_vault(vault)
-    assert "clerk" in loaded.stanzas["methodology/clerk-extra"].roles
+    assert result["files"] == ["roles/clerk.yaml"]
     assert (vault / "projects" / "river-ledger" / "map.yaml").read_bytes() == map_before
 
 
@@ -397,15 +395,11 @@ def test_delete_project_removes_directory_only(vault: Path) -> None:
     assert (vault / "stanzas" / "methodology" / "clerk-intake.md").is_file()
 
 
-def test_delete_role_confirm_strips_maps_and_frontmatter(vault: Path) -> None:
-    write_stanza(
-        vault,
-        "methodology/clerk-intake",
-        "C",
-        extra_fm={"roles": ["clerk"]},
-    )
+def test_delete_role_confirm_strips_maps_and_leaves_members(vault: Path) -> None:
+    write_stanza(vault, "methodology/clerk-intake", "C")
     write_role(vault, "clerk", core=["methodology/clerk-intake"])
     write_project(vault, "river-ledger", roles=["clerk"], core=["methodology/clerk-intake"])
+    member_before = (vault / "stanzas" / "methodology" / "clerk-intake.md").read_bytes()
     preview = delete_role(vault, "clerk")
     result = delete_role(vault, "clerk", confirm=True, expected=preview["expected"])
     assert result["ok"] is True
@@ -415,8 +409,7 @@ def test_delete_role_confirm_strips_maps_and_frontmatter(vault: Path) -> None:
     )
     assert "clerk" not in river.get("roles", [])
     assert river["core"] == ["methodology/clerk-intake"]
-    loaded = load_vault(vault)
-    assert "clerk" not in loaded.stanzas["methodology/clerk-intake"].roles
+    assert member_before == (vault / "stanzas" / "methodology" / "clerk-intake.md").read_bytes()
 
 
 def test_update_role_name_writes_now(vault: Path) -> None:

@@ -49,7 +49,6 @@ def _stanza_index_row(stanza, origin: str = "native") -> dict:
         "title": stanza.title,
         "description": stanza.description,
         "tags": list(stanza.tags),
-        "roles": list(stanza.roles),
         "origin": origin,
     }
     row.update(size_fields(stanza.content))
@@ -117,7 +116,6 @@ def list_stanzas(
     vault_or_root: Vault | Path | str,
     prefix: str | None = None,
     tag: str | None = None,
-    role: str | None = None,
 ) -> dict:
     vault = _as_vault(vault_or_root)
     prefix_norm: str | None = None
@@ -127,12 +125,6 @@ def list_stanzas(
             prefix_norm = validate_stanza_id(trimmed)
         except InvalidIdentity as exc:
             return _identity_error(prefix, exc)
-    role_norm: str | None = None
-    if role:
-        try:
-            role_norm = validate_role_id(role)
-        except InvalidIdentity as exc:
-            return _identity_error(role, exc)
 
     rows = []
     for sid in sorted(vault.stanzas):
@@ -140,8 +132,6 @@ def list_stanzas(
         if prefix_norm and not _matches_prefix(sid, prefix_norm):
             continue
         if tag and tag not in stanza.tags:
-            continue
-        if role_norm and role_norm not in stanza.roles:
             continue
         rows.append(_stanza_index_row(stanza, origin="native"))
     for pack_id in sorted(vault.library):
@@ -153,8 +143,6 @@ def list_stanzas(
                 if prefix_norm and not _matches_prefix(sid, prefix_norm):
                     continue
                 if tag and tag not in stanza.tags:
-                    continue
-                if role_norm and role_norm not in stanza.roles:
                     continue
                 rows.append(_stanza_index_row(stanza, origin=origin))
     return {"ok": True, "stanzas": rows}

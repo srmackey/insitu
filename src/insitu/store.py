@@ -111,7 +111,6 @@ def load_stanzas_tree(stanzas_root: Path) -> dict[str, Stanza]:
             tags=[str(t) for t in tags],
             content=_normalize_body(post.content or ""),
             frontmatter_id=frontmatter_id,
-            roles=_as_str_list(meta.get("roles")),
         )
     return stanzas
 

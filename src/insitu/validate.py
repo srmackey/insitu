@@ -161,18 +161,6 @@ def _collect_issues(vault: Vault) -> list[dict]:
                     "fields": missing_fields,
                 }
             )
-        for raw_role in stanza.roles:
-            try:
-                validate_role_id(raw_role)
-            except InvalidIdentity:
-                issues.append(
-                    {
-                        "kind": "invalid_identity",
-                        "id": sid,
-                        "role": raw_role,
-                    }
-                )
-
     for rid, role in sorted(vault.roles.items()):
         for list_name in ("core", "on_demand"):
             _check_id_list(
@@ -182,47 +170,6 @@ def _collect_issues(vault: Vault) -> list[dict]:
                 list_name=list_name,
                 role=rid,
             )
-
-    for rid, role in sorted(vault.roles.items()):
-        for sid in _role_member_ids(role):
-            stanza = vault.stanzas.get(sid)
-            if stanza is None:
-                continue
-            declared: list[str] = []
-            for raw_role in stanza.roles:
-                try:
-                    declared.append(validate_role_id(raw_role))
-                except InvalidIdentity:
-                    continue
-            if rid not in declared:
-                issues.append(
-                    {
-                        "kind": "role_membership",
-                        "role": rid,
-                        "id": sid,
-                        "detail": "role_file_lists_stanza",
-                    }
-                )
-
-    for sid, stanza in sorted(vault.stanzas.items()):
-        for raw_role in stanza.roles:
-            try:
-                role_id = validate_role_id(raw_role)
-            except InvalidIdentity:
-                continue
-            role = vault.roles.get(role_id)
-            listed = False
-            if role is not None:
-                listed = sid in role.core or sid in role.on_demand
-            if not listed:
-                issues.append(
-                    {
-                        "kind": "role_membership",
-                        "role": role_id,
-                        "id": sid,
-                        "detail": "stanza_lists_role",
-                    }
-                )
 
     for key, proj in sorted(vault.projects.items(), key=lambda kv: (kv[0] != GLOBAL_PROJECT, kv[0])):
         for list_name in ("core", "on_demand"):
@@ -577,41 +524,6 @@ def _legacy_available_findings(vault: Vault) -> list[dict]:
     return found
 
 
-def _write_stanza_role(path: Path, role_id: str) -> None:
-    post = read_frontmatter(path)
-    roles = post.metadata.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-    roles = [str(item) for item in roles]
-    if role_id not in roles:
-        roles.append(role_id)
-    post.metadata["roles"] = roles
-    dumped = frontmatter.dumps(post)
-    if not dumped.endswith("\n"):
-        dumped += "\n"
-    path.write_text(dumped, encoding="utf-8")
-
-
-def _apply_membership_fixes(vault: Vault) -> list[dict]:
-    fixed: list[dict] = []
-    for rid, role in sorted(vault.roles.items()):
-        for sid in _role_member_ids(role):
-            stanza = vault.stanzas.get(sid)
-            if stanza is None:
-                continue
-            declared: list[str] = []
-            for raw_role in stanza.roles:
-                try:
-                    declared.append(validate_role_id(raw_role))
-                except InvalidIdentity:
-                    declared.append(raw_role)
-            if rid in declared:
-                continue
-            _write_stanza_role(stanza.path, rid)
-            fixed.append({"kind": "role_membership", "role": rid, "id": sid})
-    return fixed
-
-
 def _apply_duplicate_fixes(vault: Vault) -> list[dict]:
     fixed: list[dict] = []
     keys: list[str] = []
@@ -699,9 +611,6 @@ def _paths_for_fixes(vault: Vault, applied: list[dict]) -> list[Path]:
             path = vault.root / "projects" / str(item["project"]) / "map.yaml"
         elif item.get("kind") == "legacy_available_key" and item.get("path"):
             path = Path(str(item["path"]))
-        elif item.get("kind") == "role_membership" and item.get("id"):
-            rel = Path(*str(item["id"]).split("/"))
-            path = vault.root / "stanzas" / rel.with_suffix(".md")
         if path is None or path in seen:
             continue
         seen.add(path)
@@ -742,8 +651,6 @@ def validate(vault_or_root: Vault | Path | str, fix: bool = False) -> dict:
         applied.extend(_apply_duplicate_fixes(vault))
         vault = load_vault(vault.root)
         applied.extend(_apply_legacy_key_fixes(vault))
-        vault = load_vault(vault.root)
-        applied.extend(_apply_membership_fixes(vault))
         vault = load_vault(vault.root)
         issues = _collect_issues(vault)
         if applied:

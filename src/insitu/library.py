@@ -512,6 +512,20 @@ def install_capability(
     if isinstance(resolved, dict):
         return resolved
     vault, concrete = resolved
+    shelved = vault.library[pack_id][concrete]
+    if str(shelved.pack_yaml.get("kind") or "").strip().lower() == "theme":
+        # A theme pack is a menu. Its members are meant to be taken one at a
+        # time, so a whole-capability subscribe is a request the pack cannot
+        # answer. Name the members rather than silently installing nothing.
+        return {
+            "ok": False,
+            "error": "theme_pack_not_capability",
+            "pack": pack_id,
+            "version": concrete,
+            "members": sorted(shelved.stanzas),
+            "skills": sorted(shelved.skills),
+            "detail": "install members individually with install_stanza or install_skill",
+        }
     proj = vault.projects[key]
     stored_version = requested
     records = _append_capability(list(proj.imports), pack_id, stored_version)

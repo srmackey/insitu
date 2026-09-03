@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from helpers import write_project, write_role, write_stanza
@@ -105,7 +106,7 @@ def test_missing_roles_dir_loads_and_resolves(vault: Path) -> None:
     assert [item["id"] for item in result["core"]] == ["interaction/how-i-work-with-ai"]
 
 
-def test_load_roles_project_roles_and_stanza_roles(vault: Path) -> None:
+def test_load_roles_and_project_roles(vault: Path) -> None:
     _seed_composed(vault)
     write_role(
         vault,
@@ -124,8 +125,7 @@ def test_load_roles_project_roles_and_stanza_roles(vault: Path) -> None:
     assert clerk.core == ["methodology/clerk-intake"]
     assert clerk.on_demand == ["methodology/clerk-reference"]
     assert loaded.projects["river-ledger"].roles == ["clerk"]
-    assert loaded.stanzas["methodology/clerk-intake"].roles == ["clerk"]
-    assert loaded.stanzas["interaction/how-i-work-with-ai"].roles == []
+    assert not hasattr(loaded.stanzas["methodology/clerk-intake"], "roles")
 
 
 def test_bad_role_filename_is_skipped(vault: Path) -> None:
@@ -316,9 +316,9 @@ def test_validate_reports_role_file_and_expansion_duplicates(vault: Path) -> Non
     )
 
 
-def test_validate_membership_mismatch_and_fix_writes_frontmatter_only(
-    vault: Path,
-) -> None:
+def test_stale_roles_key_on_a_stanza_is_ignored(vault: Path) -> None:
+    """The frontmatter mirror is gone. An old vault still carrying the key loads,
+    validates clean, and is never rewritten to keep a copy in sync."""
     write_stanza(
         vault,
         "methodology/clerk-intake",
@@ -331,36 +331,25 @@ def test_validate_membership_mismatch_and_fix_writes_frontmatter_only(
         "methodology/orphan-label",
         "ORPHAN-BODY",
         title="Orphan",
-        description="Claims a role it is not in",
+        description="Claims a role no role file backs",
         extra_fm={"roles": ["clerk"]},
     )
+    orphan_path = vault / "stanzas" / "methodology" / "orphan-label.md"
+    orphan_before = orphan_path.read_bytes()
     role_path = write_role(vault, "clerk", core=["methodology/clerk-intake"])
-    write_project(vault, "river-ledger", roles=["clerk"])
     role_before = role_path.read_bytes()
+    write_project(vault, "river-ledger", roles=["clerk"])
 
     report = validate(vault, fix=False)
-    assert report["ok"] is False
-    membership = [i for i in report["issues"] if i["kind"] == "role_membership"]
-    assert any(i["id"] == "methodology/clerk-intake" for i in membership)
-    assert any(i["id"] == "methodology/orphan-label" for i in membership)
-    assert role_path.read_bytes() == role_before
+    assert report["ok"] is True
+    assert not [i for i in report["issues"] if i["kind"] == "role_membership"]
 
     fixed = validate(vault, fix=True)
+    assert fixed["ok"] is True
+    assert fixed.get("fixed", []) == []
+    assert orphan_path.read_bytes() == orphan_before
     assert role_path.read_bytes() == role_before
-    assert any(
-        item.get("id") == "methodology/clerk-intake" for item in fixed.get("fixed", [])
-    )
-    loaded = load_vault(vault)
-    assert "clerk" in loaded.stanzas["methodology/clerk-intake"].roles
-    assert loaded.roles["clerk"].core == ["methodology/clerk-intake"]
-    leftover = [
-        i
-        for i in fixed["issues"]
-        if i["kind"] == "role_membership" and i["id"] == "methodology/orphan-label"
-    ]
-    assert leftover
-    assert "methodology/orphan-label" not in loaded.roles["clerk"].core
-    assert "methodology/orphan-label" not in loaded.roles["clerk"].on_demand
+    assert load_vault(vault).roles["clerk"].core == ["methodology/clerk-intake"]
 
 
 def test_list_roles_and_get_role(vault: Path) -> None:
@@ -393,18 +382,18 @@ def test_list_roles_and_get_role(vault: Path) -> None:
     assert missing["id"] == "ghost"
 
 
-def test_list_stanzas_includes_roles_and_role_filter(vault: Path) -> None:
+def test_list_stanzas_carries_no_role_membership(vault: Path) -> None:
+    """Membership is the role file's fact. get_role answers it from the source."""
     _seed_composed(vault)
-    all_rows = list_stanzas(vault)
-    by_id = {row["id"]: row for row in all_rows["stanzas"]}
-    assert by_id["methodology/clerk-intake"]["roles"] == ["clerk"]
-    assert by_id["interaction/how-i-work-with-ai"]["roles"] == []
+    rows = list_stanzas(vault)["stanzas"]
+    assert rows
+    assert all("roles" not in row for row in rows)
 
-    filtered = list_stanzas(vault, role="clerk")
-    assert {row["id"] for row in filtered["stanzas"]} == {
-        "methodology/clerk-intake",
-        "methodology/clerk-reference",
-    }
+    with pytest.raises(TypeError):
+        list_stanzas(vault, role="clerk")
+
+    members = get_role(vault, "clerk")
+    assert [item["id"] for item in members["core"]] == ["methodology/clerk-intake"]
 
 
 def test_where_used_includes_role_files_and_role_expansion(vault: Path) -> None:

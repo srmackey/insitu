@@ -1,8 +1,8 @@
 # Insitu — Design Spec
 
-**Version 0.15 · locked 2026-08-30** (supersedes 0.14 · 2026-08-30)
+**Version 0.16 · in flight 2026-09-03** (supersedes 0.15 · 2026-08-30)
 
-The operator gate reaches shared vault objects, and every advertised tool declares its MCP annotations (0.15). Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. The spec version and the package version are one number: `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts this header agrees. Detail is kept with the author, not in this repo.
+A stanza no longer declares its own roles, and a theme pack refuses a whole-capability install (0.16). The operator gate reaches shared vault objects, and every advertised tool declares its MCP annotations (0.15). Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the stanza install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack stanzas (0.12). `project_status` remains 0.10. Pack-install remains 0.9. The spec version and the package version are one number: `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts this header agrees. Detail is kept with the author, not in this repo.
 
 Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. A **stanza** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
@@ -49,7 +49,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not stored as an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
 | **Project** | A named binding that selects which stanzas make up a protocol. The project key is the directory name under `projects/`. |
 | **`_global`** | A distinguished project whose composed core is automatically included in every other project's protocol (unless the project opts out). Keep it very small: only stanzas that truly transcend projects. |
-| **Role** | A named, ordered pack of stanzas. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml`. Stanzas declare the same id in frontmatter so drift is visible. |
+| **Role** | A named, ordered pack of stanzas. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
 | **Core** | Stanzas always injected into the protocol. |
 | **On-demand** | Stanzas associated with a project but only loaded when the work needs them (`get_stanza`). Their titles and descriptions are surfaced on the resolved protocol so agents know what they can pull. |
 | **Pack** (0.9) | Versioned bundle of stanzas and roles, authored outside the vault. Installed copy lives under `library/<id>/<version>/`. Optional `skills/` on a pack is copied onto the shelf. `install_skill` (0.12) maps a listed skill; whole-capability install does not attach skills. |
@@ -178,7 +178,7 @@ A **role** is a named, ordered pack of stanzas. It is how a kind of project (cle
 
 Roles are vault content, not server builtins. The server has no built-in role names.
 
-**Why not a tag scan.** Stanza frontmatter alone cannot be the membership source: injection order must be explicit and stable, and adding a `roles: [node]` tag must not silently enlarge every node protocol. The role file is the membership list. Frontmatter is the label that `validate` checks against that list.
+**Why not a tag scan.** Stanza frontmatter cannot be the membership source: injection order must be explicit and stable, and a `roles:` tag must not silently enlarge every node protocol. The role file is the membership list, and it is the only copy (0.16). A stanza carrying a stale `roles:` key from an older vault is ignored on load, never read, and never rewritten.
 
 **On disk.** One file per role: `roles/<id>.yaml`. Missing `roles/` is empty (same idea as missing `_global`). Filename stem is the role id.
 
@@ -195,13 +195,9 @@ on_demand: []                     # optional; default empty
 - A role must not list another role. No nesting.
 - Unknown extra fields are ignored on load (forward compatible) but `validate` may warn.
 
-**Stanza frontmatter.** A stanza that belongs to a role declares it:
+**Stanza frontmatter.** A stanza does not declare its roles (0.16). Membership is a fact about the role file, and a stanza is a member of it the way a song is in a playlist: the playlist knows.
 
-```yaml
-roles: [node]
-```
-
-A stanza may list more than one role. `roles` on a stanza is optional until the stanza appears in a role file; then `validate` requires the matching declaration (see below).
+Before 0.16 the role id was mirrored into stanza frontmatter and `validate` checked the two against each other. Composition never read that copy, `update_role` machine-wrote it, and `validate --fix` repaired it in one direction only, which is the design already naming the role file authoritative. A check between a source and its own cache can only report that the cache is stale; it cannot catch a real error. Removed, along with the `role` filter on `list_stanzas` that was its one consumer. `get_role` answers membership from the file that owns it.
 
 **Project includes.** `map.yaml` `roles:` is an ordered list of role ids. A project may also list stanzas in `core` / `on_demand` as today. First occurrence wins when the same stanza appears in a role and again on the map.
 
@@ -278,7 +274,7 @@ Detail, extra tools, and tests are kept with the author, not in this repo.
 
 **`where_used`.** A stanza is used by: project maps that list it in `core` or `on_demand`; role files that list it; project maps whose `roles:` or `imports:` expand to include it (report `lists: [role:<id>]` or `lists: [import:<pack>@<version>]`).
 
-**Tools.** `list_roles` and `get_role` are authoring tools (parallel to `list_projects` / `get_project`). `get_role` returns the role file, member sizes, and which projects include it. `resolve_protocol` reports the role ids that were expanded (`roles: [node]`). `list_stanzas` may filter by role id. `link_stanza` / `unlink_stanza` stay one stanza on one project map. Role membership is `create_role` / `update_role` (add/remove on `core` and `on_demand` is preview then `confirm=true`). `delete_role` is user-gated the same way.
+**Tools.** `list_roles` and `get_role` are authoring tools (parallel to `list_projects` / `get_project`). `get_role` returns the role file, member sizes, and which projects include it. `resolve_protocol` reports the role ids that were expanded (`roles: [node]`). `list_stanzas` does not filter by role: membership is `get_role`. `link_stanza` / `unlink_stanza` stay one stanza on one project map. Role membership is `create_role` / `update_role` (add/remove on `core` and `on_demand` is preview then `confirm=true`). `delete_role` is user-gated the same way.
 
 **Not a mode.** A role is composition, not a runtime hat. Including `node` means those stanzas are in the protocol. It does not switch Architect vs Maintainer or otherwise change tool privilege.
 
@@ -345,7 +341,6 @@ id: interaction/how-i-work-with-ai
 title: How I Work with AI
 description: Standing interaction and collaboration preferences
 tags: [interaction, core]
-roles: [clerk]                    # optional; required once a role file lists this stanza
 created: 2026-08-15
 updated: 2026-08-16
 ---
@@ -392,7 +387,7 @@ protocol = global_composed  +  expand(project.roles).core  +  expand(project.imp
 |------|-------------|
 | `resolve_protocol` | Return the project protocol per §8: ordered core stanzas (content + metadata), the `on_demand` index, **the skills index**, **expanded `roles`**, and size totals. **Live / inspect tool:** weigh the composition, refresh mid-session, compare against a materialized header. Not how core guidance enters the session. |
 | `get_stanza` | Return a single stanza (content + metadata, including size/tokens) by path/id. |
-| `list_stanzas` | List all stanzas in the vault with metadata including title, description, tags, **roles**, **size and estimated tokens**. Optional path prefix / tag / role filters. **User bootstrapping / authoring tool:** a user in a new project lists stanzas to decide what to `link_stanza`, and uses the size fields to see what needs editing. Not agent-session bootstrap. |
+| `list_stanzas` | List all stanzas in the vault with metadata including title, description, tags, **size and estimated tokens**. Optional path prefix / tag filters. **User bootstrapping / authoring tool:** a user in a new project lists stanzas to decide what to `link_stanza`, and uses the size fields to see what needs editing. Not agent-session bootstrap. |
 | `list_projects` | List all projects (including `_global`), including `repo` / `name` / `aka` when present. Each row includes the composed-protocol size summary (see `get_project`) so a user can compare protocol weight across projects. |
 | `get_project` | Return a project's map, notes, **roles**, **skills**, a **protocol size summary** (stanza count, total size, estimated tokens), and a **skills size summary**, without returning protocol content. Authoring check: "how heavy is this project's protocol?" |
 | `project_status` | **0.10.** Folder inspect card. Required `working_folder`, optional `project` (default: folder basename). Map, sourced core ids, composed size, on-demand ids, disk freshness, plus a `card` string. No stanza bodies. Inspect only: never writes. Not session start. |
@@ -411,7 +406,7 @@ protocol = global_composed  +  expand(project.roles).core  +  expand(project.imp
 | `update_project` | Incremental project-map edit. Attach/detach role writes immediately and reports members, composed weight, and `affects_projects`. |
 | `delete_project` | User-gated delete of `projects/<key>/` only. Stanzas and roles stay. `_global` cannot be deleted (`cannot_delete_global`). |
 | `where_used` | List every project map (core, on-demand, or via a role) and every role file that references a given stanza. |
-| `validate` | Vault health check: verifies every referenced stanza and role exists, ids match paths, required frontmatter is present, role membership matches frontmatter (§6.1), and reports duplicate map entries. Read-only by default (safe to run any time). `fix=true` applies safe repairs (drop duplicate map entries; write missing `roles:` onto stanza frontmatter) and follows the review dial. **Findings** (`empty_projects`, `empty_roles`, `unreferenced`, `not_in_any_protocol`) are authoring hygiene: they never fail `ok` and `fix` never consumes them. |
+| `validate` | Vault health check: verifies every referenced stanza and role exists, ids match paths, required frontmatter is present, and reports duplicate map entries. Read-only by default (safe to run any time). `fix=true` applies safe repairs (drop duplicate map entries) and follows the review dial. **Findings** (`empty_projects`, `empty_roles`, `unreferenced`, `not_in_any_protocol`) are authoring hygiene: they never fail `ok` and `fix` never consumes them. |
 | `materialize` | **Enforcement path.** Resolve per §8 and write `PROTOCOL.md` plus one generated file per enabled host surface (§10), then generated skill copies for each mapped skill. Never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`. Files carry a generated-file header (vault root, vault git ref if any, timestamp, project key, stanza ids in order) for staleness detection. Skill copies stamp after frontmatter. A named `project` must match the destination folder's basename, or the call is refused with `folder_project_mismatch` and writes nothing (§6.3). |
 | `list_skills` | **0.11.** Vault catalog: id, name, description, size, which projects list it. Optional prefix filter. Not session start. |
 | `get_skill` | **0.11.** One skill: frontmatter, content, size, payload file list (`scripts/`, `references/`). |

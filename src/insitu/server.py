@@ -200,11 +200,9 @@ def get_stanza(stanza_id: str, project: str | None = None) -> dict:
 
 
 @mcp.tool(annotations=READ_ONLY)
-def list_stanzas(
-    prefix: str | None = None, tag: str | None = None, role: str | None = None
-) -> dict:
-    """List stanzas with title, description, tags, roles, and size. Optional prefix, tag, or role filter."""
-    return list_stanzas_fn(current_vault(), prefix=prefix, tag=tag, role=role)
+def list_stanzas(prefix: str | None = None, tag: str | None = None) -> dict:
+    """List stanzas with title, description, tags, and size. Optional prefix or tag filter. Role membership lives in the role file: use get_role."""
+    return list_stanzas_fn(current_vault(), prefix=prefix, tag=tag)
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -266,7 +264,6 @@ def create_stanza(
     content: str,
     why: str,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
     """Create a stanza and append a why-log entry. Does not link it to a project. Returns the files written. Authoring is open to any chair."""
     return _vault_gated(
@@ -282,7 +279,6 @@ def create_stanza(
             content=content,
             why=why,
             tags=tags,
-            roles=roles,
         ),
     )
 
@@ -296,7 +292,6 @@ def update_stanza(
     description: str | None = None,
     content: str | None = None,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
     """Update a stanza, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it."""
     return _vault_gated(
@@ -312,7 +307,6 @@ def update_stanza(
             description=description,
             content=content,
             tags=tags,
-            roles=roles,
         ),
     )
 

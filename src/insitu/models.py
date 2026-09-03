@@ -16,7 +16,6 @@ class Stanza:
     tags: list[str]
     content: str
     frontmatter_id: str | None
-    roles: list[str] = field(default_factory=list)
 
 
 @dataclass
