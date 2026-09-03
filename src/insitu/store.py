@@ -1,4 +1,4 @@
-"""Load stanzas and project maps from a vault on disk."""
+"""Load articles and project maps from a vault on disk."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from insitu.identity import (
     validate_project_key,
     validate_role_id,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
 )
-from insitu.models import ImportRecord, PackRepo, PackVersion, Project, Role, Skill, Stanza, Vault
+from insitu.models import ImportRecord, PackRepo, PackVersion, Project, Role, Skill, Article, Vault
 
 
 def files_written(vault_root: str | Path, paths: Iterable[Path]) -> dict:
@@ -67,7 +67,7 @@ def load_vault(root: str | Path) -> Vault:
     library, lock = _load_library(vault_root)
     return Vault(
         root=vault_root,
-        stanzas=_load_stanzas(vault_root),
+        articles=_load_articles(vault_root),
         projects=_load_projects(vault_root),
         roles=_load_roles(vault_root),
         skills=_load_skills(vault_root),
@@ -83,16 +83,16 @@ def _normalize_body(content: str) -> str:
     return content.rstrip("\n")
 
 
-def load_stanzas_tree(stanzas_root: Path) -> dict[str, Stanza]:
-    stanzas: dict[str, Stanza] = {}
-    if not stanzas_root.is_dir():
-        return stanzas
-    for path in sorted(stanzas_root.rglob("*.md")):
+def load_articles_tree(articles_root: Path) -> dict[str, Article]:
+    articles: dict[str, Article] = {}
+    if not articles_root.is_dir():
+        return articles
+    for path in sorted(articles_root.rglob("*.md")):
         if path.name.endswith(".prov.md"):
             continue
-        rel = path.relative_to(stanzas_root).with_suffix("")
+        rel = path.relative_to(articles_root).with_suffix("")
         try:
-            stanza_id = validate_stanza_id(rel.as_posix())
+            article_id = validate_article_id(rel.as_posix())
         except InvalidIdentity:
             continue
         post = read_frontmatter(path)
@@ -103,8 +103,8 @@ def load_stanzas_tree(stanzas_root: Path) -> dict[str, Stanza]:
         frontmatter_id = meta.get("id")
         if frontmatter_id is not None:
             frontmatter_id = str(frontmatter_id)
-        stanzas[stanza_id] = Stanza(
-            id=stanza_id,
+        articles[article_id] = Article(
+            id=article_id,
             path=path,
             title=str(meta["title"]) if meta.get("title") else "",
             description=str(meta["description"]) if meta.get("description") else "",
@@ -112,11 +112,11 @@ def load_stanzas_tree(stanzas_root: Path) -> dict[str, Stanza]:
             content=_normalize_body(post.content or ""),
             frontmatter_id=frontmatter_id,
         )
-    return stanzas
+    return articles
 
 
-def _load_stanzas(root: Path) -> dict[str, Stanza]:
-    return load_stanzas_tree(root / "stanzas")
+def _load_articles(root: Path) -> dict[str, Article]:
+    return load_articles_tree(root / "articles")
 
 
 def _as_str_list(value: Any) -> list[str]:
@@ -190,14 +190,14 @@ def load_import_records(raw: dict[str, Any]) -> list[ImportRecord]:
         version = item.get("version")
         if not pack or not version:
             continue
-        stanzas = item["stanzas"] if "stanzas" in item else None
+        articles = item["articles"] if "articles" in item else None
         skills = item["skills"] if "skills" in item else None
         on_demand = item["on_demand"] if "on_demand" in item else None
         records.append(
             ImportRecord(
                 pack=str(pack),
                 version=str(version),
-                stanzas=_as_str_list(stanzas) if stanzas is not None else None,
+                articles=_as_str_list(articles) if articles is not None else None,
                 skills=_as_str_list(skills) if skills is not None else None,
                 on_demand=_as_str_list(on_demand) if on_demand is not None else None,
             )
@@ -277,7 +277,7 @@ def _load_pack_version(
         version=version,
         path=version_root,
         source=source,
-        stanzas=load_stanzas_tree(version_root / "stanzas"),
+        articles=load_articles_tree(version_root / "articles"),
         role=_load_pack_role(pack_id, version_root),
         pack_yaml=pack_yaml,
         skills=_load_skills(version_root),

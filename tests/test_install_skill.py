@@ -20,7 +20,7 @@ from insitu.resolve import resolve_protocol
 
 def _vault(tmp_path: Path) -> Path:
     root = tmp_path / "vault"
-    (root / "stanzas").mkdir(parents=True)
+    (root / "articles").mkdir(parents=True)
     (root / "projects").mkdir()
     (root / "config").mkdir()
     return root

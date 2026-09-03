@@ -3,7 +3,7 @@ name: Harbor kit
 kind: capability
 primary: methodology
 version: 0.1.0
-stanzas:
+articles:
   - methodology/dock-rule
 skills:
   - close-hatch

@@ -1,18 +1,18 @@
 # Insitu router
 
-Insitu stores reusable stanzas and composes a project protocol. The project key is the working folder basename (`projects/<folder>/`).
+Insitu stores reusable articles and composes a project protocol. The project key is the working folder basename (`projects/<folder>/`).
 
 The composed core lives in this checkout as `PROTOCOL.md` and as the host protocol file under `.grok/rules/insitu-protocol.md`. Treat that generated pack as binding. Do not edit it.
 
 If the pack is missing, or its header is stale relative to the vault, call `materialize` (or `resolve_protocol` then `materialize`) before other work.
 
-`materialize` writes only that generated pack. It never writes `AGENTS.md` or `CLAUDE.md`. If other host files this host loads are missing, retrieve the multi-platform pack (`get_stanza` `platform/router-vs-pack` and `platform/grok-build`) and write them here. Do not put pack bodies in this router. If those stanzas miss, the pack is not installed; say so. Do not invent files the pack does not name.
+`materialize` writes only that generated pack. It never writes `AGENTS.md` or `CLAUDE.md`. If other host files this host loads are missing, retrieve the multi-platform pack (`get_article` `platform/router-vs-pack` and `platform/grok-build`) and write them here. Do not put pack bodies in this router. If those articles miss, the pack is not installed; say so. Do not invent files the pack does not name.
 
 If the user asks Insitu status of this folder, call `project_status`. Do not walk `get_project`, `resolve_protocol`, or `get_role` for that readout. Do not call it at session start.
 
-Pull on-demand stanzas with `get_stanza` when the work needs one.
+Pull on-demand articles with `get_article` when the work needs one.
 Do not pull the on-demand list at session start.
-Use `list_stanzas` to see the catalog and sizes (what to include, what to trim).
+Use `list_articles` to see the catalog and sizes (what to include, what to trim).
 Do not call it at session start to load the core.
 
 Mapped skills are generated copies under the host skill directories
@@ -28,10 +28,10 @@ After an authoring write, if this working folder's project key is in `affects_pr
 
 1. Call `materialize` on this checkout.
 2. Tell the user the loaded protocol is stale and they should start a new session.
-3. Do not continue as if the new stanza or role is already in core.
+3. Do not continue as if the new article or role is already in core.
 
 If this project is not in the list, keep working.
 
-Do not call `delete_stanza`, `delete_role`, `delete_project`, or `delete_skill` unless the user explicitly asked to delete that object. Do not treat `validate` findings as a reason to delete. Never clean up the vault.
+Do not call `delete_article`, `delete_role`, `delete_project`, or `delete_skill` unless the user explicitly asked to delete that object. Do not treat `validate` findings as a reason to delete. Never clean up the vault.
 
 This router is not the protocol. It does not contain project-specific guidance.

@@ -1,7 +1,7 @@
 ---
 id: methodology/small-diffs
 title: Small diffs
-description: Fictional methodology stanza kept on available, not in core.
+description: Fictional methodology article kept on available, not in core.
 tags: [methodology]
 created: 2026-08-16
 updated: 2026-08-16

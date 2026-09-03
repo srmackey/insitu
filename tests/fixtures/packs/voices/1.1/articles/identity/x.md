@@ -1,7 +1,7 @@
 ---
 id: identity/x
 title: Voice X
-description: Fictional identity stanza X.
+description: Fictional identity article X.
 tags: [identity]
 ---
 

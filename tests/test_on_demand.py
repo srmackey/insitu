@@ -7,11 +7,11 @@ from pathlib import Path
 import yaml
 
 from insitu.catalog import get_project, get_role, list_on_demand, list_roles, where_used
-from insitu.mutate import link_stanza, update_project, update_role
+from insitu.mutate import link_article, update_project, update_role
 from insitu.resolve import resolve_protocol
 from insitu.server import advertised_tool_names
 from insitu.validate import validate
-from helpers import write_project, write_role, write_stanza
+from helpers import write_project, write_role, write_article
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,7 +35,7 @@ def _dump_role(vault: Path, role_id: str, data: dict) -> None:
 
 
 def test_legacy_available_map_resolves_as_on_demand_without_write(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     _dump_map(
         vault,
         "river-ledger",
@@ -61,8 +61,8 @@ def test_on_demand_map_resolves() -> None:
 
 
 def test_both_keys_present_is_issue(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
-    write_stanza(vault, "methodology/other", "OTHER", title="Other")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/other", "OTHER", title="Other")
     _dump_map(
         vault,
         "river-ledger",
@@ -84,15 +84,15 @@ def test_both_keys_present_is_issue(vault: Path) -> None:
     )
 
 
-def test_link_stanza_on_demand_writes_new_key_and_drops_legacy(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
-    write_stanza(vault, "interaction/how-i-work-with-ai", "HOW", title="How")
+def test_link_article_on_demand_writes_new_key_and_drops_legacy(vault: Path) -> None:
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "interaction/how-i-work-with-ai", "HOW", title="How")
     _dump_map(
         vault,
         "river-ledger",
         {"core": [], "available": ["interaction/how-i-work-with-ai"]},
     )
-    linked = link_stanza(
+    linked = link_article(
         vault, "river-ledger", "methodology/small-diffs", target="on_demand"
     )
     assert linked["ok"] is True
@@ -112,11 +112,11 @@ def test_link_stanza_on_demand_writes_new_key_and_drops_legacy(vault: Path) -> N
     ]
 
 
-def test_link_stanza_target_available_is_invalid(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+def test_link_article_target_available_is_invalid(vault: Path) -> None:
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     write_project(vault, "river-ledger")
     before = (vault / "projects" / "river-ledger" / "map.yaml").read_text(encoding="utf-8")
-    result = link_stanza(
+    result = link_article(
         vault, "river-ledger", "methodology/small-diffs", target="available"
     )
     after = (vault / "projects" / "river-ledger" / "map.yaml").read_text(encoding="utf-8")
@@ -125,7 +125,7 @@ def test_link_stanza_target_available_is_invalid(vault: Path) -> None:
 
 
 def test_list_on_demand_is_index_without_content(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     _dump_map(
         vault,
         "river-ledger",
@@ -149,7 +149,7 @@ def test_list_available_is_not_exported() -> None:
 
 
 def test_where_used_lists_on_demand(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     _dump_map(
         vault,
         "river-ledger",
@@ -160,8 +160,8 @@ def test_where_used_lists_on_demand(vault: Path) -> None:
 
 
 def test_update_project_and_role_use_on_demand_names(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
-    write_stanza(vault, "methodology/ledger-clerk", "CLERK", title="Clerk")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/ledger-clerk", "CLERK", title="Clerk")
     write_role(vault, "clerk", name="Clerk", core=["methodology/ledger-clerk"])
     write_project(vault, "river-ledger", roles=["clerk"], core=[])
     added = update_project(
@@ -189,7 +189,7 @@ def test_update_project_and_role_use_on_demand_names(vault: Path) -> None:
 
 
 def test_legacy_available_is_finding_and_fix_rewrites(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     _dump_map(
         vault,
         "river-ledger",
@@ -212,8 +212,8 @@ def test_legacy_available_is_finding_and_fix_rewrites(vault: Path) -> None:
 
 
 def test_fix_does_not_guess_both_keys(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
-    write_stanza(vault, "methodology/other", "OTHER", title="Other")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/other", "OTHER", title="Other")
     _dump_map(
         vault,
         "river-ledger",
@@ -232,7 +232,7 @@ def test_fix_does_not_guess_both_keys(vault: Path) -> None:
 
 
 def test_global_on_demand_is_not_in_a_protocol(vault: Path) -> None:
-    write_stanza(vault, "interaction/global-avail", "GAVAIL", title="Global on-demand")
+    write_article(vault, "interaction/global-avail", "GAVAIL", title="Global on-demand")
     write_project(vault, "_global", on_demand=["interaction/global-avail"])
     write_project(vault, "empty-harbor")
     report = validate(vault)
@@ -247,7 +247,7 @@ def test_global_on_demand_is_not_in_a_protocol(vault: Path) -> None:
 
 
 def test_get_project_and_role_use_on_demand_fields(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     write_role(
         vault, "clerk", name="Clerk", on_demand=["methodology/small-diffs"]
     )

@@ -14,14 +14,14 @@ from insitu.identity import (
     validate_pack_version,
     validate_project_key,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
     version_sort_key,
 )
 from insitu.models import ImportRecord, PackVersion, Vault
 from insitu.store import load_pack_repos, load_vault
 
 INTERIOR_FILES = ("pack.yaml", "VERSION")
-INTERIOR_DIRS = ("stanzas", "roles", "skills")
+INTERIOR_DIRS = ("articles", "roles", "skills")
 
 
 def _as_vault(vault_or_root: Vault | Path | str) -> Vault:
@@ -113,13 +113,13 @@ def record_member_ids(record: ImportRecord, pack: PackVersion, field: str) -> li
         if pack.role is not None:
             return list(getattr(pack.role, field))
         if field == "core":
-            return [str(item) for item in (pack.pack_yaml.get("stanzas") or [])]
+            return [str(item) for item in (pack.pack_yaml.get("articles") or [])]
         return []
     if field == "on_demand":
         return list(record.on_demand or [])
     if field == "skills":
         return list(record.skills or [])
-    return list(record.stanzas or [])
+    return list(record.articles or [])
 
 
 def cited_versions(vault: Vault) -> set[tuple[str, str]]:
@@ -429,11 +429,11 @@ def _append_capability(records: list[ImportRecord], pack_id: str, version: str) 
     return kept
 
 
-def _append_stanza(
+def _append_article(
     records: list[ImportRecord],
     pack_id: str,
     version: str,
-    stanza_id: str,
+    article_id: str,
     target: str = "core",
 ) -> list[ImportRecord] | dict:
     for record in records:
@@ -448,21 +448,21 @@ def _append_stanza(
             and not record.is_capability()
             and not added
         ):
-            stanzas = list(record.stanzas) if record.stanzas is not None else None
+            articles = list(record.articles) if record.articles is not None else None
             on_demand = list(record.on_demand) if record.on_demand is not None else None
             if target == "on_demand":
                 on_demand = on_demand or []
-                if stanza_id not in on_demand:
-                    on_demand.append(stanza_id)
+                if article_id not in on_demand:
+                    on_demand.append(article_id)
             else:
-                stanzas = stanzas or []
-                if stanza_id not in stanzas:
-                    stanzas.append(stanza_id)
+                articles = articles or []
+                if article_id not in articles:
+                    articles.append(article_id)
             updated.append(
                 ImportRecord(
                     pack=pack_id,
                     version=version,
-                    stanzas=stanzas,
+                    articles=articles,
                     skills=record.skills,
                     on_demand=on_demand,
                 )
@@ -471,20 +471,20 @@ def _append_stanza(
             continue
         updated.append(record)
     if not added:
-        field = "on_demand" if target == "on_demand" else "stanzas"
+        field = "on_demand" if target == "on_demand" else "articles"
         updated.append(
-            ImportRecord(pack=pack_id, version=version, **{field: [stanza_id]})
+            ImportRecord(pack=pack_id, version=version, **{field: [article_id]})
         )
     seen: set[str] = set()
     for record in updated:
         if record.is_capability():
             continue
-        members = record.stanza_members()
+        members = record.article_members()
         for sid in members:
-            if sid in seen and sid == stanza_id:
+            if sid in seen and sid == article_id:
                 return {
                     "ok": False,
-                    "error": "duplicate_import_stanza",
+                    "error": "duplicate_import_article",
                     "id": sid,
                     "pack": pack_id,
                 }
@@ -522,9 +522,9 @@ def install_capability(
             "error": "theme_pack_not_capability",
             "pack": pack_id,
             "version": concrete,
-            "members": sorted(shelved.stanzas),
+            "members": sorted(shelved.articles),
             "skills": sorted(shelved.skills),
-            "detail": "install members individually with install_stanza or install_skill",
+            "detail": "install members individually with install_article or install_skill",
         }
     proj = vault.projects[key]
     stored_version = requested
@@ -543,11 +543,11 @@ def install_capability(
     return result
 
 
-def _infer_pack(vault: Vault, stanza_id: str, version: str) -> str | dict:
+def _infer_pack(vault: Vault, article_id: str, version: str) -> str | dict:
     matches: list[str] = []
     for pack_id, versions in vault.library.items():
         pack = versions.get(version)
-        if pack is not None and stanza_id in pack.stanzas and pack_id not in matches:
+        if pack is not None and article_id in pack.articles and pack_id not in matches:
             matches.append(pack_id)
     for repo in vault.pack_repos:
         if not repo.path.is_dir():
@@ -562,34 +562,34 @@ def _infer_pack(vault: Vault, stanza_id: str, version: str) -> str | dict:
             current = read_version_file(child)
             if current != version:
                 continue
-            stanza_path = child / "stanzas" / Path(*stanza_id.split("/")).with_suffix(".md")
-            if stanza_path.is_file() and pack_id not in matches:
+            article_path = child / "articles" / Path(*article_id.split("/")).with_suffix(".md")
+            if article_path.is_file() and pack_id not in matches:
                 matches.append(pack_id)
     if len(matches) == 1:
         return matches[0]
     return {
         "ok": False,
         "error": "ambiguous_pack" if matches else "version_missing",
-        "id": stanza_id,
+        "id": article_id,
         "version": version,
         "packs": matches,
     }
 
 
-def install_stanza(
+def install_article(
     vault_or_root: Path | str | Vault,
     project: str,
-    stanza_id: str,
+    article_id: str,
     version: str,
     pack: str | None = None,
     target: str = "core",
 ) -> dict:
     try:
         key = validate_project_key(project)
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
         requested = validate_pack_version(version)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     if target not in {"core", "on_demand"}:
         return {"ok": False, "error": "invalid_target", "value": target}
     vault = _as_vault(vault_or_root)
@@ -615,10 +615,10 @@ def install_stanza(
         return resolved
     vault, concrete = resolved
     pack_ver = vault.library.get(pack_id, {}).get(concrete)
-    if pack_ver is None or sid not in pack_ver.stanzas:
-        return {"ok": False, "error": "missing_stanza", "id": sid, "pack": pack_id, "version": concrete}
+    if pack_ver is None or sid not in pack_ver.articles:
+        return {"ok": False, "error": "missing_article", "id": sid, "pack": pack_id, "version": concrete}
     proj = vault.projects[key]
-    records = _append_stanza(list(proj.imports), pack_id, requested, sid, target)
+    records = _append_article(list(proj.imports), pack_id, requested, sid, target)
     if isinstance(records, dict):
         return records
     _write_map_imports(proj.path, proj.raw, records)
@@ -628,7 +628,7 @@ def install_stanza(
         "pack": pack_id,
         "version": requested,
         "resolved_version": concrete,
-        "stanza": sid,
+        "article": sid,
         "target": target,
     }
 
@@ -662,20 +662,20 @@ def uninstall_capability(
     return {"ok": True, "project": key, "pack": pack_id, "version": requested}
 
 
-def uninstall_stanza(
+def uninstall_article(
     vault_or_root: Path | str | Vault,
     project: str,
-    stanza_id: str,
+    article_id: str,
     pack: str,
     version: str,
 ) -> dict:
     try:
         key = validate_project_key(project)
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
         pack_id = validate_pack_id(pack)
         requested = validate_pack_version(version)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault = _as_vault(vault_or_root)
     proj = vault.projects.get(key)
     if proj is None:
@@ -688,12 +688,12 @@ def uninstall_stanza(
         if record.is_capability():
             kept.append(record)
             continue
-        if record.stanzas is None and record.on_demand is None:
+        if record.articles is None and record.on_demand is None:
             kept.append(record)
             continue
-        stanzas = (
-            [item for item in record.stanzas if item != sid]
-            if record.stanzas is not None
+        articles = (
+            [item for item in record.articles if item != sid]
+            if record.articles is not None
             else None
         )
         on_demand = (
@@ -701,13 +701,13 @@ def uninstall_stanza(
             if record.on_demand is not None
             else None
         )
-        if not stanzas and not on_demand and not record.skills:
+        if not articles and not on_demand and not record.skills:
             continue
         kept.append(
             ImportRecord(
                 pack=record.pack,
                 version=record.version,
-                stanzas=stanzas or None,
+                articles=articles or None,
                 skills=record.skills,
                 on_demand=on_demand or None,
             )
@@ -718,7 +718,7 @@ def uninstall_stanza(
         "project": key,
         "pack": pack_id,
         "version": requested,
-        "stanza": sid,
+        "article": sid,
     }
 
 
@@ -741,7 +741,7 @@ def _append_skill(
                 ImportRecord(
                     pack=pack_id,
                     version=version,
-                    stanzas=record.stanzas,
+                    articles=record.articles,
                     skills=skills,
                     on_demand=record.on_demand,
                 )
@@ -891,13 +891,13 @@ def uninstall_skill(
             kept.append(record)
             continue
         skills = [item for item in record.skills if item != sid]
-        if not skills and not record.stanza_members():
+        if not skills and not record.article_members():
             continue
         kept.append(
             ImportRecord(
                 pack=record.pack,
                 version=record.version,
-                stanzas=record.stanzas,
+                articles=record.articles,
                 skills=skills or None,
                 on_demand=record.on_demand,
             )
@@ -1022,8 +1022,8 @@ def list_packs(vault_or_root: Path | str | Vault) -> dict:
                         used_by.append(
                             {
                                 "project": key,
-                                "kind": "stanzas",
-                                "stanzas": record.stanza_members(),
+                                "kind": "articles",
+                                "articles": record.article_members(),
                             }
                         )
             versions.append(
@@ -1050,7 +1050,7 @@ def get_pack(vault_or_root: Path | str | Vault, pack: str) -> dict:
     listed = list_packs(vault)
     row = next(item for item in listed["packs"] if item["id"] == pack_id)
     members = {
-        version: sorted(pack.stanzas)
+        version: sorted(pack.articles)
         for version, pack in versions.items()
     }
     skill_members = {

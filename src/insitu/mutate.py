@@ -1,4 +1,4 @@
-"""Vault mutations: stanzas, roles, projects, and map links."""
+"""Vault mutations: articles, roles, projects, and map links."""
 
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ from insitu.affects import (
     expected_matches,
     project_keys,
     projects_composed_including,
-    stanza_already_in_protocol,
+    article_already_in_protocol,
 )
-from insitu.catalog import get_project, get_skill, get_stanza, where_used, where_used_skill
+from insitu.catalog import get_project, get_skill, get_article, where_used, where_used_skill
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
     validate_project_key,
     validate_role_id,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
 )
 from insitu.size import size_fields
 from insitu.store import files_written, load_vault, read_frontmatter
@@ -48,31 +48,31 @@ def _normalize_body(content: str) -> str:
     return content.rstrip("\n")
 
 
-def _stanza_rel(stanza_id: str) -> Path:
-    return Path(*stanza_id.split("/"))
+def _article_rel(article_id: str) -> Path:
+    return Path(*article_id.split("/"))
 
 
-def _stanza_md_path(vault_root: Path, stanza_id: str) -> Path:
-    return vault_root / "stanzas" / _stanza_rel(stanza_id).with_suffix(".md")
+def _article_md_path(vault_root: Path, article_id: str) -> Path:
+    return vault_root / "articles" / _article_rel(article_id).with_suffix(".md")
 
 
-def _why_log_path(vault_root: Path, stanza_id: str) -> Path:
-    return vault_root / "provenance" / _stanza_rel(stanza_id).with_suffix(".md")
+def _why_log_path(vault_root: Path, article_id: str) -> Path:
+    return vault_root / "provenance" / _article_rel(article_id).with_suffix(".md")
 
 
-def _legacy_why_log_path(vault_root: Path, stanza_id: str) -> Path:
-    rel = _stanza_rel(stanza_id)
-    return vault_root / "stanzas" / rel.parent / f"{rel.name}.prov.md"
+def _legacy_why_log_path(vault_root: Path, article_id: str) -> Path:
+    rel = _article_rel(article_id)
+    return vault_root / "articles" / rel.parent / f"{rel.name}.prov.md"
 
 
-def _stanza_paths(vault_root: Path, stanza_id: str) -> tuple[Path, Path]:
-    return _stanza_md_path(vault_root, stanza_id), _why_log_path(vault_root, stanza_id)
+def _article_paths(vault_root: Path, article_id: str) -> tuple[Path, Path]:
+    return _article_md_path(vault_root, article_id), _why_log_path(vault_root, article_id)
 
 
-def _migrate_legacy_why_log(vault_root: Path, stanza_id: str) -> list[Path]:
+def _migrate_legacy_why_log(vault_root: Path, article_id: str) -> list[Path]:
     """Move or drop a leftover sibling .prov.md. Returns extra paths to stage."""
-    dest = _why_log_path(vault_root, stanza_id)
-    legacy = _legacy_why_log_path(vault_root, stanza_id)
+    dest = _why_log_path(vault_root, article_id)
+    legacy = _legacy_why_log_path(vault_root, article_id)
     if not legacy.is_file():
         return []
     if not dest.is_file():
@@ -93,14 +93,14 @@ def _dump_markdown(meta: dict[str, Any], body: str) -> str:
     return text
 
 
-def _append_why_log(path: Path, stanza_id: str, why: str) -> None:
+def _append_why_log(path: Path, article_id: str, why: str) -> None:
     entry = f"## {_today()}\nWhy: {why}\n"
     if path.is_file():
         existing = path.read_text(encoding="utf-8").rstrip()
         path.write_text(existing + "\n\n" + entry, encoding="utf-8")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"# Provenance — {stanza_id}\n\n{entry}", encoding="utf-8")
+    path.write_text(f"# Provenance — {article_id}\n\n{entry}", encoding="utf-8")
 
 
 def _clean_why(why: str | None) -> str | None:
@@ -189,9 +189,9 @@ def _as_list(value: list[str] | None) -> list[str]:
     return list(value or [])
 
 
-def create_stanza(
+def create_article(
     vault_or_root: Path | str,
-    stanza_id: str,
+    article_id: str,
     *,
     title: str,
     description: str,
@@ -200,18 +200,18 @@ def create_stanza(
     tags: list[str] | None = None,
 ) -> dict:
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault_root = Path(vault_or_root)
     reason = _clean_why(why)
     if reason is None:
         return {"ok": False, "error": "missing_why"}
     if not str(title).strip() or not str(description).strip():
         return {"ok": False, "error": "missing_frontmatter", "id": sid}
-    path, prov = _stanza_paths(vault_root, sid)
+    path, prov = _article_paths(vault_root, sid)
     if path.exists():
-        return {"ok": False, "error": "stanza_exists", "id": sid}
+        return {"ok": False, "error": "article_exists", "id": sid}
     meta: dict[str, Any] = {
         "id": sid,
         "title": str(title).strip(),
@@ -227,16 +227,16 @@ def create_stanza(
     extra = _migrate_legacy_why_log(vault_root, sid)
     _append_why_log(prov, sid, reason)
     reviewed = files_written(vault_root, [path, prov, *extra])
-    result = get_stanza(vault_root, sid)
+    result = get_article(vault_root, sid)
     result.update(reviewed)
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
     result["affects_projects"] = []
     return result
 
 
-def update_stanza(
+def update_article(
     vault_or_root: Path | str,
-    stanza_id: str,
+    article_id: str,
     *,
     why: str,
     title: str | None = None,
@@ -245,33 +245,33 @@ def update_stanza(
     tags: list[str] | None = None,
 ) -> dict:
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault_root = Path(vault_or_root)
     reason = _clean_why(why)
     if reason is None:
         return {"ok": False, "error": "missing_why"}
     vault = load_vault(vault_root)
-    stanza = vault.stanzas.get(sid)
-    if stanza is None:
-        return {"ok": False, "error": "missing_stanza", "id": sid}
+    article = vault.articles.get(sid)
+    if article is None:
+        return {"ok": False, "error": "missing_article", "id": sid}
     if all(value is None for value in (title, description, content, tags)):
         return {"ok": False, "error": "no_changes", "id": sid}
-    post = read_frontmatter(stanza.path)
+    post = read_frontmatter(article.path)
     meta = dict(post.metadata or {})
     body = post.content or ""
     changed = False
-    if title is not None and str(title).strip() != stanza.title:
+    if title is not None and str(title).strip() != article.title:
         meta["title"] = str(title).strip()
         changed = True
-    if description is not None and str(description).strip() != stanza.description:
+    if description is not None and str(description).strip() != article.description:
         meta["description"] = str(description).strip()
         changed = True
-    if tags is not None and list(tags) != list(stanza.tags):
+    if tags is not None and list(tags) != list(article.tags):
         meta["tags"] = list(tags)
         changed = True
-    if content is not None and _normalize_body(content) != stanza.content:
+    if content is not None and _normalize_body(content) != article.content:
         body = content
         changed = True
     if not changed:
@@ -282,12 +282,12 @@ def update_stanza(
         return {"ok": False, "error": "missing_frontmatter", "id": sid}
     used = where_used(vault_root, sid)
     affects = projects_composed_including(vault, sid)
-    stanza.path.write_text(_dump_markdown(meta, body), encoding="utf-8")
-    _, prov = _stanza_paths(vault_root, sid)
+    article.path.write_text(_dump_markdown(meta, body), encoding="utf-8")
+    _, prov = _article_paths(vault_root, sid)
     extra = _migrate_legacy_why_log(vault_root, sid)
     _append_why_log(prov, sid, reason)
-    reviewed = files_written(vault_root, [stanza.path, prov, *extra])
-    result = get_stanza(vault_root, sid)
+    reviewed = files_written(vault_root, [article.path, prov, *extra])
+    result = get_article(vault_root, sid)
     result.update(reviewed)
     result["where_used"] = used
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
@@ -295,10 +295,10 @@ def update_stanza(
     return result
 
 
-def link_stanza(
+def link_article(
     vault_or_root: Path | str,
     project: str,
-    stanza_id: str,
+    article_id: str,
     *,
     target: str = "core",
 ) -> dict:
@@ -307,9 +307,9 @@ def link_stanza(
     except InvalidIdentity as exc:
         return _identity_error(project, exc)
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     if target not in {"core", "on_demand"}:
         return {"ok": False, "error": "invalid_target", "value": target}
     vault_root = Path(vault_or_root)
@@ -317,8 +317,8 @@ def link_stanza(
     proj = vault.projects.get(key)
     if proj is None:
         return {"ok": False, "error": "missing_project", "id": key}
-    if sid not in vault.stanzas:
-        return {"ok": False, "error": "missing_stanza", "id": sid}
+    if sid not in vault.articles:
+        return {"ok": False, "error": "missing_article", "id": sid}
     if sid in proj.core:
         return {"ok": False, "error": "already_linked", "id": sid, "target": "core", "project": key}
     if sid in proj.on_demand:
@@ -350,19 +350,19 @@ def link_stanza(
     return result
 
 
-def unlink_stanza(
+def unlink_article(
     vault_or_root: Path | str,
     project: str,
-    stanza_id: str,
+    article_id: str,
 ) -> dict:
     try:
         key = validate_project_key(project)
     except InvalidIdentity as exc:
         return _identity_error(project, exc)
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault_root = Path(vault_or_root)
     vault = load_vault(vault_root)
     proj = vault.projects.get(key)
@@ -641,8 +641,8 @@ def delete_skill(
     return result
 
 
-def _stanza_delete_plan(vault, sid: str) -> dict:
-    stanza = vault.stanzas[sid]
+def _article_delete_plan(vault, sid: str) -> dict:
+    article = vault.articles[sid]
     role_core: list[str] = []
     role_on_demand: list[str] = []
     role_ids: list[str] = []
@@ -671,8 +671,8 @@ def _stanza_delete_plan(vault, sid: str) -> dict:
     affects_set = set(direct) | set(via_role)
     return {
         "id": sid,
-        "title": stanza.title,
-        "size": size_fields(stanza.content),
+        "title": article.title,
+        "size": size_fields(article.content),
         "roles": {"core": role_core, "on_demand": role_on_demand},
         "direct_projects": direct,
         "via_role_projects": via_role,
@@ -681,26 +681,26 @@ def _stanza_delete_plan(vault, sid: str) -> dict:
     }
 
 
-def delete_stanza(
+def delete_article(
     vault_or_root: Path | str,
-    stanza_id: str,
+    article_id: str,
     *,
     why: str,
     confirm: bool = False,
     expected: dict | None = None,
 ) -> dict:
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     reason = _clean_why(why)
     if reason is None:
         return {"ok": False, "error": "missing_why"}
     vault_root = Path(vault_or_root)
     vault = load_vault(vault_root)
-    if sid not in vault.stanzas:
+    if sid not in vault.articles:
         return {"ok": False, "error": "not_found", "id": sid}
-    plan = _stanza_delete_plan(vault, sid)
+    plan = _article_delete_plan(vault, sid)
     gated = _preview_gate(confirm, expected, plan)
     if gated is not None:
         return gated
@@ -716,7 +716,7 @@ def delete_stanza(
         core = [item for item in proj.core if item != sid]
         on_demand = [item for item in proj.on_demand if item != sid]
         paths.append(_write_map(proj.path, proj.raw, core, on_demand))
-    md, prov = _stanza_paths(vault_root, sid)
+    md, prov = _article_paths(vault_root, sid)
     md.unlink(missing_ok=True)
     paths.append(md)
     if prov.is_file():
@@ -743,11 +743,11 @@ def _role_delete_plan(vault, rid: str) -> dict:
         members.append(sid)
     member_rows: list[dict] = []
     for sid in members:
-        stanza = vault.stanzas.get(sid)
+        article = vault.articles.get(sid)
         row: dict[str, Any] = {"id": sid}
-        if stanza is not None:
-            row["title"] = stanza.title
-            row.update(size_fields(stanza.content))
+        if article is not None:
+            row["title"] = article.title
+            row.update(size_fields(article.content))
         member_rows.append(row)
     projects = [key for key in project_keys(vault) if rid in vault.projects[key].roles]
     return {
@@ -755,7 +755,7 @@ def _role_delete_plan(vault, rid: str) -> dict:
         "name": role.name,
         "members": member_rows,
         "projects": projects,
-        "expected": {"projects": list(projects), "stanzas": list(members)},
+        "expected": {"projects": list(projects), "articles": list(members)},
         "affects_projects": list(projects),
     }
 
@@ -824,7 +824,7 @@ def delete_project(
         "on_demand": list(proj.on_demand),
         "notes": proj.notes is not None,
         "size": summary.get("size") if summary.get("ok") else None,
-        "statement": f"Only projects/{key}/ goes away. Stanzas and roles stay.",
+        "statement": f"Only projects/{key}/ goes away. Articles and roles stay.",
         "expected": {"projects": [key]},
         "affects_projects": [key],
     }
@@ -861,11 +861,11 @@ def create_role(
     on_demand_ids = _as_list(on_demand)
     for sid in core_ids + on_demand_ids:
         try:
-            validated = validate_stanza_id(sid)
+            validated = validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
-        if validated not in vault.stanzas:
-            return {"ok": False, "error": "missing_stanza", "id": validated}
+        if validated not in vault.articles:
+            return {"ok": False, "error": "missing_article", "id": validated}
     data: dict[str, Any] = {}
     if name is not None:
         data["name"] = name
@@ -905,22 +905,22 @@ def _role_membership_plan(
     projects = [key for key in project_keys(vault) if rid in vault.projects[key].roles]
     project_rows = []
     for key in projects:
-        stanzas = [
+        articles = [
             {
                 "id": sid,
-                "already_in_protocol": stanza_already_in_protocol(
+                "already_in_protocol": article_already_in_protocol(
                     vault, key, sid, exclude_role=rid
                 ),
             }
             for sid in touched
         ]
-        project_rows.append({"project": key, "stanzas": stanzas})
+        project_rows.append({"project": key, "articles": articles})
     return {
         "role_id": rid,
         "projects": project_rows,
         "statement": (
             "Maps do not change. Next resolve/materialize for those projects "
-            "gains or loses the stanza unless first-wins already hid it."
+            "gains or loses the article unless first-wins already hid it."
         ),
         "expected": {
             "add_core": list(add_core),
@@ -989,14 +989,14 @@ def update_role(
     remove_on_demand_ids = _as_list(remove_on_demand)
     for sid in add_core_ids + add_on_demand_ids:
         try:
-            validated = validate_stanza_id(sid)
+            validated = validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
-        if validated not in vault.stanzas:
-            return {"ok": False, "error": "missing_stanza", "id": validated}
+        if validated not in vault.articles:
+            return {"ok": False, "error": "missing_article", "id": validated}
     for sid in remove_core_ids + remove_on_demand_ids:
         try:
-            validate_stanza_id(sid)
+            validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
 
@@ -1075,11 +1075,11 @@ def create_project(
             return {"ok": False, "error": "missing_role", "id": validated}
     for sid in core_ids + on_demand_ids:
         try:
-            validated = validate_stanza_id(sid)
+            validated = validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
-        if validated not in vault.stanzas:
-            return {"ok": False, "error": "missing_stanza", "id": validated}
+        if validated not in vault.articles:
+            return {"ok": False, "error": "missing_article", "id": validated}
     for skill_id in skill_ids:
         try:
             validated = validate_skill_id(skill_id)
@@ -1181,11 +1181,11 @@ def update_project(
             return _identity_error(rid, exc)
     for sid in add_core_ids + add_on_demand_ids:
         try:
-            validated = validate_stanza_id(sid)
+            validated = validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
-        if validated not in vault.stanzas:
-            return {"ok": False, "error": "missing_stanza", "id": validated}
+        if validated not in vault.articles:
+            return {"ok": False, "error": "missing_article", "id": validated}
         if validated in proj.core:
             return {
                 "ok": False,
@@ -1204,7 +1204,7 @@ def update_project(
             }
     for sid in remove_core_ids + remove_on_demand_ids:
         try:
-            validate_stanza_id(sid)
+            validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
     for skill_id in add_skill_ids:
@@ -1299,12 +1299,12 @@ def update_project(
             if sid in seen_members:
                 continue
             seen_members.add(sid)
-            stanza = vault.stanzas.get(sid)
+            article = vault.articles.get(sid)
             row: dict[str, Any] = {"id": sid}
-            if stanza is not None:
-                row["title"] = stanza.title
-                row["description"] = stanza.description
-                row.update(size_fields(stanza.content))
+            if article is not None:
+                row["title"] = article.title
+                row["description"] = article.description
+                row.update(size_fields(article.content))
             members.append(row)
 
     summary = get_project(vault_root, key)

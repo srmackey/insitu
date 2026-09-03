@@ -36,7 +36,7 @@ def test_routers_contain_rematerialize_and_do_not_delete() -> None:
         assert "affects_projects" in text
         assert "start a new session" in text
         assert "materialize" in text
-        assert "delete_stanza" in text
+        assert "delete_article" in text
         assert "delete_role" in text
         assert "delete_project" in text
         assert "unless the user" in text.lower()

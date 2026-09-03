@@ -45,21 +45,21 @@ def parse_header(text: str) -> dict | None:
     block = text[start + 4 : end]
     if "insitu-generated:" not in block:
         return None
-    data: dict = {"stanzas": []}
-    in_stanzas = False
+    data: dict = {"articles": []}
+    in_articles = False
     for raw in block.splitlines():
         line = raw.strip()
         if not line:
             continue
-        if in_stanzas:
+        if in_articles:
             if line == "-":
                 continue
             if line.startswith("- "):
-                data["stanzas"].append(line[2:].strip())
+                data["articles"].append(line[2:].strip())
                 continue
-            in_stanzas = False
-        if line.startswith("stanzas:"):
-            in_stanzas = True
+            in_articles = False
+        if line.startswith("articles:"):
+            in_articles = True
             continue
         if ":" in line:
             key, _, value = line.partition(":")
@@ -181,7 +181,7 @@ def _write_mapped_skills(
     return written, removed
 
 
-def render_header(vault_root: Path, project: str, stanza_ids: list[str]) -> str:
+def render_header(vault_root: Path, project: str, article_ids: list[str]) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
         "<!--",
@@ -189,10 +189,10 @@ def render_header(vault_root: Path, project: str, stanza_ids: list[str]) -> str:
         f"vault: {vault_root}",
         f"timestamp: {timestamp}",
         f"project: {project}",
-        "stanzas:",
+        "articles:",
     ]
-    if stanza_ids:
-        lines.extend(f"- {sid}" for sid in stanza_ids)
+    if article_ids:
+        lines.extend(f"- {sid}" for sid in article_ids)
     else:
         lines.append("-")
     lines.append("-->")

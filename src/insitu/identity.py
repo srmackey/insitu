@@ -1,4 +1,4 @@
-"""Project key and stanza path rules (DESIGN.md §5 / §14)."""
+"""Project key and article path rules (DESIGN.md §5 / §14)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ GLOBAL_PROJECT = "_global"
 
 
 class InvalidIdentity(ValueError):
-    """A project key or stanza id is not allowed."""
+    """A project key or article id is not allowed."""
 
 
 def _is_absolute(value: str) -> bool:
@@ -99,20 +99,20 @@ def version_sort_key(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
-def validate_stanza_id(stanza_id: str) -> str:
-    if not isinstance(stanza_id, str) or not stanza_id.strip():
-        raise InvalidIdentity("stanza id is empty")
-    if _is_absolute(stanza_id):
-        raise InvalidIdentity(f"stanza id must not be absolute: {stanza_id}")
-    normalized = stanza_id.replace("\\", "/")
+def validate_article_id(article_id: str) -> str:
+    if not isinstance(article_id, str) or not article_id.strip():
+        raise InvalidIdentity("article id is empty")
+    if _is_absolute(article_id):
+        raise InvalidIdentity(f"article id must not be absolute: {article_id}")
+    normalized = article_id.replace("\\", "/")
     if normalized.startswith("/"):
-        raise InvalidIdentity(f"stanza id must not be absolute: {stanza_id}")
+        raise InvalidIdentity(f"article id must not be absolute: {article_id}")
     parts = normalized.split("/")
     if any(part in {"", ".", ".."} for part in parts):
-        raise InvalidIdentity(f"stanza id must not escape stanzas/: {stanza_id}")
+        raise InvalidIdentity(f"article id must not escape articles/: {article_id}")
     for part in parts:
         if not SEGMENT_RE.fullmatch(part):
             raise InvalidIdentity(
-                f"stanza path segments must be a-z, 0-9, hyphen: {stanza_id}"
+                f"article path segments must be a-z, 0-9, hyphen: {article_id}"
             )
     return normalized

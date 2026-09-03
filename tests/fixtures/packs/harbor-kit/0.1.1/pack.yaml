@@ -3,7 +3,7 @@ name: Harbor kit
 kind: capability
 primary: methodology
 version: 0.1.1
-stanzas:
+articles:
   - methodology/dock-rule
   - methodology/harbor-watch
 skills:

@@ -65,11 +65,11 @@ def composed_id_sets(vault: Vault, project: str) -> tuple[set[str], set[str]]:
     return core, on_demand
 
 
-def projects_composed_including(vault: Vault, stanza_id: str) -> list[str]:
+def projects_composed_including(vault: Vault, article_id: str) -> list[str]:
     found: list[str] = []
     for key in project_keys(vault):
         core, on_demand = composed_id_sets(vault, key)
-        if stanza_id in core or stanza_id in on_demand:
+        if article_id in core or article_id in on_demand:
             found.append(key)
     return found
 
@@ -96,10 +96,10 @@ def projects_listing_skill(vault: Vault, skill_id: str) -> list[str]:
     ]
 
 
-def stanza_already_in_protocol(
+def article_already_in_protocol(
     vault: Vault,
     project: str,
-    stanza_id: str,
+    article_id: str,
     *,
     exclude_role: str | None = None,
 ) -> bool:
@@ -107,7 +107,7 @@ def stanza_already_in_protocol(
     include_global = False if project == GLOBAL_PROJECT else proj.include_global
     if include_global:
         composed = composed_global_core(vault)
-        if not isinstance(composed, dict) and stanza_id in composed:
+        if not isinstance(composed, dict) and article_id in composed:
             return True
     for raw_role in proj.roles:
         if exclude_role is not None and raw_role == exclude_role:
@@ -115,9 +115,9 @@ def stanza_already_in_protocol(
         role = vault.roles.get(raw_role)
         if role is None:
             continue
-        if stanza_id in role.core or stanza_id in role.on_demand:
+        if article_id in role.core or article_id in role.on_demand:
             return True
-    return stanza_id in proj.core or stanza_id in proj.on_demand
+    return article_id in proj.core or article_id in proj.on_demand
 
 
 def affects_for_map_edit(vault: Vault, project: str) -> list[str]:

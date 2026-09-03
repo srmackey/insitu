@@ -6,7 +6,7 @@ import pytest
 
 from insitu.store import VaultReadError, load_vault
 
-from helpers import write_skill, write_stanza
+from helpers import write_skill, write_article
 
 BAD_DESCRIPTION = (
     "---\n"
@@ -41,8 +41,8 @@ def test_vault_skill_with_unquoted_colon_names_its_file(vault: Path) -> None:
     assert excinfo.value.path == skill_md
 
 
-def test_malformed_stanza_names_its_file(vault: Path) -> None:
-    path = vault / "stanzas" / "methodology" / "broken.md"
+def test_malformed_article_names_its_file(vault: Path) -> None:
+    path = vault / "articles" / "methodology" / "broken.md"
     path.parent.mkdir(parents=True)
     path.write_text(BAD_DESCRIPTION, encoding="utf-8")
 
@@ -75,12 +75,12 @@ def test_malformed_project_map_names_its_file(vault: Path) -> None:
 
 
 def test_well_formed_vault_still_loads(vault: Path) -> None:
-    write_stanza(vault, "methodology/ok", "Body.")
+    write_article(vault, "methodology/ok", "Body.")
     write_skill(vault, "closeout", "Body.")
 
     loaded = load_vault(vault)
 
-    assert "methodology/ok" in loaded.stanzas
+    assert "methodology/ok" in loaded.articles
     assert "closeout" in loaded.skills
 
 

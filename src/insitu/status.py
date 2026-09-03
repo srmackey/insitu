@@ -1,4 +1,4 @@
-"""Folder inspect card (DESIGN.md 0.10). Inspect only. No stanza bodies."""
+"""Folder inspect card (DESIGN.md 0.10). Inspect only. No article bodies."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _fmt_list(ids: list[str]) -> str:
 
 
 def _fmt_size(size: dict) -> str:
-    n = size.get("stanza_count", 0)
+    n = size.get("article_count", 0)
     raw_bytes = int(size.get("bytes") or 0)
     tokens = int(size.get("estimated_tokens") or 0)
     if raw_bytes >= 1024:
@@ -42,7 +42,7 @@ def _fmt_size(size: dict) -> str:
         tok = f"~{tokens / 1000:.1f}k tokens"
     else:
         tok = f"~{tokens} tokens"
-    label = "stanza" if n == 1 else "stanzas"
+    label = "article" if n == 1 else "articles"
     return f"{n} {label}, {weight}, {tok}"
 
 
@@ -95,13 +95,13 @@ def _render_card(result: dict) -> str:
     lines.append(f"Composed core: {_fmt_size(result['size'])}")
     lines.append("")
     if result["sources"]:
-        lines.append("| Source | Stanzas |")
+        lines.append("| Source | Articles |")
         lines.append("| ------ | ------- |")
         for row in result["sources"]:
-            lines.append(f"| {_source_label(row)} | {_fmt_list(row['stanzas'])} |")
+            lines.append(f"| {_source_label(row)} | {_fmt_list(row['articles'])} |")
         lines.append("")
     proto = disk["protocol"]
-    n = result["size"].get("stanza_count", 0)
+    n = result["size"].get("article_count", 0)
     if not proto["present"]:
         lines.append("On disk: PROTOCOL.md is missing. Not materialized.")
     elif proto.get("unparseable"):
@@ -133,12 +133,12 @@ def _render_card(result: dict) -> str:
         current_bit = " Pack looks current." if not missing else ""
         lines.append(
             f"On disk: PROTOCOL.md is generated ({ts}) and matches that "
-            f"{n}-stanza list.{adapter_bit}{missing_bit}{current_bit}"
+            f"{n}-article list.{adapter_bit}{missing_bit}{current_bit}"
         )
     else:
         ts = proto.get("timestamp") or "unknown"
         lines.append(
-            f"On disk: PROTOCOL.md is generated ({ts}) but the header stanza "
+            f"On disk: PROTOCOL.md is generated ({ts}) but the header article "
             "list does not match live compose. Pack is stale."
         )
     return "\n".join(lines) + "\n"
@@ -182,7 +182,7 @@ def project_status(
 
     live_ids: list[str] = []
     for row in sources:
-        live_ids.extend(row["stanzas"])
+        live_ids.extend(row["articles"])
 
     protocol_path = work / "PROTOCOL.md"
     protocol: dict = {
@@ -190,7 +190,7 @@ def project_status(
         "present": protocol_path.is_file(),
         "timestamp": None,
         "project": None,
-        "stanzas": [],
+        "articles": [],
         "matches": False,
     }
     if protocol["present"]:
@@ -200,9 +200,9 @@ def project_status(
         else:
             protocol["timestamp"] = header.get("timestamp")
             protocol["project"] = header.get("project")
-            protocol["stanzas"] = list(header.get("stanzas") or [])
+            protocol["articles"] = list(header.get("articles") or [])
             protocol["matches"] = (
-                protocol["project"] == key and protocol["stanzas"] == live_ids
+                protocol["project"] == key and protocol["articles"] == live_ids
             )
 
     surfaces, _err = _read_surfaces(vault.root)

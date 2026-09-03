@@ -4,7 +4,7 @@ These files ship with the Insitu *server*, not inside a user's vault.
 
 Two layers. Do not mix them. See `DESIGN.md` §10.
 
-**Routers** (install once, user-global). They tell the host the MCP exists, treat the generated protocol as binding, pull on-demand stanzas with `get_stanza`, and rematerialize if the header is stale. If other host files this host loads are missing, they tell the agent to retrieve the multi-platform pack and write them. They do not contain the composed pack or pack bodies.
+**Routers** (install once, user-global). They tell the host the MCP exists, treat the generated protocol as binding, pull on-demand articles with `get_article`, and rematerialize if the header is stale. If other host files this host loads are missing, they tell the agent to retrieve the multi-platform pack and write them. They do not contain the composed pack or pack bodies.
 
 Copy or symlink:
 

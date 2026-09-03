@@ -4,15 +4,15 @@ from pathlib import Path
 
 import yaml
 
-from helpers import write_project, write_stanza
+from helpers import write_project, write_article
 
 from insitu.resolve import resolve_protocol
 from insitu.validate import validate
 
 
 def test_validate_is_read_only_until_fix(vault: Path) -> None:
-    write_stanza(vault, "interaction/shared", "S")
-    write_stanza(vault, "interaction/local", "L")
+    write_article(vault, "interaction/shared", "S")
+    write_article(vault, "interaction/local", "L")
     write_project(vault, "_global", core=["interaction/shared"])
     write_project(
         vault,
@@ -37,7 +37,7 @@ def test_validate_is_read_only_until_fix(vault: Path) -> None:
 
 
 def test_validate_reports_missing_ref_id_mismatch_and_frontmatter(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "interaction/how-i-work-with-ai",
         "P",
@@ -47,7 +47,7 @@ def test_validate_reports_missing_ref_id_mismatch_and_frontmatter(vault: Path) -
         include_id=False,
     )
     # rewrite so title is missing and id mismatches
-    path = vault / "stanzas" / "interaction" / "how-i-work-with-ai.md"
+    path = vault / "articles" / "interaction" / "how-i-work-with-ai.md"
     path.write_text(
         "---\nid: wrong/id\ndescription: desc\n---\n\nP\n",
         encoding="utf-8",
@@ -59,16 +59,16 @@ def test_validate_reports_missing_ref_id_mismatch_and_frontmatter(vault: Path) -
     )
     report = validate(vault, fix=False)
     kinds = {issue["kind"] for issue in report["issues"]}
-    assert "missing_stanza" in kinds
+    assert "missing_article" in kinds
     assert "id_mismatch" in kinds
     assert "missing_frontmatter" in kinds
-    missing = next(i for i in report["issues"] if i["kind"] == "missing_stanza")
+    missing = next(i for i in report["issues"] if i["kind"] == "missing_article")
     assert missing["id"] == "interaction/missing-piece"
 
 
 def test_validate_fix_does_not_strip_core_when_include_global_false(vault: Path) -> None:
-    write_stanza(vault, "interaction/shared", "SHARED-BODY")
-    write_stanza(vault, "interaction/local", "LOCAL-BODY")
+    write_article(vault, "interaction/shared", "SHARED-BODY")
+    write_article(vault, "interaction/local", "LOCAL-BODY")
     write_project(vault, "_global", core=["interaction/shared"])
     write_project(
         vault,

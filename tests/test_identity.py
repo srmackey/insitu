@@ -7,7 +7,7 @@ from insitu.identity import (
     validate_project_key,
     validate_role_id,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
 )
 
 
@@ -35,12 +35,12 @@ def test_rejects_absolute_and_drive_project_keys() -> None:
         validate_project_key("C:\\windows")
 
 
-def test_accepts_kebab_stanza_segments() -> None:
-    assert validate_stanza_id("interaction/summary-first") == "interaction/summary-first"
-    assert validate_stanza_id("one") == "one"
+def test_accepts_kebab_article_segments() -> None:
+    assert validate_article_id("interaction/summary-first") == "interaction/summary-first"
+    assert validate_article_id("one") == "one"
 
 
-def test_rejects_stanza_escape_and_charset() -> None:
+def test_rejects_article_escape_and_charset() -> None:
     for sid in (
         "../escape",
         "interaction/../methodology/x",
@@ -51,7 +51,7 @@ def test_rejects_stanza_escape_and_charset() -> None:
         "interaction/./foo",
     ):
         with pytest.raises(InvalidIdentity):
-            validate_stanza_id(sid)
+            validate_article_id(sid)
 
 
 def test_accepts_kebab_role_ids() -> None:
