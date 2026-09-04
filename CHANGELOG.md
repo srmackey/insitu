@@ -4,6 +4,18 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [Unreleased] - 0.17.0
+
+Stacked on 0.16 and released after it. Additive: nothing that worked before behaves differently unless an article declares a conflict.
+
+### Added
+
+- **`conflicts:` on an article.** An optional list of article ids that must not be composed beside it. The relation is symmetric on read, so one side declaring is enough and an author writes it once.
+- **Linking and installing refuse a conflict.** `link_article`, `install_article`, and `install_capability` return `conflicts_with_composed` and write nothing when the arriving article conflicts with one the project already composes, whether that one arrived natively, through a role, or through an import, in core or on-demand. A capability whose own members conflict with each other returns `pack_conflicts_internally`.
+- **Resolution warns instead of refusing.** `resolve_protocol` gains a `conflicts` list and still composes. A map pinned to `latest` can receive a conflict from upstream without anyone editing it, and a chair that changed nothing should not lose its protocol.
+- **`validate` reports `missing_conflict`** when a declaration names an article that does not exist. Such a declaration reads like a guard and refuses nothing.
+- **Installs report what the installed text names.** `install_article`, `install_capability`, and `install_skill` return `mentions_not_composed`: article ids the installed text mentions that this project does not compose, so a companion can be offered at install rather than discovered later. Ids that resolve nowhere are not reported. `install_article` also returns the article's `title` and `description`.
+
 ## [0.16.0] - 2026-09-04
 
 Two breaking changes land together so callers absorb one round of edits rather than two.

@@ -1,6 +1,6 @@
 # Insitu — Design Spec
 
-**Version 0.16**
+**Version 0.17**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -255,6 +255,25 @@ This is not multi-user ACL.
 
 **Findings** (`empty_projects`, `empty_roles`, `unreferenced`, `not_in_any_protocol`, `unreferenced_version`, `global_skills_not_inherited`) are authoring hygiene. They never fail `ok`, `fix` never consumes them, and they are not a prompt to delete anything. `fix` applies only safe repairs, on map-local copies; it does not rewrite role files, because that would change every project using the role.
 
+### 6.5 Conflict and mention
+
+Two facts about an article's text relative to a composition. They look alike and are deliberately opposite: one is declared and refuses, the other is inferred and only informs.
+
+**Conflict is declared.** `conflicts:` on an article names another article that must not be composed beside it. It is symmetric on read, so one side declaring is the whole relation and an author states it once.
+
+- **Write refuses.** `link_article`, `install_article`, and `install_capability` refuse with `conflicts_with_composed` when the arriving article conflicts with one this project already composes, core or on-demand, natively or through a role or import. Nothing is written. A capability whose own members conflict with each other is `pack_conflicts_internally`: no project could compose that pack whole, so the defect is the pack's.
+- **Resolution warns.** `resolve_protocol` reports `conflicts` and still composes. A map may pin `latest`, so an upstream declaration could otherwise make untouched checkouts unresolvable, and a chair that changed nothing would get an error instead of a protocol. Refusal belongs where someone chose the thing.
+- **Validation** reports `missing_conflict` when a declaration names an article that does not exist. Such a declaration reads like a live guard and refuses nothing, which is worse than no declaration at all.
+- **Within one vault or one pack.** A pack author cannot declare against an article in a private vault they have never seen, so a conflict spanning the two is not expressible.
+
+**A mention is not declared.** Composition scans an installed article's text for other article ids and reports, as `mentions_not_composed`, the ones this project does not compose. `install_article`, `install_capability`, and `install_skill` carry it, so an agent can offer the companions at the moment of the install rather than leaving prose to be read and hoped over.
+
+- An id that resolves nowhere is not reported. That is a broken reference, and naming it at install would put it in front of someone who cannot fix it from where they are standing.
+- Only article ids are scanned, since they carry a `/` and are unambiguous in prose. A skill id is a single segment and would match ordinary words.
+- The result is an offer, not a finding, which is why an inferred signal is enough here. A mention that turns out to be a contrast rather than a prerequisite costs one declined suggestion. Sorting the two is a human step and belongs to an audit, not to an install.
+
+**Why the strengths differ.** A conflict, composed, produces an actively wrong document: the chair holds two contradictory rules and follows one confidently. A missing companion produces an incomplete one, which the reader notices. And a scan cannot tell an incompatibility from a cross-reference, so refusing on an inferred signal would refuse correct compositions. You can offer on a guess. You cannot refuse on one.
+
 ---
 
 ## 7. Article format
@@ -278,6 +297,7 @@ updated: 2026-08-16
 
 - `id` must match the path relative to `articles/`, without `.md`.
 - `title` and `description` are **required**. They are surfaced when listing articles and when advertising on-demand articles on a resolved protocol.
+- `conflicts:` is an optional list of article ids this article must not be composed beside (§6.5).
 - Remaining frontmatter fields are optional but recommended.
 - Composition emits the heading from `title`, replacing a leading H1 in the body rather than doubling it. An article therefore cannot be authored so that it merges silently into the text of the one before it.
 - Content is ordinary Markdown. An article must not include or transclude another. Composition happens only through project maps and role packs.
@@ -336,6 +356,8 @@ protocol.on_demand =
 `resolve_protocol` is a live inspect tool: weigh the composition, refresh mid-session, compare against a materialized header. It is not how core guidance enters the session (§10). `list_articles` is a bootstrapping and authoring tool — see what exists, check sizes, then link — not agent-session bootstrap. `project_status` is a folder inspect card and never writes.
 
 Native vault skills use `link_skill`; pack skills use `install_skill`. `link_article(..., target="skills")` is `invalid_target`.
+
+**Linking and installing refuse a declared conflict, and installing reports what the text mentions** (§6.5). Resolution warns rather than refusing.
 
 **Deletes are user-gated.** `delete_*` and `remove_pack` preview without writing unless `confirm=true` carries the preview's `expected`. Deleting an article unlinks it from role files and maps, then removes the article and its why-log. Deleting a project removes `projects/<key>/` only; articles and roles stay, and `_global` cannot be deleted (`cannot_delete_global`).
 

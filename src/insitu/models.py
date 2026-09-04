@@ -16,6 +16,7 @@ class Article:
     tags: list[str]
     content: str
     frontmatter_id: str | None
+    conflicts: list[str] = field(default_factory=list)
 
 
 @dataclass

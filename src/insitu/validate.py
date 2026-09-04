@@ -161,6 +161,18 @@ def _collect_issues(vault: Vault) -> list[dict]:
                     "fields": missing_fields,
                 }
             )
+        for declared in article.conflicts:
+            # A conflict naming an article that does not exist refuses nothing.
+            # It reads like a live guard and is inert, which is worse than an
+            # absent one, so it is an issue rather than a hygiene finding.
+            if str(declared) not in vault.articles:
+                issues.append(
+                    {
+                        "kind": "missing_conflict",
+                        "id": sid,
+                        "conflicts": str(declared),
+                    }
+                )
     for rid, role in sorted(vault.roles.items()):
         for list_name in ("core", "on_demand"):
             _check_id_list(

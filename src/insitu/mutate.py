@@ -17,6 +17,7 @@ from insitu.affects import (
     article_already_in_protocol,
 )
 from insitu.catalog import get_project, get_skill, get_article, where_used, where_used_skill
+from insitu.provisions import conflict_refusal
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
@@ -329,6 +330,9 @@ def link_article(
             "target": "on_demand",
             "project": key,
         }
+    clash = conflict_refusal(vault, key, vault.articles[sid])
+    if clash is not None:
+        return clash
     core = list(proj.core)
     on_demand = list(proj.on_demand)
     if target == "core":

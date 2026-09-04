@@ -103,6 +103,9 @@ def load_articles_tree(articles_root: Path) -> dict[str, Article]:
         frontmatter_id = meta.get("id")
         if frontmatter_id is not None:
             frontmatter_id = str(frontmatter_id)
+        conflicts = meta.get("conflicts") or []
+        if isinstance(conflicts, str):
+            conflicts = [conflicts]
         articles[article_id] = Article(
             id=article_id,
             path=path,
@@ -111,6 +114,7 @@ def load_articles_tree(articles_root: Path) -> dict[str, Article]:
             tags=[str(t) for t in tags],
             content=_normalize_body(post.content or ""),
             frontmatter_id=frontmatter_id,
+            conflicts=[str(c) for c in conflicts],
         )
     return articles
 

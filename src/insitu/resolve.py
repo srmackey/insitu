@@ -15,6 +15,7 @@ from insitu.identity import (
 )
 from insitu.library import concrete_version, newer_than_pin, record_member_ids, sync_latest
 from insitu.models import ImportRecord, PackVersion, Project, Skill, Article, Vault
+from insitu.provisions import conflicts_within, resolve_article
 from insitu.size import size_fields, total_size
 from insitu.store import both_keys_present, load_vault
 
@@ -462,7 +463,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     skills_size = total_size([skill.content for skill in composed_skills])
     skills_size["count"] = skills_size.pop("article_count")
 
-    return {
+    result = {
         "ok": True,
         "project": key,
         "include_global": include_global,
@@ -474,6 +475,21 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         "skills_size": skills_size,
         "newer_available": import_notices(vault, proj.imports),
     }
+    # Warn, never refuse. A write is refused where someone chose it; by the time
+    # a conflict reaches resolution it may have arrived from an upstream pack on
+    # a `latest` pin, and failing here would leave a chair that changed nothing
+    # unable to open a session at all.
+    here = [
+        found
+        for found in (
+            resolve_article(vault, item["id"]) for item in core_items + on_demand_items
+        )
+        if found is not None
+    ]
+    clashes = conflicts_within(here)
+    if clashes:
+        result["conflicts"] = clashes
+    return result
 
 
 def _both_keys_error(vault: Vault, project: str) -> dict | None:
