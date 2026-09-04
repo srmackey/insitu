@@ -15,6 +15,7 @@ from insitu.identity import (
 )
 from insitu.library import concrete_version, newer_than_pin, record_member_ids, sync_latest
 from insitu.models import ImportRecord, PackVersion, Project, Skill, Article, Vault
+from insitu.operators import load_operators
 from insitu.provisions import conflicts_within, resolve_article
 from insitu.size import size_fields, total_size
 from insitu.store import both_keys_present, load_vault
@@ -384,6 +385,14 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
             return composed
         global_core = composed
 
+    # Imposed sets run broadest to narrowest, and both run ahead of anything
+    # the map chose. `_global` is the universal imposition and can be opted
+    # out of; a class obligation is narrower and cannot, so it sits after
+    # `_global` and before the first thing this project asked for.
+    operators = load_operators(vault.root)
+    obligation_core, obligation_on_demand = operators.obligations_for(key)
+    prohibited = set(operators.prohibitions_for(key))
+
     role_core = expand_role_field(vault, proj.roles, "core")
     if isinstance(role_core, dict):
         return role_core
@@ -397,16 +406,39 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     if isinstance(import_on_demand, dict):
         return import_on_demand
 
+    excluded: list[dict] = []
+
+    def _drop(article_id: str, list_name: str) -> bool:
+        """A prohibited article is excluded from the composition and named.
+
+        Refusing the whole resolve would be enforcement bought at the price of
+        the chair's protocol, on a map its own occupant may never have edited.
+        Excluding the article enforces the prohibition exactly, and reporting
+        it means nobody has to guess why their map and their protocol differ.
+        """
+        if article_id not in prohibited:
+            return False
+        entry = {
+            "id": article_id,
+            "list": list_name,
+            "prohibited_by": operators.prohibiting_class(key, article_id),
+        }
+        if entry not in excluded:
+            excluded.append(entry)
+        return True
+
     core_items: list[dict] = []
     seen_core: set[str] = set()
-    for raw_id in first_wins(global_core, role_core):
+    for raw_id in first_wins(global_core, obligation_core, role_core):
+        if _drop(raw_id, "core"):
+            continue
         found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         core_items.append(_core_item(found))
         seen_core.add(found.id)
     for raw_id, pack in import_core:
-        if raw_id in seen_core:
+        if raw_id in seen_core or _drop(raw_id, "core"):
             continue
         found = _lookup_article(vault, raw_id, pack=pack)
         if isinstance(found, dict):
@@ -414,7 +446,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         core_items.append(_core_item(found))
         seen_core.add(found.id)
     for raw_id in first_wins(list(proj.core)):
-        if raw_id in seen_core:
+        if raw_id in seen_core or _drop(raw_id, "core"):
             continue
         found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
@@ -437,14 +469,16 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
 
     on_demand_items: list[dict] = []
     seen_on_demand: set[str] = set()
-    for raw_id in first_wins(role_on_demand):
+    for raw_id in first_wins(obligation_on_demand, role_on_demand):
+        if raw_id in seen_core or _drop(raw_id, "on_demand"):
+            continue
         found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         on_demand_items.append(_on_demand_item(found))
         seen_on_demand.add(found.id)
     for raw_id, pack in import_on_demand:
-        if raw_id in seen_on_demand:
+        if raw_id in seen_on_demand or _drop(raw_id, "on_demand"):
             continue
         found = _lookup_article(vault, raw_id, pack=pack)
         if isinstance(found, dict):
@@ -452,7 +486,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         on_demand_items.append(_on_demand_item(found))
         seen_on_demand.add(found.id)
     for raw_id in first_wins(list(proj.on_demand)):
-        if raw_id in seen_on_demand:
+        if raw_id in seen_on_demand or _drop(raw_id, "on_demand"):
             continue
         found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
@@ -468,6 +502,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         "project": key,
         "include_global": include_global,
         "roles": list(proj.roles),
+        "classes": operators.classes_for(key),
         "size": total_size([item["content"] for item in core_items]),
         "core": core_items,
         "on_demand": on_demand_items,
@@ -489,6 +524,23 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     clashes = conflicts_within(here)
     if clashes:
         result["conflicts"] = clashes
+    # Without this, the same map.yaml composes differently depending on a file
+    # the reader cannot see from here, and nothing in the result says so.
+    if obligation_core or obligation_on_demand:
+        result["imposed"] = [
+            {
+                "id": article_id,
+                "list": list_name,
+                "imposed_by": operators.imposing_class(key, article_id),
+            }
+            for list_name, ids in (
+                ("core", obligation_core),
+                ("on_demand", obligation_on_demand),
+            )
+            for article_id in ids
+        ]
+    if excluded:
+        result["excluded"] = excluded
     return result
 
 

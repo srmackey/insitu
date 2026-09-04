@@ -189,7 +189,7 @@ def _skill_reach(skill_id: str) -> list[str]:
 
 @mcp.tool(annotations=READ_ONLY)
 def resolve_protocol(project: str) -> dict:
-    """Return the composed protocol for a project: core bodies, on-demand index, size. Reports conflicts as a warning; it never refuses."""
+    """Return the composed protocol for a project: core bodies, on-demand index, size. Reports conflicts, what a class imposed, and what a class excluded. It never refuses."""
     return resolve_protocol_fn(current_vault(), project)
 
 
@@ -425,7 +425,7 @@ def where_used_skill(skill_id: str) -> dict:
 def link_article(
     working_folder: str, project: str, article_id: str, target: str = "core"
 ) -> dict:
-    """Add an article to a project's core or on-demand list. Does not edit role files. Refused when the article conflicts with one this project already composes."""
+    """Add an article to a project's core or on-demand list. Does not edit role files. Refused when a class forbids the article, or when it conflicts with one this project already composes."""
     return _gated(
         project,
         working_folder,
@@ -655,13 +655,13 @@ def delete_project(
 
 @mcp.tool(annotations=READ_ONLY)
 def operators() -> dict:
-    """Inspect: operator classes, the registered admins, and the default class."""
+    """Inspect: the classes each project holds, what each class imposes and forbids, the registered admins, and the default class."""
     return operator_status(current_vault())
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def grant(working_folder: str, project: str, operator_class: str) -> dict:
-    """Admin only: set a project's operator class to admin or bound."""
+def grant(working_folder: str, project: str, operator_class: str | list[str]) -> dict:
+    """Admin only: set the classes a project holds. One name or a list; the set replaces what was there. Rights are the union."""
     return grant_fn(
         current_vault(),
         project=project,

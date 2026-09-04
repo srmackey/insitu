@@ -1,6 +1,6 @@
 # Insitu — Design Spec
 
-**Version 0.17**
+**Version 0.18**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -218,14 +218,34 @@ Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml` and `sur
 
 ```yaml
 default_class: bound
+classes:                            # optional; named classes beyond the two rungs
+  sensitive:
+    obligations:
+      core: [methodology/discreet]  # composed whether or not a map lists it
+    prohibitions: [methodology/loud]
 projects:
-  river-ledger: admin
+  river-ledger: admin               # one class stays a bare string
+  gno: [bound, sensitive]           # a chair holds a set
 ```
 
-| Class | Mutate maps | Mutate shared objects | `materialize` | Grant / revoke |
+A chair holds a **set** of classes. `admin` and `bound` are the rights ladder and cannot be redefined by a file, or the same word would mean different things in different vaults. Any other class is defined in `classes:` and carries rights, obligations, and prohibitions.
+
+**Rights are the union over the set, on a two-rung ladder.** One `admin` rung anywhere carries the whole set. The ladder stays two rungs deliberately: a union is only unambiguous while there is nothing to be ambiguous about.
+
+| Rights | Mutate maps | Mutate shared objects | `materialize` | Grant / revoke |
 |---|---|---|---|---|
 | **admin** | any project key | yes | any project, into that project's own checkout | yes |
 | **bound** (default) | this project only | only what no other map composes | this folder only | no |
+
+**An obligation is composed because of what the chair is, not what it chose.** It appears in no `map.yaml`, and `include_global: false` does not shed it — opting out of `_global` is a choice, and an obligation is the thing that is not. Order is in §8.
+
+**A prohibition refuses at a write and excludes at resolution.** `link_article`, `install_article`, and `install_capability` refuse with `prohibited_by_class` and write nothing: someone is asking for it right now, so the honest answer is no. Resolution instead drops the article and reports it under `excluded`. A map can acquire a prohibition without its occupant touching anything, and failing the resolve would buy enforcement at the price of that chair's whole protocol. Excluding the article enforces the prohibition exactly.
+
+Where one held class imposes what another forbids, the prohibition wins and `validate` reports `obligation_prohibited`, because the config is contradictory and a person has to settle it.
+
+**Visibility is the load-bearing half.** Two chairs on the same `map.yaml` compose differently once a class imposes anything, so every surface that explains a composition names the classes and what they did: `resolve_protocol` returns `classes`, `imposed`, and `excluded`; `project_status` prints them on its card; the generated protocol header carries a `classes:` line; `where_used` and validate's unreferenced findings count an imposed article as used. Without that, the same map means different things depending on a file the reader cannot see from here.
+
+`validate` also reports `missing_obligation` and `missing_prohibition` for a declaration naming an article that does not exist. The first is the sharper one: an obligation that resolves nowhere fails resolution for every chair in that class at once.
 
 **The calling chair** is the basename of `working_folder`, case-folded. Every mutating map tool requires it, and a bound chair whose key is not `project` gets `chair_bound`. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
 
@@ -309,19 +329,26 @@ updated: 2026-08-16
 
 ```
 global_composed = expand(_global.roles).core + _global.core       # if _global exists
+imposed         = obligations of every class this chair holds      # §6.3
 
 protocol.core =
     global_composed                 # if include_global
+  + imposed.core
   + expand(project.roles).core
   + expand(project.imports).core
   + project.core
 
 protocol.on_demand =
-    expand(project.roles).on_demand
+    imposed.on_demand
+  + expand(project.roles).on_demand
   + expand(project.imports).on_demand
   + project.on_demand
                                     # first-wins dedup throughout
+                                    # then anything this chair's classes
+                                    # prohibit is dropped and reported
 ```
+
+Imposed sets run broadest to narrowest, and both run ahead of anything the map chose. `_global` is the universal imposition and can be opted out of; a class obligation is narrower and cannot, so it sits after `_global` and before the first thing this project asked for.
 
 `expand(roles)` walks the project's `roles:` list in order and concatenates each role's `core` (or `on_demand`). `include_global` injects `_global`'s **composed** core, roles already expanded, not the raw `_global.core` list. `_global.on_demand` is never pulled into another project.
 
@@ -357,7 +384,7 @@ protocol.on_demand =
 
 Native vault skills use `link_skill`; pack skills use `install_skill`. `link_article(..., target="skills")` is `invalid_target`.
 
-**Linking and installing refuse a declared conflict, and installing reports what the text mentions** (§6.5). Resolution warns rather than refusing.
+**Linking and installing refuse a declared conflict or a class prohibition, and installing reports what the text mentions** (§6.3, §6.5). Resolution warns on a conflict and excludes a prohibited article; it refuses neither.
 
 **Deletes are user-gated.** `delete_*` and `remove_pack` preview without writing unless `confirm=true` carries the preview's `expected`. Deleting an article unlinks it from role files and maps, then removes the article and its why-log. Deleting a project removes `projects/<key>/` only; articles and roles stay, and `_global` cannot be deleted (`cannot_delete_global`).
 

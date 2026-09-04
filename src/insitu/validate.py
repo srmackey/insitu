@@ -17,6 +17,7 @@ from insitu.identity import (
 )
 from insitu.library import cited_versions
 from insitu.models import Role, Vault
+from insitu.operators import load_operators
 from insitu.resolve import (
     composed_global_core,
     expand_import_groups,
@@ -173,6 +174,7 @@ def _collect_issues(vault: Vault) -> list[dict]:
                         "conflicts": str(declared),
                     }
                 )
+    _collect_class_issues(issues, vault)
     for rid, role in sorted(vault.roles.items()):
         for list_name in ("core", "on_demand"):
             _check_id_list(
@@ -268,6 +270,11 @@ def _collect_findings(vault: Vault) -> dict:
     for role in vault.roles.values():
         referenced.update(role.core)
         referenced.update(role.on_demand)
+    # An article a class imposes is referenced by that class. Without this it
+    # reads as unused while every chair in the class is composing it.
+    for definition in load_operators(vault.root).classes.values():
+        referenced.update(definition.core)
+        referenced.update(definition.on_demand)
 
     unreferenced: list[dict] = []
     for sid, article in sorted(vault.articles.items()):
@@ -329,6 +336,57 @@ def _collect_findings(vault: Vault) -> dict:
         "global_skills_not_inherited": global_skills_not_inherited,
         "skill_missing_skill_md": _skill_missing_skill_md(vault),
     }
+
+
+def _collect_class_issues(issues: list[dict], vault: Vault) -> None:
+    """Check the operator config's content rules against the vault it governs.
+
+    An obligation naming nothing is the sharpest of these: it does not fail
+    quietly, it fails resolution for every chair in that class at once.
+    """
+    config = load_operators(vault.root)
+    for name in sorted(config.classes):
+        definition = config.classes[name]
+        for list_name in ("core", "on_demand"):
+            for article_id in getattr(definition, list_name):
+                if article_id not in vault.articles:
+                    issues.append(
+                        {
+                            "kind": "missing_obligation",
+                            "class": name,
+                            "id": article_id,
+                            "list": list_name,
+                        }
+                    )
+        for article_id in definition.prohibitions:
+            if article_id not in vault.articles:
+                issues.append(
+                    {
+                        "kind": "missing_prohibition",
+                        "class": name,
+                        "id": article_id,
+                    }
+                )
+
+    # A chair holding two classes can be told to compose something another of
+    # its classes forbids. Resolution lets the prohibition win, which is the
+    # safer half, but the config is contradictory and someone has to decide.
+    for key in sorted(config.projects):
+        prohibited = set(config.prohibitions_for(key))
+        if not prohibited:
+            continue
+        core, on_demand = config.obligations_for(key)
+        for article_id in core + on_demand:
+            if article_id in prohibited:
+                issues.append(
+                    {
+                        "kind": "obligation_prohibited",
+                        "project": key,
+                        "id": article_id,
+                        "imposed_by": config.imposing_class(key, article_id),
+                        "prohibited_by": config.prohibiting_class(key, article_id),
+                    }
+                )
 
 
 def _collect_skill_map_issues(issues: list[dict], vault: Vault, project: str) -> None:

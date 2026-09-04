@@ -6,6 +6,7 @@ from typing import Any
 
 from insitu.identity import GLOBAL_PROJECT
 from insitu.models import Vault
+from insitu.operators import load_operators
 from insitu.resolve import (
     composed_global_core,
     expand_import_field,
@@ -60,9 +61,21 @@ def composed_id_sets(vault: Vault, project: str) -> tuple[set[str], set[str]]:
         if not isinstance(import_on_demand, dict)
         else []
     )
-    core = set(first_wins(global_core, role_core, import_core_ids, list(proj.core)))
-    on_demand = set(first_wins(role_on_demand, import_on_demand_ids, list(proj.on_demand)))
-    return core, on_demand
+    # Imposed articles are composed, so every surface built on this function —
+    # where_used, validate's unreferenced findings, the conflict check — has to
+    # see them, or it reports on a protocol that is not the one being loaded.
+    operators = load_operators(vault.root)
+    obligation_core, obligation_on_demand = operators.obligations_for(project)
+    prohibited = set(operators.prohibitions_for(project))
+    core = set(
+        first_wins(global_core, obligation_core, role_core, import_core_ids, list(proj.core))
+    )
+    on_demand = set(
+        first_wins(
+            obligation_on_demand, role_on_demand, import_on_demand_ids, list(proj.on_demand)
+        )
+    )
+    return core - prohibited, on_demand - prohibited - core
 
 
 def projects_composed_including(vault: Vault, article_id: str) -> list[str]:
