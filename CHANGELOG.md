@@ -4,7 +4,7 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
-## [Unreleased] — 0.16.0
+## [0.16.0] - 2026-09-04
 
 Two breaking changes land together so callers absorb one round of edits rather than two.
 
