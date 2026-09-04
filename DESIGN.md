@@ -43,6 +43,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 
 | Concept | Definition |
 |---------|----------|
+| **Provision** | Anything Insitu provides to a project, at any grain: an article, a role, a skill, a pack, or a member pulled out of one. It names a relationship rather than a size, so it sits above the rows below rather than beside them. Use it when the grain is not the point — "which provisions does this project subscribe to?" — and use the specific noun when it is. |
 | **Article** | One portable section of standing agent guidance. A markdown file in the vault. Composed into a protocol. |
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
 | **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. |
