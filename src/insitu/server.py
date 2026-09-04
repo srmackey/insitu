@@ -729,7 +729,7 @@ def install_article(
     pack: str | None = None,
     target: str = "core",
 ) -> dict:
-    """This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand. Returns article ids its text names that this project does not compose."""
+    """This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand. Returns article ids its text names that this project does not compose, and warns when this map already imports that pack at another version."""
     return _gated(
         project,
         working_folder,
@@ -773,7 +773,7 @@ def install_skill(
     version: str,
     pack: str | None = None,
 ) -> dict:
-    """This project uses one skill from a pack version. Pull onto the shelf if needed. Does not copy into native skills/. Returns article ids its text names that this project does not compose."""
+    """This project uses one skill from a pack version. Pull onto the shelf if needed. Does not copy into native skills/. Returns article ids its text names that this project does not compose, and warns when this map already imports that pack at another version."""
     return _gated(
         project,
         working_folder,
@@ -806,7 +806,7 @@ def fetch_pack(
     confirm: bool = False,
     expected: dict | None = None,
 ) -> dict:
-    """Admin: seed library/<id>/<version>/. No map change. Confirm if refreshing changed bytes."""
+    """Admin: seed library/<id>/<version>/. No map change. Confirm if refreshing changed bytes. Returns used_by, the maps that compose this version now, since a latest pin moves them the moment it is seeded."""
     return fetch_pack_fn(
         current_vault(),
         pack,

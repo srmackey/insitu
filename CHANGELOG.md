@@ -4,6 +4,17 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [Unreleased] — 0.19.0
+
+Additive. Two facts the server already knew at the moment it acted, and did not say.
+
+### Added
+
+- **`fetch_pack` returns `used_by`,** the maps that compose the seeded version, at the grain each takes it. Because every import can pin `latest`, seeding the shelf is the delivery: consumers move without anyone editing a map, and until now the only way to learn who had just received something was to run `list_packs` afterwards and remember to. Both tools now read one computation, so they cannot disagree.
+- **`install_article` and `install_skill` warn on a split pin.** Installing from a second version of a pack the map already imports returns `cross_version_pin`, naming the version being added and the ones already there. A warning rather than a refusal, since two rows can be deliberate: a chair may want a skill from a newer version while holding its articles back. The equivalent refusal for the same *article* at two versions (`duplicate_import_article`) already existed one level down; this is the weaker check at the pack level.
+
+The warning compares the version string a record stores, not a resolved one, so a map whose rows all read `latest` never trips it, and several rows at one version — a capability import beside a skill import — remain the ordinary shape.
+
 ## [0.18.0] - 2026-09-04
 
 Additive. A vault with no `classes:` block behaves exactly as it did, and every existing `operators.yaml` loads unchanged.
