@@ -4,6 +4,23 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [Unreleased] — 0.18.0
+
+Additive. A vault with no `classes:` block behaves exactly as it did, and every existing `operators.yaml` loads unchanged.
+
+### Added
+
+- **A class can impose and forbid content, not only grant rights.** `config/operators.yaml` takes an optional `classes:` block where a named class carries `rights`, `obligations` (`core` and `on_demand`), and `prohibitions`. The two rights classes, `admin` and `bound`, are the ladder itself and cannot be redefined by a file.
+- **A chair holds a set of classes.** A project's value may be one name or a list. Rights are the union over that set: one `admin` rung anywhere carries the set. `grant` accepts a name or a list and replaces the whole set.
+- **Obligations compose without appearing on any map,** ahead of anything the project chose and after `_global`. `include_global: false` does not shed them: opting out of `_global` is a choice, and an obligation is the thing that is not.
+- **Prohibitions refuse at a write and exclude at resolution.** `link_article`, `install_article`, and `install_capability` return `prohibited_by_class` and write nothing. `resolve_protocol` instead drops the article and lists it under `excluded`, because a map can acquire a prohibition without its occupant editing anything and failing the resolve would cost that chair its whole protocol.
+- **Every surface that explains a composition now names what a class did.** `resolve_protocol` returns `classes`, `imposed`, and `excluded`; `project_status` prints them on its card; the generated protocol header carries a `classes:` line; `where_used` and validate's `unreferenced` count an imposed article as used.
+- **`validate` reports `missing_obligation`, `missing_prohibition`, and `obligation_prohibited`.** The first is the sharpest: an obligation naming an article that does not exist fails resolution for every chair in that class at once. Where one held class imposes what another forbids, the prohibition wins in composition and the contradiction is reported.
+
+### Changed
+
+- `operators` returns each project as `{classes, rights}` rather than a single class string, and includes the `classes:` definitions.
+
 ## [0.17.0] - 2026-09-04
 
 Stacked on 0.16 and released after it. Additive: nothing that worked before behaves differently unless an article declares a conflict.

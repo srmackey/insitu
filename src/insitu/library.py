@@ -25,6 +25,7 @@ from insitu.provisions import (
     conflicts_between,
     conflicts_within,
     mentions_not_composed,
+    prohibition_refusal,
 )
 from insitu.store import load_pack_repos, load_vault
 
@@ -536,6 +537,11 @@ def install_capability(
         }
     proj = vault.projects[key]
     arriving = [shelved.articles[aid] for aid in sorted(shelved.articles)]
+    for article in arriving:
+        banned = prohibition_refusal(vault, key, article.id)
+        if banned is not None:
+            banned.update({"pack": pack_id, "version": concrete})
+            return banned
     already = composed_articles(vault, key)
     for article in arriving:
         clash = conflicts_between(article, already)
@@ -663,6 +669,10 @@ def install_article(
         return {"ok": False, "error": "missing_article", "id": sid, "pack": pack_id, "version": concrete}
     proj = vault.projects[key]
     installed = pack_ver.articles[sid]
+    banned = prohibition_refusal(vault, key, sid)
+    if banned is not None:
+        banned.update({"pack": pack_id, "version": concrete})
+        return banned
     clash = conflict_refusal(vault, key, installed)
     if clash is not None:
         clash.update({"pack": pack_id, "version": concrete})

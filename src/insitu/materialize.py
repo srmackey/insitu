@@ -181,7 +181,12 @@ def _write_mapped_skills(
     return written, removed
 
 
-def render_header(vault_root: Path, project: str, article_ids: list[str]) -> str:
+def render_header(
+    vault_root: Path,
+    project: str,
+    article_ids: list[str],
+    classes: list[str] | None = None,
+) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
         "<!--",
@@ -189,8 +194,13 @@ def render_header(vault_root: Path, project: str, article_ids: list[str]) -> str
         f"vault: {vault_root}",
         f"timestamp: {timestamp}",
         f"project: {project}",
-        "articles:",
     ]
+    # The article list alone no longer explains this file: with obligations in
+    # play, two chairs on the same map.yaml can compose differently. The classes
+    # are what account for the difference, so they belong in the same header.
+    if classes:
+        lines.append(f"classes: {', '.join(classes)}")
+    lines.append("articles:")
     if article_ids:
         lines.extend(f"- {sid}" for sid in article_ids)
     else:
@@ -235,6 +245,7 @@ def _render_protocol(vault_root: Path, resolved: dict) -> str:
         vault_root,
         resolved["project"],
         [item["id"] for item in resolved["core"]],
+        resolved.get("classes"),
     )
     bodies = [item["content"] for item in resolved["core"]]
     text = header

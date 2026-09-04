@@ -132,6 +132,34 @@ def composed_ids(vault: Vault, project: str) -> set[str]:
     return core | on_demand
 
 
+def prohibition_refusal(vault: Vault, project: str, article_id: str) -> dict | None:
+    """The write-time half of a prohibition: refuse to put it on the map at all.
+
+    Resolution excludes a prohibited article rather than failing, because a map
+    can acquire a prohibition without its occupant touching anything. A write is
+    the opposite case: someone is asking for it right now, so the honest answer
+    is no rather than a silent drop they discover later.
+    """
+    from .operators import load_operators
+
+    operators = load_operators(vault.root)
+    by = operators.prohibiting_class(project, article_id)
+    if by is None:
+        return None
+    return {
+        "ok": False,
+        "error": "prohibited_by_class",
+        "id": article_id,
+        "project": project,
+        "prohibited_by": by,
+        "classes": operators.classes_for(project),
+        "detail": (
+            f"class {by!r} forbids {article_id!r} on this chair. An admin chair "
+            "changes that in the vault's operator config, not on this map."
+        ),
+    }
+
+
 def conflict_refusal(vault: Vault, project: str, candidate: Article) -> dict | None:
     """The write-time half: refuse a link or install that would compose a conflict.
 

@@ -76,6 +76,19 @@ def _render_card(result: dict) -> str:
     ]
     roles = result["roles"]
     lines.append(f"- Role: {_fmt_list(roles)}")
+    classes = result.get("classes") or []
+    # A card that shows only the map would be describing a protocol this chair
+    # does not have, whenever a class imposes or forbids anything.
+    if classes:
+        lines.append(f"- Class: {_fmt_list(classes)}")
+    for row in result.get("imposed") or []:
+        lines.append(
+            f"- Imposed by {row['imposed_by']}: {row['id']} ({row['list']})"
+        )
+    for row in result.get("excluded") or []:
+        lines.append(
+            f"- Forbidden by {row['prohibited_by']}: {row['id']} (dropped from {row['list']})"
+        )
     lines.append(
         "- _global included"
         if result["include_global"]
@@ -227,6 +240,9 @@ def project_status(
         "name": proj.name,
         "repo": proj.repo,
         "roles": list(proj.roles),
+        "classes": resolved.get("classes", []),
+        "imposed": resolved.get("imposed", []),
+        "excluded": resolved.get("excluded", []),
         "include_global": False
         if key == GLOBAL_PROJECT
         else proj.include_global,
