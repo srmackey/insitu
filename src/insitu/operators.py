@@ -222,7 +222,7 @@ def check_vault_write(
     kind: str,
     object_id: str,
 ) -> tuple[dict | None, str | None]:
-    """Gate a write to a shared vault object: a stanza, a role, or a skill.
+    """Gate a write to a shared vault object: an article, a role, or a skill.
 
     Authoring is open to every chair. What is gated is reach: a write that
     changes what a map other than this chair's composes is composition

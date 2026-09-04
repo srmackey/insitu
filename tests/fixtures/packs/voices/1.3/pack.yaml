@@ -3,7 +3,7 @@ name: Voices
 kind: theme
 primary: identity
 version: 1.3
-stanzas:
+articles:
   - identity/y
 skills: []
 roles: []

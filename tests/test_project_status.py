@@ -9,7 +9,7 @@ from helpers import (
     write_pack_repos,
     write_project,
     write_role,
-    write_stanza,
+    write_article,
 )
 
 from insitu.library import install_capability
@@ -18,10 +18,10 @@ from insitu.status import project_status
 
 
 def _seed(vault: Path) -> None:
-    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
-    write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
-    write_stanza(vault, "methodology/small-diffs", "ON-DEMAND-BODY")
-    write_stanza(vault, "methodology/ledger-clerk", "ROLE-CORE-BODY")
+    write_article(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
+    write_article(vault, "methodology/small-diffs", "ON-DEMAND-BODY")
+    write_article(vault, "methodology/ledger-clerk", "ROLE-CORE-BODY")
     write_project(vault, "_global", core=["interaction/summary-first"])
     write_role(vault, "clerk", core=["methodology/ledger-clerk"])
     write_project(
@@ -83,7 +83,7 @@ def test_happy_path_map_sources_size_card_no_bodies(
     assert result["core"] == ["interaction/how-i-work-with-ai"]
     assert result["on_demand"] == ["methodology/small-diffs"]
     assert result["notes"] is True
-    assert result["size"]["stanza_count"] == 3
+    assert result["size"]["article_count"] == 3
     assert "card" in result
     dumped = _dump(result)
     assert "GLOBAL-CORE-BODY" not in dumped
@@ -94,10 +94,10 @@ def test_happy_path_map_sources_size_card_no_bodies(
     kinds = [row["kind"] for row in result["sources"]]
     assert kinds == ["_global", "role", "project"]
     by_kind = {row["kind"]: row for row in result["sources"]}
-    assert by_kind["_global"]["stanzas"] == ["interaction/summary-first"]
+    assert by_kind["_global"]["articles"] == ["interaction/summary-first"]
     assert by_kind["role"]["id"] == "clerk"
-    assert by_kind["role"]["stanzas"] == ["methodology/ledger-clerk"]
-    assert by_kind["project"]["stanzas"] == ["interaction/how-i-work-with-ai"]
+    assert by_kind["role"]["articles"] == ["methodology/ledger-clerk"]
+    assert by_kind["project"]["articles"] == ["interaction/how-i-work-with-ai"]
     assert "interaction/summary-first" in result["card"]
     assert result["disk"]["protocol"]["present"] is False
     assert result["disk"]["current"] is False
@@ -106,7 +106,7 @@ def test_happy_path_map_sources_size_card_no_bodies(
 def test_first_wins_attributes_duplicate_to_earlier_source(
     vault: Path, tmp_path: Path
 ) -> None:
-    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
+    write_article(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
     write_project(vault, "_global", core=["interaction/summary-first"])
     write_project(
         vault,
@@ -121,8 +121,8 @@ def test_first_wins_attributes_duplicate_to_earlier_source(
     assert result["core"] == ["interaction/summary-first"]
     kinds = [row["kind"] for row in result["sources"]]
     assert kinds == ["_global"]
-    assert result["sources"][0]["stanzas"] == ["interaction/summary-first"]
-    assert result["size"]["stanza_count"] == 1
+    assert result["sources"][0]["articles"] == ["interaction/summary-first"]
+    assert result["size"]["article_count"] == 1
 
 
 def test_disk_current_when_header_matches_live_compose(
@@ -149,14 +149,14 @@ def test_disk_current_when_header_matches_live_compose(
     assert "Pack looks current" in result["card"]
 
 
-def test_disk_stale_when_header_stanza_list_differs(
+def test_disk_stale_when_header_article_list_differs(
     vault: Path, tmp_path: Path
 ) -> None:
     _seed(vault)
     work = tmp_path / "river-ledger"
     work.mkdir()
     assert materialize(vault, work)["ok"] is True
-    write_stanza(vault, "interaction/extra", "EXTRA-BODY")
+    write_article(vault, "interaction/extra", "EXTRA-BODY")
     write_project(
         vault,
         "river-ledger",
@@ -207,7 +207,7 @@ def test_project_override_uses_named_map(vault: Path, tmp_path: Path) -> None:
 
 def test_import_source_group(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
-    (vault / "stanzas").mkdir(parents=True)
+    (vault / "articles").mkdir(parents=True)
     (vault / "projects").mkdir()
     (vault / "config").mkdir()
     repo = tmp_path / "repo"
@@ -222,5 +222,5 @@ def test_import_source_group(tmp_path: Path) -> None:
     assert result["sources"][0]["kind"] == "import"
     assert result["sources"][0]["pack"] == "harbor-kit"
     assert result["sources"][0]["version"] == "0.1.0"
-    assert "methodology/dock-rule" in result["sources"][0]["stanzas"]
+    assert "methodology/dock-rule" in result["sources"][0]["articles"]
     assert "DOCK" not in _dump(result) and "content" not in result

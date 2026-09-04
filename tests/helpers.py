@@ -36,9 +36,9 @@ def write_pack_repos(vault: Path, repos: list[dict] | None) -> Path:
     return path
 
 
-def write_stanza(
+def write_article(
     vault: Path,
-    stanza_id: str,
+    article_id: str,
     body: str,
     *,
     title: str | None = "Title",
@@ -47,12 +47,12 @@ def write_stanza(
     include_id: bool = True,
     extra_fm: dict | None = None,
 ) -> Path:
-    rel = Path(*stanza_id.split("/"))
-    path = vault / "stanzas" / rel.with_suffix(".md")
+    rel = Path(*article_id.split("/"))
+    path = vault / "articles" / rel.with_suffix(".md")
     path.parent.mkdir(parents=True, exist_ok=True)
     meta: dict = {}
     if include_id:
-        meta["id"] = stanza_id
+        meta["id"] = article_id
     if title is not None:
         meta["title"] = title
     if description is not None:

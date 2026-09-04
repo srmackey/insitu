@@ -7,19 +7,19 @@ from pathlib import Path
 import pytest
 import yaml
 
-from helpers import write_project, write_role, write_stanza
+from helpers import write_project, write_role, write_article
 
 from insitu.mutate import (
     create_project,
     create_role,
-    create_stanza,
+    create_article,
     delete_project,
     delete_role,
-    delete_stanza,
-    link_stanza,
+    delete_article,
+    link_article,
     update_project,
     update_role,
-    update_stanza,
+    update_article,
 )
 from insitu.store import load_vault
 from insitu.validate import validate
@@ -47,21 +47,21 @@ def _init_git(vault: Path) -> None:
 
 
 def _seed_linked(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "interaction/voice",
         "VOICE-BODY",
         title="Voice",
         extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK-CORE",
         title="Clerk intake",
         extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(vault, "methodology/orphan", "ORPHAN-BODY", title="Orphan")
+    write_article(vault, "methodology/orphan", "ORPHAN-BODY", title="Orphan")
     write_role(
         vault,
         "clerk",
@@ -77,12 +77,12 @@ def _seed_linked(vault: Path) -> None:
     )
 
 
-def test_delete_stanza_preview_does_not_write(vault: Path) -> None:
+def test_delete_article_preview_does_not_write(vault: Path) -> None:
     _seed_linked(vault)
-    path = vault / "stanzas" / "methodology" / "clerk-intake.md"
+    path = vault / "articles" / "methodology" / "clerk-intake.md"
     before = path.read_bytes()
 
-    preview = delete_stanza(vault, "methodology/clerk-intake", why="remove clerk intake")
+    preview = delete_article(vault, "methodology/clerk-intake", why="remove clerk intake")
     assert preview["ok"] is True
     assert preview["written"] is False
     assert preview["id"] == "methodology/clerk-intake"
@@ -96,17 +96,17 @@ def test_delete_stanza_preview_does_not_write(vault: Path) -> None:
     assert "methodology/clerk-intake" in role["core"]
 
 
-def test_delete_stanza_confirm_unlinks_then_deletes(vault: Path) -> None:
+def test_delete_article_confirm_unlinks_then_deletes(vault: Path) -> None:
     _seed_linked(vault)
-    path = vault / "stanzas" / "methodology" / "clerk-intake.md"
+    path = vault / "articles" / "methodology" / "clerk-intake.md"
     prov = vault / "provenance" / "methodology" / "clerk-intake.md"
-    leftover = vault / "stanzas" / "methodology" / "clerk-intake.prov.md"
+    leftover = vault / "articles" / "methodology" / "clerk-intake.prov.md"
     prov.parent.mkdir(parents=True, exist_ok=True)
     prov.write_text("# Provenance — methodology/clerk-intake\n", encoding="utf-8")
     leftover.write_text("# leftover sibling\n", encoding="utf-8")
 
-    preview = delete_stanza(vault, "methodology/clerk-intake", why="remove clerk intake")
-    result = delete_stanza(
+    preview = delete_article(vault, "methodology/clerk-intake", why="remove clerk intake")
+    result = delete_article(
         vault,
         "methodology/clerk-intake",
         why="remove clerk intake",
@@ -133,8 +133,8 @@ def test_delete_stanza_confirm_unlinks_then_deletes(vault: Path) -> None:
     assert "river-ledger" in result["affects_projects"]
 
 
-def test_delete_stanza_confirm_on_gone_id_is_not_found(vault: Path) -> None:
-    result = delete_stanza(
+def test_delete_article_confirm_on_gone_id_is_not_found(vault: Path) -> None:
+    result = delete_article(
         vault,
         "methodology/ghost",
         why="already gone",
@@ -147,13 +147,13 @@ def test_delete_stanza_confirm_on_gone_id_is_not_found(vault: Path) -> None:
 
 
 def test_stale_preview_after_new_link_does_not_delete(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
+    write_article(vault, "methodology/small-diffs", "SMALL", title="Small diffs")
     write_project(vault, "river-ledger")
     write_project(vault, "harbor-notes")
 
-    preview = delete_stanza(vault, "methodology/small-diffs", why="try delete")
-    link_stanza(vault, "harbor-notes", "methodology/small-diffs")
-    result = delete_stanza(
+    preview = delete_article(vault, "methodology/small-diffs", why="try delete")
+    link_article(vault, "harbor-notes", "methodology/small-diffs")
+    result = delete_article(
         vault,
         "methodology/small-diffs",
         why="try delete",
@@ -162,7 +162,7 @@ def test_stale_preview_after_new_link_does_not_delete(vault: Path) -> None:
     )
     assert result["error"] == "stale_preview"
     assert result.get("written") is False
-    assert (vault / "stanzas" / "methodology" / "small-diffs.md").is_file()
+    assert (vault / "articles" / "methodology" / "small-diffs.md").is_file()
     harbor = yaml.safe_load(
         (vault / "projects" / "harbor-notes" / "map.yaml").read_text(encoding="utf-8")
     )
@@ -180,8 +180,8 @@ def test_cannot_delete_global(vault: Path) -> None:
 
 
 def test_create_global_when_missing_and_update_add_remove(vault: Path) -> None:
-    write_stanza(vault, "interaction/voice", "VOICE")
-    write_stanza(vault, "interaction/extra", "EXTRA")
+    write_article(vault, "interaction/voice", "VOICE")
+    write_article(vault, "interaction/extra", "EXTRA")
     created = create_project(vault, "_global", core=["interaction/voice"])
     assert created["ok"] is True
     assert created["affects_projects"] == ["_global"]
@@ -204,14 +204,13 @@ def test_create_global_when_missing_and_update_add_remove(vault: Path) -> None:
 
 
 def test_role_add_member_preview_and_confirm(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK",
         title="Clerk intake",
-        extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(vault, "methodology/clerk-extra", "EXTRA", title="Clerk extra")
+    write_article(vault, "methodology/clerk-extra", "EXTRA", title="Clerk extra")
     write_role(vault, "clerk", name="Clerk", core=["methodology/clerk-intake"])
     write_project(vault, "river-ledger", roles=["clerk"])
     map_before = (vault / "projects" / "river-ledger" / "map.yaml").read_bytes()
@@ -237,14 +236,13 @@ def test_role_add_member_preview_and_confirm(vault: Path) -> None:
     assert result["affects_projects"] == ["river-ledger"]
     after_role = yaml.safe_load((vault / "roles" / "clerk.yaml").read_text(encoding="utf-8"))
     assert after_role["core"] == ["methodology/clerk-intake", "methodology/clerk-extra"]
-    loaded = load_vault(vault)
-    assert "clerk" in loaded.stanzas["methodology/clerk-extra"].roles
+    assert result["files"] == ["roles/clerk.yaml"]
     assert (vault / "projects" / "river-ledger" / "map.yaml").read_bytes() == map_before
 
 
 def test_first_wins_already_in_protocol_via_global(vault: Path) -> None:
-    write_stanza(vault, "interaction/voice", "VOICE", title="Voice")
-    write_stanza(
+    write_article(vault, "interaction/voice", "VOICE", title="Voice")
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK",
@@ -256,12 +254,12 @@ def test_first_wins_already_in_protocol_via_global(vault: Path) -> None:
 
     preview = update_role(vault, "clerk", add_core=["interaction/voice"])
     river = next(row for row in preview["projects"] if row["project"] == "river-ledger")
-    match = next(item for item in river["stanzas"] if item["id"] == "interaction/voice")
+    match = next(item for item in river["articles"] if item["id"] == "interaction/voice")
     assert match["already_in_protocol"] is True
 
 
 def test_attach_role_writes_immediately_with_members_and_weight(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK-CORE-BODY",
@@ -277,7 +275,7 @@ def test_attach_role_writes_immediately_with_members_and_weight(vault: Path) -> 
     assert result["affects_projects"] == ["harbor-notes"]
     member_ids = {item["id"] for item in result["members"]}
     assert "methodology/clerk-intake" in member_ids
-    assert result["size"]["stanza_count"] == 1
+    assert result["size"]["article_count"] == 1
     data = yaml.safe_load(
         (vault / "projects" / "harbor-notes" / "map.yaml").read_text(encoding="utf-8")
     )
@@ -285,15 +283,15 @@ def test_attach_role_writes_immediately_with_members_and_weight(vault: Path) -> 
 
 
 def test_validate_findings_empty_unreferenced_and_not_in_protocol(vault: Path) -> None:
-    write_stanza(vault, "methodology/orphan", "ORPHAN", title="Orphan")
-    write_stanza(
+    write_article(vault, "methodology/orphan", "ORPHAN", title="Orphan")
+    write_article(
         vault,
         "methodology/idle-role",
         "IDLE",
-        title="Idle role stanza",
+        title="Idle role article",
         extra_fm={"roles": ["idle"]},
     )
-    write_stanza(vault, "interaction/global-avail", "GAVAIL", title="Global available")
+    write_article(vault, "interaction/global-avail", "GAVAIL", title="Global available")
     write_role(vault, "idle", name="Idle", core=["methodology/idle-role"])
     write_role(vault, "empty-role", name="Empty")
     write_project(vault, "_global", available=["interaction/global-avail"])
@@ -327,46 +325,46 @@ def test_validate_issues_fail_ok_findings_do_not(vault: Path) -> None:
     write_project(vault, "broken", core=["methodology/missing-piece"])
     report = validate(vault)
     assert report["ok"] is False
-    assert any(issue["kind"] == "missing_stanza" for issue in report["issues"])
+    assert any(issue["kind"] == "missing_article" for issue in report["issues"])
     assert "findings" in report
 
 
 def test_validate_fix_ignores_findings(vault: Path) -> None:
-    write_stanza(vault, "methodology/orphan", "ORPHAN", title="Orphan")
+    write_article(vault, "methodology/orphan", "ORPHAN", title="Orphan")
     write_project(vault, "empty-harbor")
     fixed = validate(vault, fix=True)
     assert fixed["ok"] is True
     assert any(item["id"] == "methodology/orphan" for item in fixed["findings"]["unreferenced"])
-    assert (vault / "stanzas" / "methodology" / "orphan.md").is_file()
+    assert (vault / "articles" / "methodology" / "orphan.md").is_file()
     assert (vault / "projects" / "empty-harbor" / "map.yaml").is_file()
 
 
-def test_affects_projects_on_map_role_global_and_stanza_update(vault: Path) -> None:
-    write_stanza(vault, "interaction/voice", "VOICE", title="Voice")
-    write_stanza(vault, "methodology/local", "LOCAL", title="Local")
+def test_affects_projects_on_map_role_global_and_article_update(vault: Path) -> None:
+    write_article(vault, "interaction/voice", "VOICE", title="Voice")
+    write_article(vault, "methodology/local", "LOCAL", title="Local")
     write_project(vault, "_global", core=["interaction/voice"])
     write_project(vault, "river-ledger")
     write_project(vault, "harbor-notes", include_global=False)
 
-    created = create_stanza(
+    created = create_article(
         vault,
         "methodology/new-piece",
         title="New",
-        description="A new stanza",
+        description="A new article",
         content="NEW",
-        why="add unused stanza",
+        why="add unused article",
     )
     assert created["affects_projects"] == []
 
-    linked = link_stanza(vault, "river-ledger", "methodology/local")
+    linked = link_article(vault, "river-ledger", "methodology/local")
     assert linked["affects_projects"] == ["river-ledger"]
 
-    global_link = link_stanza(vault, "_global", "methodology/local")
+    global_link = link_article(vault, "_global", "methodology/local")
     assert "_global" in global_link["affects_projects"]
     assert "river-ledger" in global_link["affects_projects"]
     assert "harbor-notes" not in global_link["affects_projects"]
 
-    updated = update_stanza(
+    updated = update_article(
         vault, "interaction/voice", content="VOICE-NEW", why="edit global voice"
     )
     assert "_global" in updated["affects_projects"]
@@ -378,7 +376,7 @@ def test_affects_projects_on_map_role_global_and_stanza_update(vault: Path) -> N
 
 
 def test_delete_project_removes_directory_only(vault: Path) -> None:
-    write_stanza(vault, "methodology/clerk-intake", "C")
+    write_article(vault, "methodology/clerk-intake", "C")
     write_role(vault, "clerk", core=["methodology/clerk-intake"])
     write_project(vault, "harbor-notes", roles=["clerk"], notes="keep the role")
     preview = delete_project(vault, "harbor-notes")
@@ -394,18 +392,14 @@ def test_delete_project_removes_directory_only(vault: Path) -> None:
     assert result["ok"] is True
     assert not (vault / "projects" / "harbor-notes").exists()
     assert (vault / "roles" / "clerk.yaml").is_file()
-    assert (vault / "stanzas" / "methodology" / "clerk-intake.md").is_file()
+    assert (vault / "articles" / "methodology" / "clerk-intake.md").is_file()
 
 
-def test_delete_role_confirm_strips_maps_and_frontmatter(vault: Path) -> None:
-    write_stanza(
-        vault,
-        "methodology/clerk-intake",
-        "C",
-        extra_fm={"roles": ["clerk"]},
-    )
+def test_delete_role_confirm_strips_maps_and_leaves_members(vault: Path) -> None:
+    write_article(vault, "methodology/clerk-intake", "C")
     write_role(vault, "clerk", core=["methodology/clerk-intake"])
     write_project(vault, "river-ledger", roles=["clerk"], core=["methodology/clerk-intake"])
+    member_before = (vault / "articles" / "methodology" / "clerk-intake.md").read_bytes()
     preview = delete_role(vault, "clerk")
     result = delete_role(vault, "clerk", confirm=True, expected=preview["expected"])
     assert result["ok"] is True
@@ -415,8 +409,7 @@ def test_delete_role_confirm_strips_maps_and_frontmatter(vault: Path) -> None:
     )
     assert "clerk" not in river.get("roles", [])
     assert river["core"] == ["methodology/clerk-intake"]
-    loaded = load_vault(vault)
-    assert "clerk" not in loaded.stanzas["methodology/clerk-intake"].roles
+    assert member_before == (vault / "articles" / "methodology" / "clerk-intake.md").read_bytes()
 
 
 def test_update_role_name_writes_now(vault: Path) -> None:
@@ -429,8 +422,8 @@ def test_update_role_name_writes_now(vault: Path) -> None:
 
 
 def test_delete_requires_expected_on_confirm(vault: Path) -> None:
-    write_stanza(vault, "methodology/orphan", "O")
-    result = delete_stanza(vault, "methodology/orphan", why="x", confirm=True)
+    write_article(vault, "methodology/orphan", "O")
+    result = delete_article(vault, "methodology/orphan", why="x", confirm=True)
     assert result["error"] == "missing_expected"
 
 
@@ -444,8 +437,8 @@ def test_bundled_delete_reports_every_file_it_wrote(vault: Path) -> None:
     """One confirm is one unit. The report names the unit; git is the operator's business."""
     _seed_linked(vault)
 
-    preview = delete_stanza(vault, "methodology/clerk-intake", why="bundle delete")
-    result = delete_stanza(
+    preview = delete_article(vault, "methodology/clerk-intake", why="bundle delete")
+    result = delete_article(
         vault,
         "methodology/clerk-intake",
         why="bundle delete",
@@ -454,7 +447,7 @@ def test_bundled_delete_reports_every_file_it_wrote(vault: Path) -> None:
     )
     assert result["ok"] is True
     files = set(result["files"])
-    assert "stanzas/methodology/clerk-intake.md" in files
+    assert "articles/methodology/clerk-intake.md" in files
     assert "roles/clerk.yaml" in files
     assert "projects/river-ledger/map.yaml" in files
     assert "review" not in result and "staged" not in result and "committed" not in result

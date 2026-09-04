@@ -11,10 +11,10 @@ from insitu.identity import (
     validate_project_key,
     validate_role_id,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
 )
 from insitu.library import concrete_version, newer_than_pin, record_member_ids, sync_latest
-from insitu.models import ImportRecord, PackVersion, Project, Skill, Stanza, Vault
+from insitu.models import ImportRecord, PackVersion, Project, Skill, Article, Vault
 from insitu.size import size_fields, total_size
 from insitu.store import both_keys_present, load_vault
 
@@ -29,11 +29,11 @@ def first_wins(*sequences: list[str]) -> list[str]:
     ids: list[str] = []
     seen: set[str] = set()
     for sequence in sequences:
-        for stanza_id in sequence:
-            if stanza_id in seen:
+        for article_id in sequence:
+            if article_id in seen:
                 continue
-            seen.add(stanza_id)
-            ids.append(stanza_id)
+            seen.add(article_id)
+            ids.append(article_id)
     return ids
 
 
@@ -90,66 +90,66 @@ def _identity_error(value: str, exc: InvalidIdentity) -> dict:
 _LEADING_H1 = re.compile(r"\A\s*#[ \t]+[^\n]*\n?")
 
 
-def composed_body(stanza: Stanza) -> str:
-    """The stanza body as it appears in a composed protocol, always headed.
+def composed_body(article: Article) -> str:
+    """The article body as it appears in a composed protocol, always headed.
 
     The heading comes from frontmatter `title`, and a leading H1 already in
     the body is replaced rather than doubled. Composition joins bodies with a
     blank line, so a body that opened without a heading used to read as more
-    prose under the stanza before it. There is no way to author that now.
+    prose under the article before it. There is no way to author that now.
     """
-    body = _LEADING_H1.sub("", stanza.content or "", count=1).strip()
-    heading = "# " + stanza.title.rstrip()
+    body = _LEADING_H1.sub("", article.content or "", count=1).strip()
+    heading = "# " + article.title.rstrip()
     if not body:
         return heading
     return heading + "\n\n" + body
 
 
-def _core_item(stanza: Stanza) -> dict:
-    content = composed_body(stanza)
+def _core_item(article: Article) -> dict:
+    content = composed_body(article)
     item = {
-        "id": stanza.id,
-        "title": stanza.title,
-        "description": stanza.description,
-        "tags": list(stanza.tags),
+        "id": article.id,
+        "title": article.title,
+        "description": article.description,
+        "tags": list(article.tags),
         "content": content,
     }
     item.update(size_fields(content))
     return item
 
 
-def _on_demand_item(stanza: Stanza) -> dict:
+def _on_demand_item(article: Article) -> dict:
     item = {
-        "id": stanza.id,
-        "title": stanza.title,
-        "description": stanza.description,
+        "id": article.id,
+        "title": article.title,
+        "description": article.description,
     }
-    item.update(size_fields(stanza.content))
+    item.update(size_fields(article.content))
     return item
 
 
-def _lookup_stanza(
+def _lookup_article(
     vault: Vault, raw_id: str, pack: PackVersion | None = None
-) -> dict | Stanza:
+) -> dict | Article:
     try:
-        stanza_id = validate_stanza_id(raw_id)
+        article_id = validate_article_id(raw_id)
     except InvalidIdentity as exc:
         return _identity_error(raw_id, exc)
     if pack is not None:
-        stanza = pack.stanzas.get(stanza_id)
-        if stanza is None:
+        article = pack.articles.get(article_id)
+        if article is None:
             return {
                 "ok": False,
-                "error": "missing_stanza",
-                "id": stanza_id,
+                "error": "missing_article",
+                "id": article_id,
                 "pack": pack.pack_id,
                 "version": pack.version,
             }
-        return stanza
-    stanza = vault.stanzas.get(stanza_id)
-    if stanza is None:
-        return {"ok": False, "error": "missing_stanza", "id": stanza_id}
-    return stanza
+        return article
+    article = vault.articles.get(article_id)
+    if article is None:
+        return {"ok": False, "error": "missing_article", "id": article_id}
+    return article
 
 
 def expand_import_groups(
@@ -182,7 +182,7 @@ def expand_import_groups(
             if sid in seen:
                 return {
                     "ok": False,
-                    "error": "duplicate_import_stanza",
+                    "error": "duplicate_import_article",
                     "id": sid,
                     "pack": record.pack,
                     "version": resolved,
@@ -322,7 +322,7 @@ def attributed_core_sources(vault: Vault, proj: Project) -> list[dict] | dict:
             seen.add(sid)
             kept.append(sid)
         if kept:
-            row: dict = {"kind": kind, "stanzas": kept}
+            row: dict = {"kind": kind, "articles": kept}
             row.update(extra)
             groups.append(row)
 
@@ -399,7 +399,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     core_items: list[dict] = []
     seen_core: set[str] = set()
     for raw_id in first_wins(global_core, role_core):
-        found = _lookup_stanza(vault, raw_id)
+        found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         core_items.append(_core_item(found))
@@ -407,7 +407,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     for raw_id, pack in import_core:
         if raw_id in seen_core:
             continue
-        found = _lookup_stanza(vault, raw_id, pack=pack)
+        found = _lookup_article(vault, raw_id, pack=pack)
         if isinstance(found, dict):
             return found
         core_items.append(_core_item(found))
@@ -415,7 +415,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     for raw_id in first_wins(list(proj.core)):
         if raw_id in seen_core:
             continue
-        found = _lookup_stanza(vault, raw_id)
+        found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         core_items.append(_core_item(found))
@@ -437,7 +437,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     on_demand_items: list[dict] = []
     seen_on_demand: set[str] = set()
     for raw_id in first_wins(role_on_demand):
-        found = _lookup_stanza(vault, raw_id)
+        found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         on_demand_items.append(_on_demand_item(found))
@@ -445,7 +445,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     for raw_id, pack in import_on_demand:
         if raw_id in seen_on_demand:
             continue
-        found = _lookup_stanza(vault, raw_id, pack=pack)
+        found = _lookup_article(vault, raw_id, pack=pack)
         if isinstance(found, dict):
             return found
         on_demand_items.append(_on_demand_item(found))
@@ -453,14 +453,14 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     for raw_id in first_wins(list(proj.on_demand)):
         if raw_id in seen_on_demand:
             continue
-        found = _lookup_stanza(vault, raw_id)
+        found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
             return found
         on_demand_items.append(_on_demand_item(found))
         seen_on_demand.add(found.id)
 
     skills_size = total_size([skill.content for skill in composed_skills])
-    skills_size["count"] = skills_size.pop("stanza_count")
+    skills_size["count"] = skills_size.pop("article_count")
 
     return {
         "ok": True,

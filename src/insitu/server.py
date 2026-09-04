@@ -10,12 +10,12 @@ from insitu.catalog import (
     get_project as get_project_fn,
     get_role as get_role_fn,
     get_skill as get_skill_fn,
-    get_stanza as get_stanza_fn,
+    get_article as get_article_fn,
     list_on_demand as list_on_demand_fn,
     list_projects as list_projects_fn,
     list_roles as list_roles_fn,
     list_skills as list_skills_fn,
-    list_stanzas as list_stanzas_fn,
+    list_articles as list_articles_fn,
     where_used as where_used_fn,
     where_used_skill as where_used_skill_fn,
 )
@@ -24,31 +24,31 @@ from insitu.library import (
     get_pack as get_pack_fn,
     install_capability as install_capability_fn,
     install_skill as install_skill_fn,
-    install_stanza as install_stanza_fn,
+    install_article as install_article_fn,
     list_packs as list_packs_fn,
     remove_pack as remove_pack_fn,
     uninstall_capability as uninstall_capability_fn,
     uninstall_skill as uninstall_skill_fn,
-    uninstall_stanza as uninstall_stanza_fn,
+    uninstall_article as uninstall_article_fn,
 )
 from insitu.materialize import materialize as materialize_fn
 from insitu.mutate import (
     create_project as create_project_fn,
     create_role as create_role_fn,
     create_skill as create_skill_fn,
-    create_stanza as create_stanza_fn,
+    create_article as create_article_fn,
     delete_project as delete_project_fn,
     delete_role as delete_role_fn,
     delete_skill as delete_skill_fn,
-    delete_stanza as delete_stanza_fn,
+    delete_article as delete_article_fn,
     link_skill as link_skill_fn,
-    link_stanza as link_stanza_fn,
+    link_article as link_article_fn,
     unlink_skill as unlink_skill_fn,
-    unlink_stanza as unlink_stanza_fn,
+    unlink_article as unlink_article_fn,
     update_project as update_project_fn,
     update_role as update_role_fn,
     update_skill as update_skill_fn,
-    update_stanza as update_stanza_fn,
+    update_article as update_article_fn,
 )
 from insitu.resolve import resolve_protocol as resolve_protocol_fn
 from insitu.status import project_status as project_status_fn
@@ -71,12 +71,12 @@ from insitu.operators import revoke as revoke_fn
 from insitu.vault import resolve_vault_root
 
 INSTRUCTIONS = """\
-Insitu stores reusable stanzas of standing guidance and project-mapped skills,
+Insitu stores reusable articles of standing guidance and project-mapped skills,
 and composes a project protocol.
 
 Project key is the working folder basename (projects/<folder>/). Session start is
 resolve_protocol for inspect; materialize writes PROTOCOL.md plus host adapters
-and mapped skill copies. Pull on-demand stanzas with get_stanza. list_stanzas
+and mapped skill copies. Pull on-demand articles with get_article. list_articles
 shows the catalog and sizes. list_skills is the skill catalog, not session start.
 """
 
@@ -156,7 +156,7 @@ def _vault_gated(
 ) -> dict:
     """Run a write to a shared vault object behind the reach gate.
 
-    Stanzas, roles, and skills are not owned by one map. Authoring is open to
+    Articles, roles, and skills are not owned by one map. Authoring is open to
     every chair; changing something other maps already compose is not.
     """
     refusal, warning = check_vault_write(
@@ -174,9 +174,9 @@ def _vault_gated(
     return result
 
 
-def _stanza_reach(stanza_id: str) -> list[str]:
-    """Maps that compose this stanza, directly or through a role."""
-    return projects_composed_including(load_vault(current_vault()), stanza_id)
+def _article_reach(article_id: str) -> list[str]:
+    """Maps that compose this article, directly or through a role."""
+    return projects_composed_including(load_vault(current_vault()), article_id)
 
 
 def _role_reach(role_id: str) -> list[str]:
@@ -194,17 +194,15 @@ def resolve_protocol(project: str) -> dict:
 
 
 @mcp.tool(annotations=READ_ONLY)
-def get_stanza(stanza_id: str, project: str | None = None) -> dict:
-    """Return one stanza by id (path relative to stanzas/, no .md). Optional project looks through that map's imports."""
-    return get_stanza_fn(current_vault(), stanza_id, project=project)
+def get_article(article_id: str, project: str | None = None) -> dict:
+    """Return one article by id (path relative to articles/, no .md). Optional project looks through that map's imports."""
+    return get_article_fn(current_vault(), article_id, project=project)
 
 
 @mcp.tool(annotations=READ_ONLY)
-def list_stanzas(
-    prefix: str | None = None, tag: str | None = None, role: str | None = None
-) -> dict:
-    """List stanzas with title, description, tags, roles, and size. Optional prefix, tag, or role filter."""
-    return list_stanzas_fn(current_vault(), prefix=prefix, tag=tag, role=role)
+def list_articles(prefix: str | None = None, tag: str | None = None) -> dict:
+    """List articles with title, description, tags, and size. Optional prefix or tag filter. Role membership lives in the role file: use get_role."""
+    return list_articles_fn(current_vault(), prefix=prefix, tag=tag)
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -221,7 +219,7 @@ def get_project(project: str) -> dict:
 
 @mcp.tool(annotations=READ_ONLY)
 def project_status(working_folder: str, project: str | None = None) -> dict:
-    """Folder inspect card: map, sourced core ids, size, on-demand ids, disk freshness. No stanza bodies. Inspect only."""
+    """Folder inspect card: map, sourced core ids, size, on-demand ids, disk freshness. No article bodies. Inspect only."""
     return project_status_fn(current_vault(), working_folder, project=project)
 
 
@@ -233,13 +231,13 @@ def list_roles() -> dict:
 
 @mcp.tool(annotations=READ_ONLY)
 def get_role(role_id: str) -> dict:
-    """Return one role file, member stanza metadata and sizes, and projects that include it."""
+    """Return one role file, member article metadata and sizes, and projects that include it."""
     return get_role_fn(current_vault(), role_id)
 
 
 @mcp.tool(annotations=READ_ONLY)
 def list_on_demand(project: str) -> dict:
-    """List on-demand stanzas associated with a project (id, title, description, size)."""
+    """List on-demand articles associated with a project (id, title, description, size)."""
     return list_on_demand_fn(current_vault(), project)
 
 
@@ -258,61 +256,57 @@ def validate(working_folder: str, fix: bool = False) -> dict:
 
 
 @mcp.tool(annotations=WRITE_NEW)
-def create_stanza(
+def create_article(
     working_folder: str,
-    stanza_id: str,
+    article_id: str,
     title: str,
     description: str,
     content: str,
     why: str,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
-    """Create a stanza and append a why-log entry. Does not link it to a project. Returns the files written. Authoring is open to any chair."""
+    """Create an article and append a why-log entry. Does not link it to a project. Returns the files written. Authoring is open to any chair."""
     return _vault_gated(
         working_folder,
-        kind="stanza",
-        object_id=stanza_id,
+        kind="article",
+        object_id=article_id,
         used_by=[],
-        run=lambda: create_stanza_fn(
+        run=lambda: create_article_fn(
             current_vault(),
-            stanza_id,
+            article_id,
             title=title,
             description=description,
             content=content,
             why=why,
             tags=tags,
-            roles=roles,
         ),
     )
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def update_stanza(
+def update_article(
     working_folder: str,
-    stanza_id: str,
+    article_id: str,
     why: str,
     title: str | None = None,
     description: str | None = None,
     content: str | None = None,
     tags: list[str] | None = None,
-    roles: list[str] | None = None,
 ) -> dict:
-    """Update a stanza, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it."""
+    """Update an article, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it."""
     return _vault_gated(
         working_folder,
-        kind="stanza",
-        object_id=stanza_id,
-        used_by=_stanza_reach(stanza_id),
-        run=lambda: update_stanza_fn(
+        kind="article",
+        object_id=article_id,
+        used_by=_article_reach(article_id),
+        run=lambda: update_article_fn(
             current_vault(),
-            stanza_id,
+            article_id,
             why=why,
             title=title,
             description=description,
             content=content,
             tags=tags,
-            roles=roles,
         ),
     )
 
@@ -428,43 +422,43 @@ def where_used_skill(skill_id: str) -> dict:
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def link_stanza(
-    working_folder: str, project: str, stanza_id: str, target: str = "core"
+def link_article(
+    working_folder: str, project: str, article_id: str, target: str = "core"
 ) -> dict:
-    """Add a stanza to a project's core or on-demand list. Does not edit role files."""
+    """Add an article to a project's core or on-demand list. Does not edit role files."""
     return _gated(
         project,
         working_folder,
-        lambda: link_stanza_fn(current_vault(), project, stanza_id, target=target),
+        lambda: link_article_fn(current_vault(), project, article_id, target=target),
     )
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def unlink_stanza(working_folder: str, project: str, stanza_id: str) -> dict:
-    """Remove a stanza from a project's map. Does not edit role files."""
+def unlink_article(working_folder: str, project: str, article_id: str) -> dict:
+    """Remove an article from a project's map. Does not edit role files."""
     return _gated(
         project,
         working_folder,
-        lambda: unlink_stanza_fn(current_vault(), project, stanza_id),
+        lambda: unlink_article_fn(current_vault(), project, article_id),
     )
 
 
 @mcp.tool(annotations=DESTRUCTIVE)
-def delete_stanza(
+def delete_article(
     working_folder: str,
-    stanza_id: str,
+    article_id: str,
     why: str,
     confirm: bool = False,
     expected: dict | None = None,
 ) -> dict:
-    """Delete a stanza. Preview unless confirm=true with the preview's expected. Do not call unless the user explicitly asked to delete this stanza. Findings are not a reason to delete."""
+    """Delete an article. Preview unless confirm=true with the preview's expected. Do not call unless the user explicitly asked to delete this article. Findings are not a reason to delete."""
     return _vault_gated(
         working_folder,
-        kind="stanza",
-        object_id=stanza_id,
-        used_by=_stanza_reach(stanza_id),
-        run=lambda: delete_stanza_fn(
-            current_vault(), stanza_id, why=why, confirm=confirm, expected=expected
+        kind="article",
+        object_id=article_id,
+        used_by=_article_reach(article_id),
+        run=lambda: delete_article_fn(
+            current_vault(), article_id, why=why, confirm=confirm, expected=expected
         ),
     )
 
@@ -685,9 +679,9 @@ def revoke(working_folder: str, project: str) -> dict:
 
 
 @mcp.tool(annotations=READ_ONLY)
-def where_used(stanza_id: str) -> dict:
-    """List every project map and role file that references a stanza."""
-    return where_used_fn(current_vault(), stanza_id)
+def where_used(article_id: str) -> dict:
+    """List every project map and role file that references an article."""
+    return where_used_fn(current_vault(), article_id)
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
@@ -727,20 +721,20 @@ def install_capability(
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def install_stanza(
+def install_article(
     working_folder: str,
     project: str,
-    stanza_id: str,
+    article_id: str,
     version: str,
     pack: str | None = None,
     target: str = "core",
 ) -> dict:
-    """This project uses one stanza from a pack version. Pull onto the shelf if needed. target is core or on_demand."""
+    """This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand."""
     return _gated(
         project,
         working_folder,
-        lambda: install_stanza_fn(
-            current_vault(), project, stanza_id, version, pack=pack, target=target
+        lambda: install_article_fn(
+            current_vault(), project, article_id, version, pack=pack, target=target
         ),
     )
 
@@ -758,15 +752,15 @@ def uninstall_capability(
 
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
-def uninstall_stanza(
-    working_folder: str, project: str, stanza_id: str, pack: str, version: str
+def uninstall_article(
+    working_folder: str, project: str, article_id: str, pack: str, version: str
 ) -> dict:
-    """Drop this stanza from this map's import record. Shelf unchanged."""
+    """Drop this article from this map's import record. Shelf unchanged."""
     return _gated(
         project,
         working_folder,
-        lambda: uninstall_stanza_fn(
-            current_vault(), project, stanza_id, pack, version
+        lambda: uninstall_article_fn(
+            current_vault(), project, article_id, pack, version
         ),
     )
 

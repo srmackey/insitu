@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from helpers import write_project, write_stanza
+from helpers import write_project, write_article
 
-from insitu.catalog import get_stanza, where_used
-from insitu.mutate import create_stanza, link_stanza, unlink_stanza, update_stanza
+from insitu.catalog import get_article, where_used
+from insitu.mutate import create_article, link_article, unlink_article, update_article
 from insitu.validate import validate
 
 
@@ -36,8 +36,8 @@ def _init_git(vault: Path) -> None:
     _git(vault, "commit", "-m", "seed", "--allow-empty")
 
 
-def test_create_stanza_writes_file_and_why_log(vault: Path) -> None:
-    result = create_stanza(
+def test_create_article_writes_file_and_why_log(vault: Path) -> None:
+    result = create_article(
         vault,
         "interaction/how-i-work-with-ai",
         title="How I work with AI",
@@ -51,12 +51,12 @@ def test_create_stanza_writes_file_and_why_log(vault: Path) -> None:
     assert result["title"] == "How I work with AI"
     assert "Say the decision" in result["content"]
     assert result["files"] == [
-        "stanzas/interaction/how-i-work-with-ai.md",
+        "articles/interaction/how-i-work-with-ai.md",
         "provenance/interaction/how-i-work-with-ai.md",
     ]
     assert result["why_log"] == "provenance/interaction/how-i-work-with-ai.md"
 
-    path = vault / "stanzas" / "interaction" / "how-i-work-with-ai.md"
+    path = vault / "articles" / "interaction" / "how-i-work-with-ai.md"
     text = path.read_text(encoding="utf-8")
     assert "title: How I work with AI" in text
     assert "id: interaction/how-i-work-with-ai" in text
@@ -67,14 +67,14 @@ def test_create_stanza_writes_file_and_why_log(vault: Path) -> None:
     assert f"## {date.today().isoformat()}\n" in log
     assert "Why: First capture of the standing prefs." in log
 
-    loaded = get_stanza(vault, "interaction/how-i-work-with-ai")
+    loaded = get_article(vault, "interaction/how-i-work-with-ai")
     assert loaded["ok"] is True
     assert loaded["tags"] == ["interaction"]
 
 
-def test_create_stanza_rejects_existing_and_missing_why(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "OLD")
-    exists = create_stanza(
+def test_create_article_rejects_existing_and_missing_why(vault: Path) -> None:
+    write_article(vault, "interaction/how-i-work-with-ai", "OLD")
+    exists = create_article(
         vault,
         "interaction/how-i-work-with-ai",
         title="T",
@@ -84,14 +84,14 @@ def test_create_stanza_rejects_existing_and_missing_why(vault: Path) -> None:
     )
     assert exists == {
         "ok": False,
-        "error": "stanza_exists",
+        "error": "article_exists",
         "id": "interaction/how-i-work-with-ai",
     }
     assert (
-        vault / "stanzas" / "interaction" / "how-i-work-with-ai.md"
+        vault / "articles" / "interaction" / "how-i-work-with-ai.md"
     ).read_text(encoding="utf-8").count("OLD") == 1
 
-    missing_why = create_stanza(
+    missing_why = create_article(
         vault,
         "methodology/small-diffs",
         title="Small diffs",
@@ -103,8 +103,8 @@ def test_create_stanza_rejects_existing_and_missing_why(vault: Path) -> None:
     assert missing_why["error"] == "missing_why"
 
 
-def test_update_stanza_appends_why_log_and_returns_where_used(vault: Path) -> None:
-    write_stanza(
+def test_update_article_appends_why_log_and_returns_where_used(vault: Path) -> None:
+    write_article(
         vault,
         "interaction/how-i-work-with-ai",
         "OLD-BODY",
@@ -119,7 +119,7 @@ def test_update_stanza_appends_why_log_and_returns_where_used(vault: Path) -> No
         encoding="utf-8",
     )
 
-    result = update_stanza(
+    result = update_article(
         vault,
         "interaction/how-i-work-with-ai",
         content="NEW-BODY\n",
@@ -139,21 +139,21 @@ def test_update_stanza_appends_why_log_and_returns_where_used(vault: Path) -> No
     assert log.count("# Provenance") == 1
 
 
-def test_update_stanza_requires_a_change(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
-    missing = update_stanza(vault, "interaction/missing-piece", why="n/a")
-    assert missing == {"ok": False, "error": "missing_stanza", "id": "interaction/missing-piece"}
+def test_update_article_requires_a_change(vault: Path) -> None:
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
+    missing = update_article(vault, "interaction/missing-piece", why="n/a")
+    assert missing == {"ok": False, "error": "missing_article", "id": "interaction/missing-piece"}
 
-    no_fields = update_stanza(vault, "interaction/how-i-work-with-ai", why="n/a")
+    no_fields = update_article(vault, "interaction/how-i-work-with-ai", why="n/a")
     assert no_fields["error"] == "no_changes"
 
 
 def test_link_and_unlink_are_map_only(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "KEEP IT SMALL")
+    write_article(vault, "methodology/small-diffs", "KEEP IT SMALL")
     write_project(vault, "river-ledger", core=["interaction/local"])
-    write_stanza(vault, "interaction/local", "LOCAL")
+    write_article(vault, "interaction/local", "LOCAL")
 
-    linked = link_stanza(
+    linked = link_article(
         vault, "river-ledger", "methodology/small-diffs", target="on_demand"
     )
     assert linked["ok"] is True
@@ -165,20 +165,20 @@ def test_link_and_unlink_are_map_only(vault: Path) -> None:
     )
     assert data["on_demand"] == ["methodology/small-diffs"]
     assert not (vault / "provenance" / "methodology" / "small-diffs.md").exists()
-    assert not (vault / "stanzas" / "methodology" / "small-diffs.prov.md").exists()
+    assert not (vault / "articles" / "methodology" / "small-diffs.prov.md").exists()
 
-    again = link_stanza(
+    again = link_article(
         vault, "river-ledger", "methodology/small-diffs", target="on_demand"
     )
     assert again["error"] == "already_linked"
     assert again["target"] == "on_demand"
 
-    other_list = link_stanza(
+    other_list = link_article(
         vault, "river-ledger", "methodology/small-diffs", target="core"
     )
     assert other_list["error"] == "already_linked"
 
-    removed = unlink_stanza(vault, "river-ledger", "methodology/small-diffs")
+    removed = unlink_article(vault, "river-ledger", "methodology/small-diffs")
     assert removed["ok"] is True
     after = yaml.safe_load(
         (vault / "projects" / "river-ledger" / "map.yaml").read_text(encoding="utf-8")
@@ -186,21 +186,21 @@ def test_link_and_unlink_are_map_only(vault: Path) -> None:
     assert after["on_demand"] == []
     assert after["core"] == ["interaction/local"]
 
-    missing = unlink_stanza(vault, "river-ledger", "methodology/small-diffs")
+    missing = unlink_article(vault, "river-ledger", "methodology/small-diffs")
     assert missing["error"] == "not_linked"
 
 
-def test_link_rejects_missing_project_and_stanza(vault: Path) -> None:
-    write_stanza(vault, "methodology/small-diffs", "BODY")
+def test_link_rejects_missing_project_and_article(vault: Path) -> None:
+    write_article(vault, "methodology/small-diffs", "BODY")
     write_project(vault, "river-ledger")
-    assert link_stanza(vault, "ghost", "methodology/small-diffs")["error"] == "missing_project"
-    assert link_stanza(vault, "river-ledger", "methodology/ghost")["error"] == "missing_stanza"
+    assert link_article(vault, "ghost", "methodology/small-diffs")["error"] == "missing_project"
+    assert link_article(vault, "river-ledger", "methodology/ghost")["error"] == "missing_article"
 
 
-def test_create_stanza_reports_files_without_touching_git(vault: Path) -> None:
+def test_create_article_reports_files_without_touching_git(vault: Path) -> None:
     """0.14: no staging, no commit. The tool says what it wrote and stops."""
     _init_git(vault)
-    created = create_stanza(
+    created = create_article(
         vault,
         "interaction/summary-first",
         title="Summary first",
@@ -209,7 +209,7 @@ def test_create_stanza_reports_files_without_touching_git(vault: Path) -> None:
         why="Add the form.",
     )
     assert created["files"] == [
-        "stanzas/interaction/summary-first.md",
+        "articles/interaction/summary-first.md",
         "provenance/interaction/summary-first.md",
     ]
     staged = _git(vault, "diff", "--cached", "--name-only")
@@ -219,20 +219,20 @@ def test_create_stanza_reports_files_without_touching_git(vault: Path) -> None:
 
 
 def test_update_migrates_leftover_sibling_why_log(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "interaction/how-i-work-with-ai",
         "OLD-BODY",
         title="How I work with AI",
         description="Standing prefs",
     )
-    sibling = vault / "stanzas" / "interaction" / "how-i-work-with-ai.prov.md"
+    sibling = vault / "articles" / "interaction" / "how-i-work-with-ai.prov.md"
     sibling.write_text(
         "# Provenance — interaction/how-i-work-with-ai\n\n## 2026-08-16\nWhy: Seeded.\n",
         encoding="utf-8",
     )
 
-    result = update_stanza(
+    result = update_article(
         vault,
         "interaction/how-i-work-with-ai",
         content="NEW-BODY\n",
@@ -248,8 +248,8 @@ def test_update_migrates_leftover_sibling_why_log(vault: Path) -> None:
 
 
 def test_validate_fix_reports_files_written(vault: Path) -> None:
-    write_stanza(vault, "interaction/shared", "S")
-    write_stanza(vault, "interaction/local", "L")
+    write_article(vault, "interaction/shared", "S")
+    write_article(vault, "interaction/local", "L")
     write_project(vault, "_global", core=["interaction/shared"])
     write_project(
         vault,

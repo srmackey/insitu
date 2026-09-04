@@ -5,7 +5,7 @@ from pathlib import Path
 import frontmatter
 import yaml
 
-from helpers import write_project, write_role, write_skill, write_stanza
+from helpers import write_project, write_role, write_skill, write_article
 
 from insitu.catalog import get_project, get_skill, list_skills, where_used_skill
 from insitu.materialize import materialize
@@ -14,7 +14,7 @@ from insitu.mutate import (
     create_skill,
     delete_skill,
     link_skill,
-    link_stanza,
+    link_article,
     unlink_skill,
     update_project,
     update_skill,
@@ -35,7 +35,7 @@ def _close_books(vault: Path) -> None:
 
 
 def _seed_project(vault: Path, *, skills: list[str] | None = None) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"], skills=skills)
 
 
@@ -80,16 +80,16 @@ def test_link_skill_writes_and_unlink_omits_empty_key(vault: Path) -> None:
     assert missing["error"] == "not_linked"
 
 
-def test_link_stanza_target_skills_is_invalid(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+def test_link_article_target_skills_is_invalid(vault: Path) -> None:
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
-    result = link_stanza(vault, "river-ledger", "interaction/how-i-work-with-ai", target="skills")
+    result = link_article(vault, "river-ledger", "interaction/how-i-work-with-ai", target="skills")
     assert result["ok"] is False
     assert result["error"] == "invalid_target"
 
 
 def test_missing_skill_id_is_hard_error(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     write_project(
         vault,
         "river-ledger",
@@ -128,7 +128,7 @@ def test_resolve_protocol_skills_index_not_in_core(vault: Path) -> None:
 
 
 def test_role_skills_not_supported(vault: Path) -> None:
-    write_stanza(vault, "methodology/ledger-clerk", "BODY")
+    write_article(vault, "methodology/ledger-clerk", "BODY")
     write_role(vault, "clerk", core=["methodology/ledger-clerk"], extra={"skills": ["close-books"]})
     write_project(vault, "river-ledger", roles=["clerk"])
     report = validate(vault)
@@ -143,8 +143,8 @@ def test_role_skills_not_supported(vault: Path) -> None:
 def test_global_skills_not_inherited(vault: Path) -> None:
     _close_books(vault)
     write_skill(vault, "other-skill", "Other procedure.")
-    write_stanza(vault, "interaction/summary-first", "GLOBAL")
-    write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT")
+    write_article(vault, "interaction/summary-first", "GLOBAL")
+    write_article(vault, "interaction/how-i-work-with-ai", "PROJECT")
     write_project(vault, "_global", core=["interaction/summary-first"], skills=["close-books"])
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
     resolved = resolve_protocol(vault, "river-ledger")
@@ -265,7 +265,7 @@ def test_delete_skill_preview_and_confirm(vault: Path) -> None:
 
 def test_where_used_skill_lists_maps_only(vault: Path) -> None:
     _close_books(vault)
-    write_stanza(vault, "methodology/ledger-clerk", "BODY")
+    write_article(vault, "methodology/ledger-clerk", "BODY")
     write_role(vault, "clerk", core=["methodology/ledger-clerk"], extra={"skills": ["close-books"]})
     write_project(vault, "river-ledger", roles=["clerk"], skills=["close-books"])
     used = where_used_skill(vault, "close-books")
@@ -276,7 +276,7 @@ def test_where_used_skill_lists_maps_only(vault: Path) -> None:
 
 def test_update_skill_affects_projects(vault: Path) -> None:
     _close_books(vault)
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"], skills=["close-books"])
     write_project(vault, "harbor-notes", skills=["close-books"])
     result = update_skill(
@@ -310,7 +310,7 @@ def test_create_skill_does_not_auto_link(vault: Path) -> None:
 
 
 def test_create_project_skills_missing_is_error(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     result = create_project(
         vault,
         "harbor-notes",
@@ -344,7 +344,7 @@ def test_validate_skill_findings_and_duplicate_fix(vault: Path) -> None:
         "---\nname: land\ndescription: nested\n---\n\nNo.\n",
         encoding="utf-8",
     )
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     write_project(
         vault,
         "river-ledger",
@@ -378,7 +378,7 @@ def test_empty_skills_do_not_fill_a_project(vault: Path) -> None:
 
 
 def test_load_omits_missing_skills_key(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "BODY")
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
     loaded = load_vault(vault)
     assert loaded.projects["river-ledger"].skills == []

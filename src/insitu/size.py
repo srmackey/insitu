@@ -20,8 +20,8 @@ def size_fields(text: str) -> dict:
 def total_size(texts: list[str]) -> dict:
     combined = "".join(texts)
     fields = size_fields(combined)
-    fields["stanza_count"] = len(texts)
-    # totals should be the sum of per-stanza sizes, not the concat of empties
+    fields["article_count"] = len(texts)
+    # totals should be the sum of per-article sizes, not the concat of empties
     fields["bytes"] = sum(len(t.encode("utf-8")) for t in texts)
     fields["estimated_tokens"] = sum(estimate_tokens(t) for t in texts)
     return fields

@@ -7,7 +7,7 @@ import yaml
 
 import importlib
 
-from helpers import write_project, write_stanza
+from helpers import write_project, write_article
 
 from insitu.materialize import materialize
 
@@ -15,8 +15,8 @@ materialize_mod = importlib.import_module("insitu.materialize")
 
 
 def _seed(vault: Path) -> None:
-    write_stanza(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
-    write_stanza(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
+    write_article(vault, "interaction/summary-first", "GLOBAL-CORE-BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "PROJECT-CORE-BODY")
     write_project(vault, "_global", core=["interaction/summary-first"])
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
 
@@ -103,7 +103,7 @@ def test_generated_header_carries_no_git_ref(vault: Path, tmp_path: Path) -> Non
     assert result["ok"] is True
     header = (work / "PROTOCOL.md").read_text(encoding="utf-8")
     assert "git:" not in header
-    assert "timestamp:" in header and "stanzas:" in header
+    assert "timestamp:" in header and "articles:" in header
 
 
 def test_materialize_skips_locked_adapter_still_writes_protocol(

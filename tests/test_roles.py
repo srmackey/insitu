@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
-from helpers import write_project, write_role, write_stanza
+from helpers import write_project, write_role, write_article
 
 from insitu.catalog import (
     get_project,
     get_role,
     list_roles,
-    list_stanzas,
+    list_articles,
     where_used,
 )
 from insitu.resolve import resolve_protocol
@@ -19,7 +20,7 @@ from insitu.validate import validate
 
 
 def _seed_composed(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "interaction/voice",
         "VOICE-BODY",
@@ -27,37 +28,37 @@ def _seed_composed(vault: Path) -> None:
         description="Global voice pack",
         extra_fm={"roles": ["voice"]},
     )
-    write_stanza(
+    write_article(
         vault,
         "interaction/summary-first",
         "GLOBAL-CORE-BODY",
         title="Summary first",
         description="Global form",
     )
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK-CORE-BODY",
         title="Clerk intake",
-        description="Role core stanza",
+        description="Role core article",
         extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-reference",
         "CLERK-AVAIL-BODY-MUST-NOT-INLINE",
         title="Clerk reference",
-        description="Role available stanza",
+        description="Role available article",
         extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(
+    write_article(
         vault,
         "interaction/how-i-work-with-ai",
         "PROJECT-CORE-BODY",
         title="How I work with AI",
         description="Project prefs",
     )
-    write_stanza(
+    write_article(
         vault,
         "methodology/small-diffs",
         "PROJECT-AVAIL-BODY",
@@ -95,7 +96,7 @@ def _seed_composed(vault: Path) -> None:
 
 
 def test_missing_roles_dir_loads_and_resolves(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "P")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
     write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
     loaded = load_vault(vault)
     assert loaded.roles == {}
@@ -105,7 +106,7 @@ def test_missing_roles_dir_loads_and_resolves(vault: Path) -> None:
     assert [item["id"] for item in result["core"]] == ["interaction/how-i-work-with-ai"]
 
 
-def test_load_roles_project_roles_and_stanza_roles(vault: Path) -> None:
+def test_load_roles_and_project_roles(vault: Path) -> None:
     _seed_composed(vault)
     write_role(
         vault,
@@ -124,12 +125,11 @@ def test_load_roles_project_roles_and_stanza_roles(vault: Path) -> None:
     assert clerk.core == ["methodology/clerk-intake"]
     assert clerk.on_demand == ["methodology/clerk-reference"]
     assert loaded.projects["river-ledger"].roles == ["clerk"]
-    assert loaded.stanzas["methodology/clerk-intake"].roles == ["clerk"]
-    assert loaded.stanzas["interaction/how-i-work-with-ai"].roles == []
+    assert not hasattr(loaded.articles["methodology/clerk-intake"], "roles")
 
 
 def test_bad_role_filename_is_skipped(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "P")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
     write_role(vault, "clerk", core=["interaction/how-i-work-with-ai"])
     (vault / "roles" / "Bad_Role.yaml").write_text("core: []\n", encoding="utf-8")
     (vault / "roles" / "_secret.yaml").write_text("core: []\n", encoding="utf-8")
@@ -158,9 +158,9 @@ def test_compose_order_is_global_composed_then_role_then_map(vault: Path) -> Non
 
 
 def test_first_wins_across_global_role_and_map(vault: Path) -> None:
-    write_stanza(vault, "shared/one", "ONE", extra_fm={"roles": ["pack"]})
-    write_stanza(vault, "shared/two", "TWO", extra_fm={"roles": ["pack"]})
-    write_stanza(vault, "shared/three", "THREE")
+    write_article(vault, "shared/one", "ONE", extra_fm={"roles": ["pack"]})
+    write_article(vault, "shared/two", "TWO", extra_fm={"roles": ["pack"]})
+    write_article(vault, "shared/three", "THREE")
     write_role(vault, "pack", core=["shared/one", "shared/two"])
     write_project(vault, "_global", roles=["pack"], core=["shared/one"])
     write_project(
@@ -192,7 +192,7 @@ def test_role_available_is_index_not_core(vault: Path) -> None:
 
 
 def test_missing_role_is_hard_error_naming_role(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "P")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
     write_project(
         vault,
         "river-ledger",
@@ -241,13 +241,13 @@ def test_include_global_false_skips_composed_global_roles(vault: Path) -> None:
 
 
 def test_missing_global_with_project_roles_is_empty_not_error(vault: Path) -> None:
-    write_stanza(
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK-CORE-BODY",
         extra_fm={"roles": ["clerk"]},
     )
-    write_stanza(vault, "interaction/how-i-work-with-ai", "P")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
     write_role(vault, "clerk", core=["methodology/clerk-intake"])
     write_project(
         vault,
@@ -264,7 +264,7 @@ def test_missing_global_with_project_roles_is_empty_not_error(vault: Path) -> No
 
 
 def test_validate_reports_unknown_map_role(vault: Path) -> None:
-    write_stanza(vault, "interaction/how-i-work-with-ai", "P")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
     write_project(
         vault,
         "river-ledger",
@@ -279,8 +279,8 @@ def test_validate_reports_unknown_map_role(vault: Path) -> None:
     assert missing[0]["project"] == "river-ledger"
 
 
-def test_validate_reports_missing_stanza_inside_role(vault: Path) -> None:
-    write_stanza(vault, "methodology/clerk-intake", "C", extra_fm={"roles": ["clerk"]})
+def test_validate_reports_missing_article_inside_role(vault: Path) -> None:
+    write_article(vault, "methodology/clerk-intake", "C", extra_fm={"roles": ["clerk"]})
     write_role(
         vault,
         "clerk",
@@ -292,15 +292,15 @@ def test_validate_reports_missing_stanza_inside_role(vault: Path) -> None:
     missing = [
         i
         for i in report["issues"]
-        if i["kind"] == "missing_stanza" and i["id"] == "methodology/missing-piece"
+        if i["kind"] == "missing_article" and i["id"] == "methodology/missing-piece"
     ]
     assert missing
     assert missing[0].get("role") == "clerk"
 
 
 def test_validate_reports_role_file_and_expansion_duplicates(vault: Path) -> None:
-    write_stanza(vault, "shared/one", "ONE", extra_fm={"roles": ["alpha", "beta"]})
-    write_stanza(vault, "shared/two", "TWO", extra_fm={"roles": ["alpha"]})
+    write_article(vault, "shared/one", "ONE", extra_fm={"roles": ["alpha", "beta"]})
+    write_article(vault, "shared/two", "TWO", extra_fm={"roles": ["alpha"]})
     write_role(vault, "alpha", core=["shared/one", "shared/one", "shared/two"])
     write_role(vault, "beta", core=["shared/one"])
     write_project(vault, "river-ledger", roles=["alpha", "beta"], core=["shared/two"])
@@ -316,51 +316,40 @@ def test_validate_reports_role_file_and_expansion_duplicates(vault: Path) -> Non
     )
 
 
-def test_validate_membership_mismatch_and_fix_writes_frontmatter_only(
-    vault: Path,
-) -> None:
-    write_stanza(
+def test_stale_roles_key_on_a_article_is_ignored(vault: Path) -> None:
+    """The frontmatter mirror is gone. An old vault still carrying the key loads,
+    validates clean, and is never rewritten to keep a copy in sync."""
+    write_article(
         vault,
         "methodology/clerk-intake",
         "CLERK-CORE-BODY",
         title="Clerk intake",
         description="Role core",
     )
-    write_stanza(
+    write_article(
         vault,
         "methodology/orphan-label",
         "ORPHAN-BODY",
         title="Orphan",
-        description="Claims a role it is not in",
+        description="Claims a role no role file backs",
         extra_fm={"roles": ["clerk"]},
     )
+    orphan_path = vault / "articles" / "methodology" / "orphan-label.md"
+    orphan_before = orphan_path.read_bytes()
     role_path = write_role(vault, "clerk", core=["methodology/clerk-intake"])
-    write_project(vault, "river-ledger", roles=["clerk"])
     role_before = role_path.read_bytes()
+    write_project(vault, "river-ledger", roles=["clerk"])
 
     report = validate(vault, fix=False)
-    assert report["ok"] is False
-    membership = [i for i in report["issues"] if i["kind"] == "role_membership"]
-    assert any(i["id"] == "methodology/clerk-intake" for i in membership)
-    assert any(i["id"] == "methodology/orphan-label" for i in membership)
-    assert role_path.read_bytes() == role_before
+    assert report["ok"] is True
+    assert not [i for i in report["issues"] if i["kind"] == "role_membership"]
 
     fixed = validate(vault, fix=True)
+    assert fixed["ok"] is True
+    assert fixed.get("fixed", []) == []
+    assert orphan_path.read_bytes() == orphan_before
     assert role_path.read_bytes() == role_before
-    assert any(
-        item.get("id") == "methodology/clerk-intake" for item in fixed.get("fixed", [])
-    )
-    loaded = load_vault(vault)
-    assert "clerk" in loaded.stanzas["methodology/clerk-intake"].roles
-    assert loaded.roles["clerk"].core == ["methodology/clerk-intake"]
-    leftover = [
-        i
-        for i in fixed["issues"]
-        if i["kind"] == "role_membership" and i["id"] == "methodology/orphan-label"
-    ]
-    assert leftover
-    assert "methodology/orphan-label" not in loaded.roles["clerk"].core
-    assert "methodology/orphan-label" not in loaded.roles["clerk"].on_demand
+    assert load_vault(vault).roles["clerk"].core == ["methodology/clerk-intake"]
 
 
 def test_list_roles_and_get_role(vault: Path) -> None:
@@ -374,7 +363,7 @@ def test_list_roles_and_get_role(vault: Path) -> None:
     assert clerk_row["description"] == "Ledger clerk pack"
     assert clerk_row["core_count"] == 1
     assert clerk_row["on_demand_count"] == 1
-    assert clerk_row["size"]["stanza_count"] == 1
+    assert clerk_row["size"]["article_count"] == 1
 
     got = get_role(vault, "clerk")
     assert got["ok"] is True
@@ -393,18 +382,18 @@ def test_list_roles_and_get_role(vault: Path) -> None:
     assert missing["id"] == "ghost"
 
 
-def test_list_stanzas_includes_roles_and_role_filter(vault: Path) -> None:
+def test_list_articles_carries_no_role_membership(vault: Path) -> None:
+    """Membership is the role file's fact. get_role answers it from the source."""
     _seed_composed(vault)
-    all_rows = list_stanzas(vault)
-    by_id = {row["id"]: row for row in all_rows["stanzas"]}
-    assert by_id["methodology/clerk-intake"]["roles"] == ["clerk"]
-    assert by_id["interaction/how-i-work-with-ai"]["roles"] == []
+    rows = list_articles(vault)["articles"]
+    assert rows
+    assert all("roles" not in row for row in rows)
 
-    filtered = list_stanzas(vault, role="clerk")
-    assert {row["id"] for row in filtered["stanzas"]} == {
-        "methodology/clerk-intake",
-        "methodology/clerk-reference",
-    }
+    with pytest.raises(TypeError):
+        list_articles(vault, role="clerk")
+
+    members = get_role(vault, "clerk")
+    assert [item["id"] for item in members["core"]] == ["methodology/clerk-intake"]
 
 
 def test_where_used_includes_role_files_and_role_expansion(vault: Path) -> None:

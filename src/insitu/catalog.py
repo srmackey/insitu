@@ -1,4 +1,4 @@
-"""Read tools over a vault: list/get stanzas and projects, where_used."""
+"""Read tools over a vault: list/get articles and projects, where_used."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from insitu.identity import (
     validate_project_key,
     validate_role_id,
     validate_skill_id,
-    validate_stanza_id,
+    validate_article_id,
 )
 from insitu.library import concrete_version, record_member_ids
 from insitu.models import Vault
@@ -39,51 +39,50 @@ def _identity_error(value: str, exc: InvalidIdentity) -> dict:
     }
 
 
-def _matches_prefix(stanza_id: str, prefix: str) -> bool:
-    return stanza_id == prefix or stanza_id.startswith(prefix + "/")
+def _matches_prefix(article_id: str, prefix: str) -> bool:
+    return article_id == prefix or article_id.startswith(prefix + "/")
 
 
-def _stanza_index_row(stanza, origin: str = "native") -> dict:
+def _article_index_row(article, origin: str = "native") -> dict:
     row = {
-        "id": stanza.id,
-        "title": stanza.title,
-        "description": stanza.description,
-        "tags": list(stanza.tags),
-        "roles": list(stanza.roles),
+        "id": article.id,
+        "title": article.title,
+        "description": article.description,
+        "tags": list(article.tags),
         "origin": origin,
     }
-    row.update(size_fields(stanza.content))
+    row.update(size_fields(article.content))
     return row
 
 
 def _role_member_row(vault: Vault, raw_id: str) -> dict:
-    stanza = vault.stanzas.get(raw_id)
-    if stanza is None:
+    article = vault.articles.get(raw_id)
+    if article is None:
         return {"id": raw_id}
     item = {
-        "id": stanza.id,
-        "title": stanza.title,
-        "description": stanza.description,
+        "id": article.id,
+        "title": article.title,
+        "description": article.description,
     }
-    item.update(size_fields(stanza.content))
+    item.update(size_fields(article.content))
     return item
 
 
-def get_stanza(
+def get_article(
     vault_or_root: Vault | Path | str,
-    stanza_id: str,
+    article_id: str,
     project: str | None = None,
 ) -> dict:
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault = _as_vault(vault_or_root)
-    stanza = vault.stanzas.get(sid)
-    if stanza is not None:
-        row = _stanza_index_row(stanza, origin="native")
+    article = vault.articles.get(sid)
+    if article is not None:
+        row = _article_index_row(article, origin="native")
         row["ok"] = True
-        row["content"] = stanza.content
+        row["content"] = article.content
         return row
     if project:
         try:
@@ -102,62 +101,51 @@ def get_stanza(
                 continue
             members = record_member_ids(record, pack, "core")
             members += record_member_ids(record, pack, "on_demand")
-            if sid in members and sid in pack.stanzas:
-                found = pack.stanzas[sid]
-                row = _stanza_index_row(
+            if sid in members and sid in pack.articles:
+                found = pack.articles[sid]
+                row = _article_index_row(
                     found, origin=f"library/{record.pack}@{resolved}"
                 )
                 row["ok"] = True
                 row["content"] = found.content
                 return row
-    return {"ok": False, "error": "missing_stanza", "id": sid}
+    return {"ok": False, "error": "missing_article", "id": sid}
 
 
-def list_stanzas(
+def list_articles(
     vault_or_root: Vault | Path | str,
     prefix: str | None = None,
     tag: str | None = None,
-    role: str | None = None,
 ) -> dict:
     vault = _as_vault(vault_or_root)
     prefix_norm: str | None = None
     if prefix:
         trimmed = prefix.replace("\\", "/").rstrip("/")
         try:
-            prefix_norm = validate_stanza_id(trimmed)
+            prefix_norm = validate_article_id(trimmed)
         except InvalidIdentity as exc:
             return _identity_error(prefix, exc)
-    role_norm: str | None = None
-    if role:
-        try:
-            role_norm = validate_role_id(role)
-        except InvalidIdentity as exc:
-            return _identity_error(role, exc)
 
     rows = []
-    for sid in sorted(vault.stanzas):
-        stanza = vault.stanzas[sid]
+    for sid in sorted(vault.articles):
+        article = vault.articles[sid]
         if prefix_norm and not _matches_prefix(sid, prefix_norm):
             continue
-        if tag and tag not in stanza.tags:
+        if tag and tag not in article.tags:
             continue
-        if role_norm and role_norm not in stanza.roles:
-            continue
-        rows.append(_stanza_index_row(stanza, origin="native"))
+        rows.append(_article_index_row(article, origin="native"))
     for pack_id in sorted(vault.library):
         for version in sorted(vault.library[pack_id]):
             pack = vault.library[pack_id][version]
             origin = f"library/{pack_id}@{version}"
-            for sid in sorted(pack.stanzas):
-                stanza = pack.stanzas[sid]
+            for sid in sorted(pack.articles):
+                article = pack.articles[sid]
                 if prefix_norm and not _matches_prefix(sid, prefix_norm):
                     continue
-                if tag and tag not in stanza.tags:
+                if tag and tag not in article.tags:
                     continue
-                if role_norm and role_norm not in stanza.roles:
-                    continue
-                rows.append(_stanza_index_row(stanza, origin=origin))
-    return {"ok": True, "stanzas": rows}
+                rows.append(_article_index_row(article, origin=origin))
+    return {"ok": True, "articles": rows}
 
 
 def get_project(vault_or_root: Vault | Path | str, project: str) -> dict:
@@ -226,11 +214,11 @@ def list_on_demand(vault_or_root: Vault | Path | str, project: str) -> dict:
     }
 
 
-def where_used(vault_or_root: Vault | Path | str, stanza_id: str) -> dict:
+def where_used(vault_or_root: Vault | Path | str, article_id: str) -> dict:
     try:
-        sid = validate_stanza_id(stanza_id)
+        sid = validate_article_id(article_id)
     except InvalidIdentity as exc:
-        return _identity_error(stanza_id, exc)
+        return _identity_error(article_id, exc)
     vault = _as_vault(vault_or_root)
     used: list[dict] = []
     keys = []
@@ -289,9 +277,9 @@ def list_roles(vault_or_root: Vault | Path | str) -> dict:
         role = vault.roles[rid]
         texts = []
         for member_id in first_wins(list(role.core)):
-            stanza = vault.stanzas.get(member_id)
-            if stanza is not None:
-                texts.append(stanza.content)
+            article = vault.articles.get(member_id)
+            if article is not None:
+                texts.append(article.content)
         rows.append(
             {
                 "id": rid,
@@ -318,9 +306,9 @@ def get_role(vault_or_root: Vault | Path | str, role_id: str) -> dict:
     on_demand_items = [_role_member_row(vault, member_id) for member_id in role.on_demand]
     texts = []
     for member_id in first_wins(list(role.core)):
-        stanza = vault.stanzas.get(member_id)
-        if stanza is not None:
-            texts.append(stanza.content)
+        article = vault.articles.get(member_id)
+        if article is not None:
+            texts.append(article.content)
     projects: list[str] = []
     if GLOBAL_PROJECT in vault.projects and rid in vault.projects[GLOBAL_PROJECT].roles:
         projects.append(GLOBAL_PROJECT)

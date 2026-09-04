@@ -14,14 +14,14 @@ from insitu.server import mcp
 HINTS = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
 
 READ_ONLY = {
-    "resolve_protocol", "get_stanza", "list_stanzas", "list_projects", "get_project",
+    "resolve_protocol", "get_article", "list_articles", "list_projects", "get_project",
     "project_status", "list_roles", "get_role", "list_on_demand", "list_skills",
     "get_skill", "where_used_skill", "where_used", "operators", "list_packs", "get_pack",
 }
 DESTRUCTIVE = {
-    "delete_skill", "delete_stanza", "delete_role", "delete_project", "remove_pack",
+    "delete_skill", "delete_article", "delete_role", "delete_project", "remove_pack",
 }
-NOT_IDEMPOTENT = {"create_stanza", "create_skill", "create_role", "create_project"}
+NOT_IDEMPOTENT = {"create_article", "create_skill", "create_role", "create_project"}
 
 
 def _tools() -> dict:
