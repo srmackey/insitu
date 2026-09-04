@@ -4,7 +4,7 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
-## [Unreleased] — 0.18.0
+## [0.18.0] - 2026-09-04
 
 Additive. A vault with no `classes:` block behaves exactly as it did, and every existing `operators.yaml` loads unchanged.
 
