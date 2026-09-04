@@ -1,4 +1,4 @@
-"""Project key and article path rules (DESIGN.md §5 / §14)."""
+"""Project key and article path rules (DESIGN.md §5)."""
 
 from __future__ import annotations
 

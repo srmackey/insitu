@@ -1,4 +1,4 @@
-"""Folder inspect card (DESIGN.md 0.10). Inspect only. No article bodies."""
+"""Folder inspect card (DESIGN.md §9). Inspect only. No article bodies."""
 
 from __future__ import annotations
 

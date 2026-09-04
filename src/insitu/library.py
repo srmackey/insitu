@@ -1,4 +1,4 @@
-"""Pack shelf: pull, install, fetch, remove, inventory (DESIGN 0.9)."""
+"""Pack shelf: pull, install, fetch, remove, inventory (DESIGN.md §6.2)."""
 
 from __future__ import annotations
 
