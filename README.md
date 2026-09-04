@@ -18,7 +18,7 @@ Size reports on articles and on the composed protocol tell you when to trim. Ski
 
 ## How it works
 
-- A **article** is one markdown file of standing guidance.
+- An **article** is one markdown file of standing guidance.
 - A **role** is a named, ordered pack of articles a project can include as a unit.
 - A **project map** selects articles as core (always loaded) or on-demand (pulled when the work needs them), plus imported packs and mapped skills.
 - A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.

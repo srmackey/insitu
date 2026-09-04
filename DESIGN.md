@@ -4,7 +4,7 @@
 
 An article no longer declares its own roles, and a theme pack refuses a whole-capability install (0.16). The operator gate reaches shared vault objects, and every advertised tool declares its MCP annotations (0.15). Insitu runs no git commands at all (0.14): it writes files and reports them, and tracking the vault is the operator's action. Operator classes gate the mutating map tools, and the article install grain reaches `on_demand` (0.13). Skills are first-class vault objects (0.11). Pack-delivered skills install like pack articles (0.12). `project_status` remains 0.10. Pack-install remains 0.9. The spec version and the package version are one number: `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts this header agrees. Detail is kept with the author, not in this repo.
 
-Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. A **article** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
+Product name: **Insitu** (situated identity: who you are here). Working title during design was Protocol Vault. An **article** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
 ---
 
