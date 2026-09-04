@@ -354,7 +354,7 @@ updated: 2026-08-16
 - `title` and `description` are **required**. They are surfaced when listing articles and when advertising on-demand articles on a resolved protocol.
 - Remaining frontmatter fields are optional but recommended.
 - Content is ordinary Markdown. An article must not include or transclude another article. Composition happens only through project maps and role packs.
-- The why-log for an article is `provenance/<id>.md` (see §11). It is not itself an article. `list_articles` / `validate` / resolution never scan `provenance/`. Leftover `articles/**/*.prov.md` files are also ignored.
+- The why-log for an article is `provenance/<id>.md` (see §12). It is not itself an article. `list_articles` / `validate` / resolution never scan `provenance/`. Leftover `articles/**/*.prov.md` files are also ignored.
 
 ---
 
@@ -440,18 +440,10 @@ Deliberately absent: `rename_article` / `rename_role` / `rename_project`, which 
 
 ---
 
-## 10. Agent Integration & Install
+## 10. Materialize: the adapter contract
 
 MCP cannot put text into the system prompt. Only the host can. A constitution line that says "call `resolve_protocol`" is a pull, and the tool result is retrieved text, not standing instruction. Core protocol therefore enters the session through **files the host already auto-loads**. `materialize` is that path. MCP stays for inspect, on-demand, authoring, and "this header is stale."
 
-Two artifacts, different jobs. Do not mix them.
-
-| Artifact | Job | Scope | Written by |
-|----------|-----|-------|------------|
-| **Router** | Insitu exists. Treat the generated protocol as binding. `get_article` for on-demand. Rematerialize if the header is stale. If other host files this host loads are missing, retrieve the multi-platform pack and write them. `list_articles` is the catalog and sizes (include or trim), not session start. | User-global (every project on this machine) | Install once, from `install/routers/` |
-| **Protocol pack** | The composed `core` text for *this* project | The working folder | `materialize` |
-
-The router is the ContextForge `contextforge-router.mdc` shape: small, almost never changes, does not contain the knowledge. The protocol pack is the composed core. Other host files (constitutions, skill trees, this-node bits) are not `materialize` output. If they are missing, the router tells the agent to retrieve the multi-platform pack and write them here. A global protocol pack would put the wrong "who I am here" into the wrong tree.
 
 Hard rules that must fire even if Insitu is down (privacy, never-fabricate, discretion) stay in the hand-authored constitution. Materialize never edits those files.
 
@@ -497,7 +489,18 @@ No surfaces configured: `PROTOCOL.md` only, warning `no_surfaces_configured`. Do
 
 Regenerate when the vault or the project map changes. A SessionStart hook that runs `materialize` is a freshness helper, not the injector: hosts usually read rules when the session starts, so a hook that writes after that helps the *next* session. Out of scope for v1 to ship such a hook.
 
-### 10.3 Routers (install once)
+## 11. Install and adoption
+
+Two artifacts, different jobs. Do not mix them.
+
+| Artifact | Job | Scope | Written by |
+|----------|-----|-------|------------|
+| **Router** | Insitu exists. Treat the generated protocol as binding. `get_article` for on-demand. Rematerialize if the header is stale. If other host files this host loads are missing, retrieve the multi-platform pack and write them. `list_articles` is the catalog and sizes (include or trim), not session start. | User-global (every project on this machine) | Install once, from `install/routers/` |
+| **Protocol pack** | The composed `core` text for *this* project | The working folder | `materialize` |
+
+The router is the ContextForge `contextforge-router.mdc` shape: small, almost never changes, does not contain the knowledge. The protocol pack is the composed core. Other host files (constitutions, skill trees, this-node bits) are not `materialize` output. If they are missing, the router tells the agent to retrieve the multi-platform pack and write them here. A global protocol pack would put the wrong "who I am here" into the wrong tree.
+
+### 11.1 Routers (install once)
 
 Routers live in the **server repo** and are copied or symlinked into user-global rule dirs. They are not rewritten by `materialize`.
 
@@ -523,7 +526,7 @@ Router body (all three hosts, same meaning):
 - After an authoring write, if the working-folder basename is in `affects_projects`: call `materialize`, tell the user the loaded protocol is stale and they should start a new session, and do not continue as if the new article or role is already in core.
 - Do not call `delete_article`, `delete_role`, or `delete_project` unless the user explicitly asked to delete that object. Do not treat `validate` findings as a reason to delete.
 
-### 10.4 MCP after startup
+### 11.2 MCP after startup
 
 Once the pack is in the host's auto-load path, agents do not need to call `resolve_protocol` for core compliance.
 
@@ -544,7 +547,7 @@ Facts this section depends on (verified 2026-08-16 unless noted):
 
 ---
 
-## 11. Provenance & Review
+## 12. Provenance & Review
 
 **What vs why.** Git is recommended as a **safety net**, not as a versioning product. It is there so a user (or a user through an agent) can look at what an article used to be and bring something back. Maps always read the files on disk now. No pins, no per-project frozen revs. Richer uses of history wait until a real need shows up.
 
@@ -584,10 +587,10 @@ This is the structured form of what staging approximated. One confirm is still o
 
 ---
 
-## 12. Design Principles
+## 13. Design Principles
 
-- **Portable** — pure filesystem + optional git. No proprietary formats.
-- **Composable** — every article is independently reusable.
+- **Portable** — plain files on disk, markdown and YAML, no proprietary formats and no database. Insitu itself runs no git and never shells out; version-controlling a vault is the operator's business (0.14).
+- **Composable** — composition never depends on which other articles came with it. An article must therefore stand on its own: usable, correct, and safe to follow when composed alone. It may do more when a companion provision is present, and it may name another to contrast with it or to point at the variant a different kind of chair takes. What it may not do is leave the reader following a rule they cannot complete without something they were not given.
 - **Lean by default** — only `core` articles are injected; everything else is on-demand. `_global` stays minimal. Size and token counts are always visible so protocol weight is a managed quantity, not a surprise. Mapped skills still cost host description tokens; keep project `skills:` lists small.
 - **Deterministic** — resolution order is explicit and stable; broken references fail loudly; a missing project is a structured miss.
 - **Discoverable** — `list_articles` is how a user bootstraps a new project's protocol (see what exists, check sizes, then link). The `on_demand` index on a resolved protocol is how an agent pulls extras in-session. Those are different jobs.
@@ -597,7 +600,7 @@ This is the structured form of what staging approximated. One confirm is still o
 
 ---
 
-## 13. Implementer contracts
+## 14. Implementer contracts
 
 Locked with review bucket 3 (2026-08-16), plus the 0.4 load-path lock the same day.
 
@@ -605,7 +608,7 @@ Locked with review bucket 3 (2026-08-16), plus the 0.4 load-path lock the same d
 - **`validate`:** read-only unless `fix=true`.
 - **Missing `_global`:** empty global core, vault still resolves.
 - **Names and paths:** project keys, article path segments, and role ids are `a-z`, `0-9`, `-`. `_global` is the only reserved `_` name. Reject `..`, absolute paths, and anything outside `articles/`, `provenance/`, `projects/`, or `roles/`.
-- **Git:** safety net for looking back and restoring. Resolution always reads current files. Pinning is not a v1 feature.
+- **Git:** not Insitu's concern (0.14). Mutating tools write files and return the paths they wrote; whether the vault is a repo, and what is committed when, belongs to whoever stewards it. Resolution always reads current files. Pinning is not a v1 feature.
 - **Vault root:** `INSITU_HOME`, else `--vault`, else `~/.insitu`. One vault per process.
 - **`materialize` is the enforcement path.** Always writes `PROTOCOL.md` in the working folder. Writes host adapters only for names in `config/surfaces.yaml`. Missing surfaces file: `PROTOCOL.md` only plus warning `no_surfaces_configured`. Unknown surface name: hard error.
 - **Host adapters are full-body copies** at the paths in §10.2. Never write `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`.
