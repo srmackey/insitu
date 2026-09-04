@@ -189,7 +189,7 @@ def _skill_reach(skill_id: str) -> list[str]:
 
 @mcp.tool(annotations=READ_ONLY)
 def resolve_protocol(project: str) -> dict:
-    """Return the composed protocol for a project: core bodies, on-demand index, size."""
+    """Return the composed protocol for a project: core bodies, on-demand index, size. Reports conflicts as a warning; it never refuses."""
     return resolve_protocol_fn(current_vault(), project)
 
 
@@ -425,7 +425,7 @@ def where_used_skill(skill_id: str) -> dict:
 def link_article(
     working_folder: str, project: str, article_id: str, target: str = "core"
 ) -> dict:
-    """Add an article to a project's core or on-demand list. Does not edit role files."""
+    """Add an article to a project's core or on-demand list. Does not edit role files. Refused when the article conflicts with one this project already composes."""
     return _gated(
         project,
         working_folder,
@@ -712,7 +712,7 @@ def get_pack(pack: str) -> dict:
 def install_capability(
     working_folder: str, project: str, pack: str, version: str
 ) -> dict:
-    """This project uses the whole pack at version or latest. Pull onto the shelf if needed."""
+    """This project uses the whole pack at version or latest. Pull onto the shelf if needed. Refused on a conflict with what this project composes, or between the pack's own members."""
     return _gated(
         project,
         working_folder,
@@ -729,7 +729,7 @@ def install_article(
     pack: str | None = None,
     target: str = "core",
 ) -> dict:
-    """This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand."""
+    """This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand. Returns article ids its text names that this project does not compose."""
     return _gated(
         project,
         working_folder,
@@ -773,7 +773,7 @@ def install_skill(
     version: str,
     pack: str | None = None,
 ) -> dict:
-    """This project uses one skill from a pack version. Pull onto the shelf if needed. Does not copy into native skills/."""
+    """This project uses one skill from a pack version. Pull onto the shelf if needed. Does not copy into native skills/. Returns article ids its text names that this project does not compose."""
     return _gated(
         project,
         working_folder,

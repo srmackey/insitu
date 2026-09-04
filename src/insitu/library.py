@@ -18,6 +18,14 @@ from insitu.identity import (
     version_sort_key,
 )
 from insitu.models import ImportRecord, PackVersion, Vault
+from insitu.provisions import (
+    composed_articles,
+    composed_ids,
+    conflict_refusal,
+    conflicts_between,
+    conflicts_within,
+    mentions_not_composed,
+)
 from insitu.store import load_pack_repos, load_vault
 
 INTERIOR_FILES = ("pack.yaml", "VERSION")
@@ -527,6 +535,33 @@ def install_capability(
             "detail": "install members individually with install_article or install_skill",
         }
     proj = vault.projects[key]
+    arriving = [shelved.articles[aid] for aid in sorted(shelved.articles)]
+    already = composed_articles(vault, key)
+    for article in arriving:
+        clash = conflicts_between(article, already)
+        if clash:
+            return {
+                "ok": False,
+                "error": "conflicts_with_composed",
+                "id": article.id,
+                "project": key,
+                "pack": pack_id,
+                "version": concrete,
+                "conflicts": clash,
+            }
+    internal = conflicts_within(arriving)
+    if internal:
+        # The pack cannot be installed whole at all: two of its own members
+        # declare against each other, so no project could compose it. That is a
+        # defect in the pack, not in this map, and it is named as one.
+        return {
+            "ok": False,
+            "error": "pack_conflicts_internally",
+            "project": key,
+            "pack": pack_id,
+            "version": concrete,
+            "conflicts": internal,
+        }
     stored_version = requested
     records = _append_capability(list(proj.imports), pack_id, stored_version)
     _write_map_imports(proj.path, proj.raw, records)
@@ -537,6 +572,15 @@ def install_capability(
         "version": stored_version,
         "resolved_version": concrete,
     }
+    have = composed_ids(vault, key) | {article.id for article in arriving}
+    mentions = mentions_not_composed(
+        vault,
+        [text for article in arriving for text in (article.description, article.content)],
+        have,
+        pack=shelved,
+    )
+    if mentions:
+        result["mentions_not_composed"] = mentions
     newer = newer_than_pin(vault, pack_id, concrete) if stored_version != "latest" else None
     if newer:
         result["newer_available"] = [{"pack": pack_id, "pinned": concrete, "newer": newer}]
@@ -618,11 +662,17 @@ def install_article(
     if pack_ver is None or sid not in pack_ver.articles:
         return {"ok": False, "error": "missing_article", "id": sid, "pack": pack_id, "version": concrete}
     proj = vault.projects[key]
+    installed = pack_ver.articles[sid]
+    clash = conflict_refusal(vault, key, installed)
+    if clash is not None:
+        clash.update({"pack": pack_id, "version": concrete})
+        return clash
+    have = composed_ids(vault, key) | {sid}
     records = _append_article(list(proj.imports), pack_id, requested, sid, target)
     if isinstance(records, dict):
         return records
     _write_map_imports(proj.path, proj.raw, records)
-    return {
+    result: dict[str, Any] = {
         "ok": True,
         "project": key,
         "pack": pack_id,
@@ -630,7 +680,15 @@ def install_article(
         "resolved_version": concrete,
         "article": sid,
         "target": target,
+        "title": installed.title,
+        "description": installed.description,
     }
+    mentions = mentions_not_composed(
+        vault, [installed.description, installed.content], have, pack=pack_ver
+    )
+    if mentions:
+        result["mentions_not_composed"] = mentions
+    return result
 
 
 def uninstall_capability(
@@ -847,11 +905,12 @@ def install_skill(
             "version": concrete,
         }
     proj = vault.projects[key]
+    installed = pack_ver.skills[sid]
     records = _append_skill(list(proj.imports), pack_id, requested, sid)
     if isinstance(records, dict):
         return records
     _write_map_imports(proj.path, proj.raw, records)
-    return {
+    result: dict[str, Any] = {
         "ok": True,
         "project": key,
         "pack": pack_id,
@@ -859,6 +918,17 @@ def install_skill(
         "resolved_version": concrete,
         "skill": sid,
     }
+    # A skill is often the hands to an article's governance, so the article it
+    # serves is the companion most worth naming here.
+    mentions = mentions_not_composed(
+        vault,
+        [installed.description, installed.content],
+        composed_ids(vault, key),
+        pack=pack_ver,
+    )
+    if mentions:
+        result["mentions_not_composed"] = mentions
+    return result
 
 
 def uninstall_skill(
