@@ -1,6 +1,6 @@
 # Insitu — Design Spec
 
-**Version 0.18**
+**Version 0.19**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -43,6 +43,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 
 | Concept | Definition |
 |---------|----------|
+| **Provision** | Anything Insitu provides to a project, at any grain: an article, a role, a skill, a pack, or a member pulled out of one. It names a relationship rather than a size, so it sits above the rows below rather than beside them. Use it when the grain is not the point — "which provisions does this project subscribe to?" — and use the specific noun when it is. |
 | **Article** | One portable section of standing agent guidance. A markdown file in the vault. Composed into a protocol. |
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
 | **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. |
@@ -211,6 +212,10 @@ User-facing language is "install capability X 1.0," "install identity x at 1.1,"
 **Pack repos** are working copies with one `VERSION`, so a repo query returns that version only. Older versions live on the shelf once pulled.
 
 **Unreferenced versions** — on disk, cited by no map, not the current target of a `latest` — are the finding `unreferenced_version`. `fix` does not delete them; `remove_pack` does, on confirm.
+
+**Seeding is the delivery, so `fetch_pack` says who received it.** Every result returns `used_by`: the maps that compose that version now, at the grain each takes it. A `latest` record resolves to the newest version on the shelf, so seeding moves its consumers without anyone editing a map, and the tool doing the seeding is the only party positioned to know at that moment. `list_packs` reports the same list from the same computation, so the two cannot drift.
+
+**A split pin warns rather than refusing.** A map keys imports by pack plus version, so one pack can occupy two rows. Installing an article or a skill from a second version duplicates no member, so nothing else objects and the map splits without anyone deciding to split it. `install_article` and `install_skill` therefore return a `cross_version_pin` warning naming both versions. A warning, because two rows can be deliberate: a chair may want a skill from a newer version while holding its articles back. The refusal already in place for the same article at two versions (`duplicate_import_article`) is the right strength for that case, and this one is weaker. The comparison is on the version string a record stores, so a map whose rows all read `latest` never trips it, and several rows at one version — a capability import beside a skill import — are the ordinary shape rather than the defect.
 
 ### 6.3 Operator classes
 

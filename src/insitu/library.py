@@ -131,6 +131,79 @@ def record_member_ids(record: ImportRecord, pack: PackVersion, field: str) -> li
     return list(record.articles or [])
 
 
+def consumers_of(vault: Vault, pack_id: str, version: str) -> list[dict[str, Any]]:
+    """Every map composing this pack version, and at what grain.
+
+    A `latest` record resolves to the newest version on the shelf, so seeding a
+    new one moves its consumers without anyone editing a map. That is why this
+    is worth returning from the tool that does the seeding: at that moment the
+    server knows exactly who just received something, and nobody else does.
+    """
+    newest = newest_version(list(vault.library.get(pack_id, {})))
+    used_by: list[dict[str, Any]] = []
+    for key, proj in vault.projects.items():
+        for record in proj.imports:
+            if record.pack != pack_id:
+                continue
+            if record.version != version and not (
+                record.version == "latest" and newest == version
+            ):
+                continue
+            if record.is_capability():
+                used_by.append({"project": key, "kind": "capability"})
+            else:
+                used_by.append(
+                    {
+                        "project": key,
+                        "kind": "articles",
+                        "articles": record.article_members(),
+                    }
+                )
+    return used_by
+
+
+def cross_version_warning(
+    proj: Any, pack_id: str, version: str
+) -> dict[str, Any] | None:
+    """Warn when this map would hold one pack at two different stored versions.
+
+    A map keys imports by pack plus version, so one pack can occupy two rows and
+    nothing refuses it. The invariant already exists one level down: the same
+    article at two versions on one map is `duplicate_import_article`. A skill or
+    article from a second version duplicates no member, so nothing objects and
+    the map splits without anyone deciding to split it.
+
+    A warning rather than a refusal: two rows can be deliberate, and a chair may
+    want a skill from a newer version while holding its articles back.
+
+    Compared on the version string a record stores, not on a resolved one, so a
+    map whose rows all read `latest` never trips it. Several rows at the same
+    stored version are the ordinary shape (a capability import beside a skill
+    import) and are not this defect.
+    """
+    others = sorted(
+        {
+            record.version
+            for record in getattr(proj, "imports", [])
+            if record.pack == pack_id and record.version != version
+        }
+    )
+    if not others:
+        return None
+    return {
+        "code": "cross_version_pin",
+        "pack": pack_id,
+        "adding": version,
+        "existing": others,
+        "detail": (
+            f"this map already imports {pack_id!r} at "
+            + ", ".join(repr(item) for item in others)
+            + f", and this adds a row at {version!r}. One pin per pack is the "
+            "usual shape; two can be deliberate."
+        ),
+    }
+
+
 def cited_versions(vault: Vault) -> set[tuple[str, str]]:
     cited: set[tuple[str, str]] = set()
     for proj in vault.projects.values():
@@ -332,6 +405,7 @@ def fetch_pack(
                 "version": version,
                 "path": str(dest),
                 "refreshed": False,
+                "used_by": consumers_of(vault, pack_id, version),
             }
         src, _source = found
         if _bytes_would_change(src, dest):
@@ -347,6 +421,7 @@ def fetch_pack(
             "version": version,
             "path": str(dest),
             "refreshed": False,
+            "used_by": consumers_of(vault, pack_id, version),
         }
     if dest.is_dir() and confirm:
         gated = _preview_gate(
@@ -365,6 +440,9 @@ def fetch_pack(
     )
     if not pulled.get("ok"):
         return pulled
+    # Reload: the shelf just changed, so a `latest` record may resolve here now
+    # and the pre-pull vault cannot see that.
+    vault = load_vault(vault.root)
     return {
         "ok": True,
         "pack": pack_id,
@@ -372,6 +450,11 @@ def fetch_pack(
         "path": pulled["path"],
         "source": pulled.get("source"),
         "refreshed": bool(pulled.get("pulled")),
+        # Seeding is the delivery: every map pinned to `latest` composes this
+        # version from now on, without anyone editing a map. Whoever just
+        # shipped is the one person positioned to tell them, and this is the
+        # moment they can be told.
+        "used_by": consumers_of(vault, pack_id, version),
     }
 
 
@@ -678,6 +761,7 @@ def install_article(
         clash.update({"pack": pack_id, "version": concrete})
         return clash
     have = composed_ids(vault, key) | {sid}
+    split = cross_version_warning(proj, pack_id, requested)
     records = _append_article(list(proj.imports), pack_id, requested, sid, target)
     if isinstance(records, dict):
         return records
@@ -693,6 +777,8 @@ def install_article(
         "title": installed.title,
         "description": installed.description,
     }
+    if split is not None:
+        result["warning"] = split
     mentions = mentions_not_composed(
         vault, [installed.description, installed.content], have, pack=pack_ver
     )
@@ -916,6 +1002,7 @@ def install_skill(
         }
     proj = vault.projects[key]
     installed = pack_ver.skills[sid]
+    split = cross_version_warning(proj, pack_id, requested)
     records = _append_skill(list(proj.imports), pack_id, requested, sid)
     if isinstance(records, dict):
         return records
@@ -928,6 +1015,8 @@ def install_skill(
         "resolved_version": concrete,
         "skill": sid,
     }
+    if split is not None:
+        result["warning"] = split
     # A skill is often the hands to an article's governance, so the article it
     # serves is the companion most worth naming here.
     mentions = mentions_not_composed(
@@ -1083,34 +1172,11 @@ def list_packs(vault_or_root: Path | str | Vault) -> dict:
         versions = []
         for version in sorted(vault.library[pack_id], key=version_sort_key):
             pack = vault.library[pack_id][version]
-            used_by = []
-            for key, proj in vault.projects.items():
-                for record in proj.imports:
-                    matches = record.pack == pack_id and (
-                        record.version == version
-                        or (
-                            record.version == "latest"
-                            and newest_version(list(vault.library.get(pack_id, {})))
-                            == version
-                        )
-                    )
-                    if not matches:
-                        continue
-                    if record.is_capability():
-                        used_by.append({"project": key, "kind": "capability"})
-                    else:
-                        used_by.append(
-                            {
-                                "project": key,
-                                "kind": "articles",
-                                "articles": record.article_members(),
-                            }
-                        )
             versions.append(
                 {
                     "version": version,
                     "source": pack.source,
-                    "used_by": used_by,
+                    "used_by": consumers_of(vault, pack_id, version),
                     "unreferenced": (pack_id, version) not in cited,
                 }
             )
