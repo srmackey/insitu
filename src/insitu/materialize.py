@@ -209,6 +209,43 @@ def render_header(
     return "\n".join(lines)
 
 
+def render_on_demand(items: list[dict]) -> str:
+    """The menu of what this chair may pull but is not carrying.
+
+    DESIGN 9 has always said the resolved protocol carries an index of the
+    on-demand set so an agent knows what it can request. That index reached
+    `resolve_protocol`'s result and stopped there, and a result is not what a
+    session loads: the host loads the generated file. So the articles were
+    stored, associated, and unreachable, because knowing when the work calls
+    for one requires knowing the set exists, and nothing put it in front of
+    anybody.
+
+    Id, description and cost, and no bodies. The description is the trigger
+    surface, the same way it is for a skill, and the estimate is what holding
+    it would cost. That is the trade on-demand was supposed to buy.
+    """
+    if not items:
+        return ""
+    lines = [
+        "# On demand",
+        "",
+        "Associated with this chair and deliberately not composed. Pull one with "
+        "`get_article` when the work calls for it. The estimate is what holding "
+        "it costs.",
+        "",
+    ]
+    for item in items:
+        tokens = item.get("estimated_tokens")
+        description = str(item.get("description") or "").strip()
+        entry = f"- `{item['id']}`"
+        if tokens:
+            entry += f" ({tokens} tokens)"
+        if description:
+            entry += f". {description}"
+        lines.append(entry)
+    return "\n".join(lines)
+
+
 def _write_text_bounded(path: Path, text: str, *, timeout: float) -> str | None:
     """Write text. None on success. Error code if the write fails or does not finish."""
     error: list[str] = []
@@ -247,11 +284,12 @@ def _render_protocol(vault_root: Path, resolved: dict) -> str:
         [item["id"] for item in resolved["core"]],
         resolved.get("classes"),
     )
-    bodies = [item["content"] for item in resolved["core"]]
-    text = header
-    if bodies:
-        text += "\n\n" + "\n\n".join(bodies)
-    return text + "\n"
+    sections = [header]
+    menu = render_on_demand(resolved.get("on_demand") or [])
+    if menu:
+        sections.append(menu)
+    sections.extend(item["content"] for item in resolved["core"])
+    return "\n\n".join(sections) + "\n"
 
 
 def _render_cursor_adapter(project: str, protocol_text: str) -> str:

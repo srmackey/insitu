@@ -4,14 +4,18 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
-## [Unreleased] — 0.19.0
+## [0.19.0] - 2026-09-05
 
-Additive. Two facts the server already knew at the moment it acted, and did not say.
+Additive. Four facts the server already knew at the moment it acted, and did not say.
 
 ### Added
 
 - **`fetch_pack` returns `used_by`,** the maps that compose the seeded version, at the grain each takes it. Because every import can pin `latest`, seeding the shelf is the delivery: consumers move without anyone editing a map, and until now the only way to learn who had just received something was to run `list_packs` afterwards and remember to. Both tools now read one computation, so they cannot disagree.
 - **`install_article` and `install_skill` warn on a split pin.** Installing from a second version of a pack the map already imports returns `cross_version_pin`, naming the version being added and the ones already there. A warning rather than a refusal, since two rows can be deliberate: a chair may want a skill from a newer version while holding its articles back. The equivalent refusal for the same *article* at two versions (`duplicate_import_article`) already existed one level down; this is the weaker check at the pack level.
+
+- **The four authoring tools warn when provenance is written into the body.** `create_article`, `update_article`, `create_skill`, and `update_skill` scan the body they wrote and return `provenance_in_body` with the line numbers and a pointer to the `why_log` the same call produced. A why-log already has a home outside the composed body; a dated block inside it is a cost every chair holding the provision pays every session, for a fact whose only reader is whoever edits the provision next. A warning rather than a refusal, and anchored at a block opening, so an article whose subject is provenance stays writable. `update_skill` now returns `why_log` as its article counterpart already did, so the pointer resolves there too.
+
+- **`materialize` writes the on-demand index into the generated protocol.** The design has always put an index of a chair's on-demand set on the resolved protocol, but it reached `resolve_protocol`'s result and stopped there, and a result is not what a session holds. The host loads the generated file, so an on-demand article was associated with a chair and unreachable from inside it: knowing when the work calls for one requires knowing the set exists, and nothing put that in front of an agent. `PROTOCOL.md` and every surface adapter now open with an `# On demand` section listing id, estimated cost, and description, no bodies. A chair with an empty list gets no section.
 
 The warning compares the version string a record stores, not a resolved one, so a map whose rows all read `latest` never trips it, and several rows at one version — a capability import beside a skill import — remain the ordinary shape.
 

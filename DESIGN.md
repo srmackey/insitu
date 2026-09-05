@@ -429,13 +429,15 @@ Those three names are the known set, and an unknown name is a hard error. If the
 
 `materialize` always writes `<working-folder>/PROTOCOL.md`. That file is the portable canon: humans read it, adapters derive from it, non-MCP environments consume it. It is **not** auto-loaded by any host, so it is not the injector.
 
-In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
+In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
 
 | Surface | Path (under working folder) | Format |
 |---------|-----------------------------|--------|
 | `grok` | `.grok/rules/insitu-protocol.md` | Full markdown. Grok does not expand `@path` imports, so a body of `@PROTOCOL.md` would inject that string rather than the pack. |
 | `claude` | `.claude/rules/insitu-protocol.md` | Full markdown, **no** `paths` frontmatter: a `paths` field would make it on-demand. Rules without `paths` load at launch at the same priority as `CLAUDE.md`. |
 | `cursor` | `.cursor/rules/insitu-protocol.mdc` | Full body after YAML frontmatter carrying `alwaysApply: true` and a short description. A plain `.md` in that folder is ignored by Cursor. |
+
+**The on-demand index rides with the core.** §9 puts an index of the on-demand set on the resolved protocol, and the generated files carry it too, as a leading `# On demand` section: id, estimated cost, and description, and no bodies. The distinction matters because a tool result is not what a session holds. The host loads the generated file, so an index that reached only `resolve_protocol` would leave an on-demand article associated with a chair and unreachable from inside it, since knowing when the work calls for one requires knowing the set exists. A chair whose on-demand list is empty gets no section rather than an empty heading.
 
 Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`; a one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
 
@@ -489,6 +491,7 @@ One limitation remains. Router-driven tool use — rematerializing on a stale he
 A why-log records *why* an article changed. It lives in a separate tree so `articles/` stays a catalog.
 
 - **Article why-log:** `provenance/<id>.md`, the same path as the article id. Append-only markdown, written on create and update, and by hand. The article file remains the source of truth; the why-log is the rationale.
+- **Skill why-log:** `provenance/skills/<id>.md`. Written when `why` is given, which is optional on `create_skill` and `update_skill` where the article pair require it.
 - **Not on projects.** There is no project why-log. Revisit if binding changes become hard to reconstruct.
 - **Frontmatter** `created` / `updated` / `author` are optional metadata, not a substitute for the why-log.
 
@@ -498,6 +501,10 @@ A why-log records *why* an article changed. It lives in a separate tree so `arti
 ## 2026-08-16
 Why: Split output-style rules out of this article so summary-first can stand alone.
 ```
+
+**Provenance written into the body is warned about at the write.** `create_article`, `update_article`, `create_skill`, and `update_skill` scan the body they wrote and return `provenance_in_body` when a block opens with the word: the code, the line numbers, and a pointer to the `why_log` the same call produced. The body composes into every chair holding the provision and the why-log composes into none, so a dated entry in the body is a per-session cost carried forever for a fact with one reader. Authoring is the only moment the body and its author are in the same place, which is why this is a field on the result rather than a rule someone has to have read first.
+
+A warning, never a refusal, and the scan is anchored at a block opening for the same reason: it cannot distinguish a why-log entry from an article whose subject is provenance, and an article that names `provenance/<id>.md` in a sentence must stay writable. The condition is the state of the body rather than of one edit, so it keeps reporting on later edits until someone takes the block out.
 
 **Insitu runs no git commands and has no subprocess surface.** It writes files under the vault root and reports which ones: every mutating tool returns `files`, the vault-relative paths it wrote, and one confirm is one unit — a delete touching several maps reports every path in a single list. Whether the vault is a repository, and what is committed when, belongs to whoever stewards it. Resolution always reads the current files on disk. There are no pins and no per-project frozen revisions.
 
