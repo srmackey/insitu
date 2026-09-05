@@ -265,7 +265,7 @@ def create_article(
     why: str,
     tags: list[str] | None = None,
 ) -> dict:
-    """Create an article and append a why-log entry. Does not link it to a project. Returns the files written. Authoring is open to any chair."""
+    """Create an article and append a why-log entry. Does not link it to a project. Returns the files written. Authoring is open to any chair. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
     return _vault_gated(
         working_folder,
         kind="article",
@@ -293,7 +293,7 @@ def update_article(
     content: str | None = None,
     tags: list[str] | None = None,
 ) -> dict:
-    """Update an article, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it."""
+    """Update an article, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
     return _vault_gated(
         working_folder,
         kind="article",
@@ -351,7 +351,7 @@ def create_skill(
     content: str,
     why: str | None = None,
 ) -> dict:
-    """Create skills/<id>/SKILL.md. Does not auto-link. Optional why writes provenance/skills/<id>.md."""
+    """Create skills/<id>/SKILL.md. Does not auto-link. Optional why writes provenance/skills/<id>.md. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
     return _vault_gated(
         working_folder,
         kind="skill",
@@ -375,7 +375,7 @@ def update_skill(
     content: str | None = None,
     why: str | None = None,
 ) -> dict:
-    """Update SKILL.md frontmatter and/or body. Surfaces where_used and affects_projects."""
+    """Update SKILL.md frontmatter and/or body. Surfaces where_used and affects_projects. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
     return _vault_gated(
         working_folder,
         kind="skill",

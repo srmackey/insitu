@@ -1,6 +1,10 @@
-"""Facts about one article's text relative to a composition (DESIGN.md §6.5).
+"""Facts about a provision's own text (DESIGN.md §6.5, §12).
 
-Two mechanisms, opposite strengths, deliberately kept apart.
+Two of these compare the text to a composition. The third compares it to the
+vault's own two-file shape. All three are scans of authored prose, which is why
+they live together.
+
+The composition pair are opposite strengths, deliberately kept apart.
 
 A **conflict** is declared. `conflicts:` on an article names another article that
 must not be composed beside it. It is symmetric on read, so one side declaring is
@@ -19,6 +23,12 @@ audit half, which a human reads.
 
 Only article ids are scanned. They carry a `/` and are unambiguous in prose. Skill
 ids are a single segment and would match ordinary words.
+
+**Provenance in the body** is the third, and it measures the text against nothing
+but this vault's structure: a why-log already has a home outside the composed body,
+so a block headed `Provenance` is that content sitting in the one place every chair
+pays for it. Like a mention it warns and never refuses, because it is the author's
+own prose and only they can say whether the word is the heading or the subject.
 """
 
 from __future__ import annotations
@@ -34,6 +44,48 @@ from .models import Article, PackVersion, Vault
 # fenced `methodology/x` and a bare one both match, and a trailing period does
 # not become part of the id.
 _ID_IN_TEXT = re.compile(r"(?<![A-Za-z0-9_/-])([a-z0-9][a-z0-9-]*(?:/[a-z0-9][a-z0-9-]*)+)")
+
+# A block opening with the word, optionally as a markdown heading. Anchored at the
+# start of a block so an article that discusses provenance in a sentence, or names
+# `provenance/<id>.md` mid-paragraph, does not trip it.
+_PROVENANCE_OPENER = re.compile(r"\s{0,3}#{0,6}\s*provenance\b", re.IGNORECASE)
+
+
+def provenance_in_body(content: str) -> dict | None:
+    """A why-log entry written into the body, where every chair pays for it.
+
+    The vault gives provenance a home already: `provenance/<id>.md` for an article
+    and `provenance/skills/<id>.md` for a skill, both written by the same call that
+    writes the provision, from `why`. A block in the body headed `Provenance` is
+    that content in the one place it composes into every chair holding the
+    provision, and the author is standing right here when it happens.
+
+    Warns rather than refuses. The scan cannot tell a why-log entry from an article
+    whose subject is provenance, and the cost of being wrong is one ignored key
+    against a body silently rejected.
+    """
+    hits: list[int] = []
+    at_block_start = True
+    for number, line in enumerate((content or "").splitlines(), start=1):
+        if not line.strip():
+            at_block_start = True
+            continue
+        if at_block_start and _PROVENANCE_OPENER.match(line):
+            hits.append(number)
+        at_block_start = False
+    if not hits:
+        return None
+    where = "line " + ", ".join(str(number) for number in hits)
+    return {
+        "code": "provenance_in_body",
+        "lines": hits,
+        "detail": (
+            f"the body opens a block with 'Provenance' at {where}. The body composes "
+            "into every chair holding this provision; the why-log composes into none "
+            "and is where a dated entry belongs. See `why_log` for the file this call "
+            "already wrote."
+        ),
+    }
 
 
 def declared_conflicts(article: Article) -> list[str]:

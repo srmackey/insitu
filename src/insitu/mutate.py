@@ -17,7 +17,7 @@ from insitu.affects import (
     article_already_in_protocol,
 )
 from insitu.catalog import get_project, get_skill, get_article, where_used, where_used_skill
-from insitu.provisions import conflict_refusal, prohibition_refusal
+from insitu.provisions import conflict_refusal, prohibition_refusal, provenance_in_body
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
@@ -102,6 +102,20 @@ def _append_why_log(path: Path, article_id: str, why: str) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"# Provenance — {article_id}\n\n{entry}", encoding="utf-8")
+
+
+def _note_provenance_in_body(result: dict[str, Any], content: str | None) -> None:
+    """Attach the why-log-in-the-body warning, if the written text has one.
+
+    Authoring is the only moment the body and the person who wrote it are in the
+    same place. A rule in a constitution about where provenance goes fires only if
+    someone reads it first; this fires because they wrote it.
+    """
+    if not result.get("ok", True):
+        return
+    notice = provenance_in_body(content or "")
+    if notice is not None:
+        result["provenance_in_body"] = notice
 
 
 def _clean_why(why: str | None) -> str | None:
@@ -232,6 +246,7 @@ def create_article(
     result.update(reviewed)
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
     result["affects_projects"] = []
+    _note_provenance_in_body(result, content)
     return result
 
 
@@ -293,6 +308,7 @@ def update_article(
     result["where_used"] = used
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
     result["affects_projects"] = affects
+    _note_provenance_in_body(result, body)
     return result
 
 
@@ -455,6 +471,7 @@ def create_skill(
         result["why_log"] = Path(_skill_why_log_path(vault_root, sid)).relative_to(
             vault_root
         ).as_posix()
+    _note_provenance_in_body(result, content)
     return result
 
 
@@ -521,6 +538,11 @@ def update_skill(
     result.update(reviewed)
     result["where_used"] = used
     result["affects_projects"] = affects
+    if reason is not None:
+        result["why_log"] = Path(_skill_why_log_path(vault_root, sid)).relative_to(
+            vault_root
+        ).as_posix()
+    _note_provenance_in_body(result, body)
     return result
 
 

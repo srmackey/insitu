@@ -489,6 +489,7 @@ One limitation remains. Router-driven tool use — rematerializing on a stale he
 A why-log records *why* an article changed. It lives in a separate tree so `articles/` stays a catalog.
 
 - **Article why-log:** `provenance/<id>.md`, the same path as the article id. Append-only markdown, written on create and update, and by hand. The article file remains the source of truth; the why-log is the rationale.
+- **Skill why-log:** `provenance/skills/<id>.md`. Written when `why` is given, which is optional on `create_skill` and `update_skill` where the article pair require it.
 - **Not on projects.** There is no project why-log. Revisit if binding changes become hard to reconstruct.
 - **Frontmatter** `created` / `updated` / `author` are optional metadata, not a substitute for the why-log.
 
@@ -498,6 +499,10 @@ A why-log records *why* an article changed. It lives in a separate tree so `arti
 ## 2026-08-16
 Why: Split output-style rules out of this article so summary-first can stand alone.
 ```
+
+**Provenance written into the body is warned about at the write.** `create_article`, `update_article`, `create_skill`, and `update_skill` scan the body they wrote and return `provenance_in_body` when a block opens with the word: the code, the line numbers, and a pointer to the `why_log` the same call produced. The body composes into every chair holding the provision and the why-log composes into none, so a dated entry in the body is a per-session cost carried forever for a fact with one reader. Authoring is the only moment the body and its author are in the same place, which is why this is a field on the result rather than a rule someone has to have read first.
+
+A warning, never a refusal, and the scan is anchored at a block opening for the same reason: it cannot distinguish a why-log entry from an article whose subject is provenance, and an article that names `provenance/<id>.md` in a sentence must stay writable. The condition is the state of the body rather than of one edit, so it keeps reporting on later edits until someone takes the block out.
 
 **Insitu runs no git commands and has no subprocess surface.** It writes files under the vault root and reports which ones: every mutating tool returns `files`, the vault-relative paths it wrote, and one confirm is one unit — a delete touching several maps reports every path in a single list. Whether the vault is a repository, and what is committed when, belongs to whoever stewards it. Resolution always reads the current files on disk. There are no pins and no per-project frozen revisions.
 
