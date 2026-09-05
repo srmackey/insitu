@@ -429,13 +429,15 @@ Those three names are the known set, and an unknown name is a hard error. If the
 
 `materialize` always writes `<working-folder>/PROTOCOL.md`. That file is the portable canon: humans read it, adapters derive from it, non-MCP environments consume it. It is **not** auto-loaded by any host, so it is not the injector.
 
-In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
+In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
 
 | Surface | Path (under working folder) | Format |
 |---------|-----------------------------|--------|
 | `grok` | `.grok/rules/insitu-protocol.md` | Full markdown. Grok does not expand `@path` imports, so a body of `@PROTOCOL.md` would inject that string rather than the pack. |
 | `claude` | `.claude/rules/insitu-protocol.md` | Full markdown, **no** `paths` frontmatter: a `paths` field would make it on-demand. Rules without `paths` load at launch at the same priority as `CLAUDE.md`. |
 | `cursor` | `.cursor/rules/insitu-protocol.mdc` | Full body after YAML frontmatter carrying `alwaysApply: true` and a short description. A plain `.md` in that folder is ignored by Cursor. |
+
+**The on-demand index rides with the core.** §9 puts an index of the on-demand set on the resolved protocol, and the generated files carry it too, as a leading `# On demand` section: id, estimated cost, and description, and no bodies. The distinction matters because a tool result is not what a session holds. The host loads the generated file, so an index that reached only `resolve_protocol` would leave an on-demand article associated with a chair and unreachable from inside it, since knowing when the work calls for one requires knowing the set exists. A chair whose on-demand list is empty gets no section rather than an empty heading.
 
 Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`; a one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
 
