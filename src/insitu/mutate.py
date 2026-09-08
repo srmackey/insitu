@@ -259,6 +259,8 @@ def update_article(
     description: str | None = None,
     content: str | None = None,
     tags: list[str] | None = None,
+    old_string: str | None = None,
+    new_string: str | None = None,
 ) -> dict:
     try:
         sid = validate_article_id(article_id)
@@ -272,12 +274,26 @@ def update_article(
     article = vault.articles.get(sid)
     if article is None:
         return {"ok": False, "error": "missing_article", "id": sid}
-    if all(value is None for value in (title, description, content, tags)):
+
+    patch_fields = (old_string is not None, new_string is not None)
+    if patch_fields[0] != patch_fields[1]:
+        return {"ok": False, "error": "incomplete_patch", "id": sid}
+    patching = old_string is not None
+    if patching and content is not None:
+        return {"ok": False, "error": "conflicting_update", "id": sid}
+    if patching and old_string == "":
+        return {"ok": False, "error": "empty_patch", "id": sid}
+    if all(
+        value is None
+        for value in (title, description, content, tags, old_string, new_string)
+    ):
         return {"ok": False, "error": "no_changes", "id": sid}
+
     post = read_frontmatter(article.path)
     meta = dict(post.metadata or {})
     body = post.content or ""
     changed = False
+    change = "fields"
     if title is not None and str(title).strip() != article.title:
         meta["title"] = str(title).strip()
         changed = True
@@ -287,9 +303,26 @@ def update_article(
     if tags is not None and list(tags) != list(article.tags):
         meta["tags"] = list(tags)
         changed = True
-    if content is not None and _normalize_body(content) != article.content:
+    if patching:
+        assert old_string is not None and new_string is not None
+        matches = body.count(old_string)
+        if matches == 0:
+            return {"ok": False, "error": "patch_not_found", "id": sid}
+        if matches > 1:
+            return {
+                "ok": False,
+                "error": "ambiguous_patch",
+                "id": sid,
+                "matches": matches,
+            }
+        if old_string != new_string:
+            body = body.replace(old_string, new_string, 1)
+            changed = True
+            change = "patch"
+    elif content is not None and _normalize_body(content) != article.content:
         body = content
         changed = True
+        change = "content"
     if not changed:
         return {"ok": False, "error": "no_changes", "id": sid}
     meta["id"] = sid
@@ -308,6 +341,7 @@ def update_article(
     result["where_used"] = used
     result["why_log"] = Path(prov).relative_to(vault_root).as_posix()
     result["affects_projects"] = affects
+    result["change"] = change
     _note_provenance_in_body(result, body)
     return result
 

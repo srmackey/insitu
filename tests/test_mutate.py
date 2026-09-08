@@ -126,6 +126,7 @@ def test_update_article_appends_why_log_and_returns_where_used(vault: Path) -> N
         why="Tighten the body.",
     )
     assert result["ok"] is True
+    assert result["change"] == "content"
     assert "NEW-BODY" in result["content"]
     assert result["where_used"] == where_used(vault, "interaction/how-i-work-with-ai")
     assert result["where_used"]["used_by"] == [
@@ -146,6 +147,126 @@ def test_update_article_requires_a_change(vault: Path) -> None:
 
     no_fields = update_article(vault, "interaction/how-i-work-with-ai", why="n/a")
     assert no_fields["error"] == "no_changes"
+
+
+def test_update_article_patches_one_match_and_appends_why(vault: Path) -> None:
+    write_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        "Lead with the thesis.\nThen the detail.\n",
+        title="How I work with AI",
+        description="Standing prefs",
+    )
+    write_project(vault, "river-ledger", core=["interaction/how-i-work-with-ai"])
+
+    result = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="the thesis",
+        new_string="a settle run",
+        why="Four-word term fix without rewriting the body.",
+    )
+    assert result["ok"] is True
+    assert result["change"] == "patch"
+    assert "Lead with a settle run." in result["content"]
+    assert "Then the detail." in result["content"]
+    assert result["why_log"] == "provenance/interaction/how-i-work-with-ai.md"
+    assert result["where_used"]["used_by"] == [
+        {"project": "river-ledger", "lists": ["core"]}
+    ]
+    log = (vault / "provenance" / "interaction" / "how-i-work-with-ai.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Four-word term fix without rewriting the body." in log
+
+
+def test_update_article_patch_refusals(vault: Path) -> None:
+    write_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        "alpha beta alpha\n",
+        title="How I work with AI",
+        description="Standing prefs",
+    )
+
+    incomplete = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="alpha",
+        why="n/a",
+    )
+    assert incomplete == {
+        "ok": False,
+        "error": "incomplete_patch",
+        "id": "interaction/how-i-work-with-ai",
+    }
+
+    conflict = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        content="whole new body",
+        old_string="alpha",
+        new_string="gamma",
+        why="n/a",
+    )
+    assert conflict == {
+        "ok": False,
+        "error": "conflicting_update",
+        "id": "interaction/how-i-work-with-ai",
+    }
+
+    empty = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="",
+        new_string="x",
+        why="n/a",
+    )
+    assert empty == {
+        "ok": False,
+        "error": "empty_patch",
+        "id": "interaction/how-i-work-with-ai",
+    }
+
+    missing = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="does-not-appear",
+        new_string="x",
+        why="n/a",
+    )
+    assert missing == {
+        "ok": False,
+        "error": "patch_not_found",
+        "id": "interaction/how-i-work-with-ai",
+    }
+
+    ambiguous = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="alpha",
+        new_string="gamma",
+        why="n/a",
+    )
+    assert ambiguous == {
+        "ok": False,
+        "error": "ambiguous_patch",
+        "id": "interaction/how-i-work-with-ai",
+        "matches": 2,
+    }
+
+    noop = update_article(
+        vault,
+        "interaction/how-i-work-with-ai",
+        old_string="beta",
+        new_string="beta",
+        why="n/a",
+    )
+    assert noop == {
+        "ok": False,
+        "error": "no_changes",
+        "id": "interaction/how-i-work-with-ai",
+    }
 
 
 def test_link_and_unlink_are_map_only(vault: Path) -> None:
