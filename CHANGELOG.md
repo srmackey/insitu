@@ -4,6 +4,14 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [0.20.0] - 2026-09-08
+
+Additive. Surgical article edits without rewriting the whole body.
+
+### Added
+
+- **`update_article` accepts `old_string` / `new_string`.** Both are required together. The old string must match the body exactly once (`patch_not_found`, `ambiguous_patch`, `incomplete_patch`, `empty_patch`, `conflicting_update` when `content` is also passed). The whole-body `content` path stays. Successful writes return `change` as `patch`, `content`, or `fields`. Why-only calls still return `no_changes`.
+
 ## [0.19.0] - 2026-09-05
 
 Additive. Four facts the server already knew at the moment it acted, and did not say.

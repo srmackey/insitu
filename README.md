@@ -118,7 +118,7 @@ get_project                 # how heavy is this project's protocol?
 get_skill / get_role / get_pack
 
 # authoring
-create_article / update_article
+create_article / update_article  # update: content= whole body, or old_string/new_string patch
 link_article / unlink_article # project maps only; target core or on_demand
 create_skill / update_skill / delete_skill / where_used_skill
 link_skill / unlink_skill

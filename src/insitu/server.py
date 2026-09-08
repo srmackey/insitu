@@ -292,8 +292,10 @@ def update_article(
     description: str | None = None,
     content: str | None = None,
     tags: list[str] | None = None,
+    old_string: str | None = None,
+    new_string: str | None = None,
 ) -> dict:
-    """Update an article, append a why-log entry, and return where_used. Returns the files written. Needs admin once a map other than this chair composes it. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
+    """Update an article, append a why-log entry, and return where_used. Prefer old_string/new_string for a surgical body edit (exactly one match); content replaces the whole body. Do not pass content together with a patch. Returns the files written and change (patch, content, or fields). Needs admin once a map other than this chair composes it. Warns provenance_in_body when the written body opens a block with 'Provenance', which belongs in the why-log."""
     return _vault_gated(
         working_folder,
         kind="article",
@@ -307,6 +309,8 @@ def update_article(
             description=description,
             content=content,
             tags=tags,
+            old_string=old_string,
+            new_string=new_string,
         ),
     )
 

@@ -1,6 +1,6 @@
 # Insitu — Design Spec
 
-**Version 0.19**
+**Version 0.20**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -384,6 +384,8 @@ Imposed sets run broadest to narrowest, and both run ahead of anything the map c
 | **Packs** | `install_capability`, `install_article`, `install_skill`, `uninstall_capability`, `uninstall_article`, `uninstall_skill`, `fetch_pack`, `remove_pack` |
 | **Operators** | `grant`, `revoke` |
 | **Enforcement** | `materialize` |
+
+`update_article` takes either a whole-body `content` replacement or a surgical `old_string` / `new_string` patch (both required together; refused unless the old string matches exactly once). Do not pass `content` and a patch in the same call. A successful write returns `change` as `patch`, `content`, or `fields`. Why-only calls (no body or frontmatter change) still return `no_changes`.
 
 `resolve_protocol` is a live inspect tool: weigh the composition, refresh mid-session, compare against a materialized header. It is not how core guidance enters the session (§10). `list_articles` is a bootstrapping and authoring tool — see what exists, check sizes, then link — not agent-session bootstrap. `project_status` is a folder inspect card and never writes.
 
