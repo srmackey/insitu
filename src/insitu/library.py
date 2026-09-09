@@ -162,6 +162,66 @@ def consumers_of(vault: Vault, pack_id: str, version: str) -> list[dict[str, Any
     return used_by
 
 
+def _unreferenced_siblings(vault: Vault, pack_id: str, keep: str) -> list[str]:
+    """Other on-shelf versions of this pack that no map composes."""
+    dropped: list[str] = []
+    for ver in vault.library.get(pack_id, {}):
+        if ver == keep:
+            continue
+        if consumers_of(vault, pack_id, ver):
+            continue
+        dropped.append(ver)
+    dropped.sort(key=version_sort_key)
+    return dropped
+
+
+def _drop_shelf_versions(vault: Vault, pack_id: str, versions: list[str]) -> Vault:
+    lock = dict(vault.lock)
+    for ver in versions:
+        dest = vault.root / "library" / pack_id / ver
+        if dest.is_dir():
+            shutil.rmtree(dest)
+        _drop_lock_version(lock, pack_id, ver)
+    pack_dir = vault.root / "library" / pack_id
+    if pack_dir.is_dir() and not any(pack_dir.iterdir()):
+        pack_dir.rmdir()
+    _write_lock(vault.root, lock)
+    return load_vault(vault.root)
+
+
+def _after_fetch(
+    vault: Vault,
+    pack_id: str,
+    version: str,
+    *,
+    path: str,
+    refreshed: bool,
+    source: str | None = None,
+) -> dict:
+    """Seed result: who composes this version, and which leftovers this call dropped.
+
+    A `latest` pin moves the moment a newer version is on the shelf, so the
+    previous copy is unreferenced in the same call that delivered the new one.
+    Drop it here and say so. An exact pin still names its version, so that copy
+    stays. Re-fetch from the pack repo to get a dropped version back.
+    """
+    removed = _unreferenced_siblings(vault, pack_id, version)
+    if removed:
+        vault = _drop_shelf_versions(vault, pack_id, removed)
+    result = {
+        "ok": True,
+        "pack": pack_id,
+        "version": version,
+        "path": path,
+        "refreshed": refreshed,
+        "used_by": consumers_of(vault, pack_id, version),
+        "removed": removed,
+    }
+    if source is not None:
+        result["source"] = source
+    return result
+
+
 def cross_version_warning(
     proj: Any, pack_id: str, version: str
 ) -> dict[str, Any] | None:
@@ -399,14 +459,9 @@ def fetch_pack(
     if dest.is_dir() and not confirm:
         found = _find_source(vault, pack_id, version, repo=repo, path=path)
         if isinstance(found, dict):
-            return {
-                "ok": True,
-                "pack": pack_id,
-                "version": version,
-                "path": str(dest),
-                "refreshed": False,
-                "used_by": consumers_of(vault, pack_id, version),
-            }
+            return _after_fetch(
+                vault, pack_id, version, path=str(dest), refreshed=False
+            )
         src, _source = found
         if _bytes_would_change(src, dest):
             plan = {
@@ -415,14 +470,9 @@ def fetch_pack(
                 "expected": {"pack": pack_id, "version": version, "refresh": True},
             }
             return plan
-        return {
-            "ok": True,
-            "pack": pack_id,
-            "version": version,
-            "path": str(dest),
-            "refreshed": False,
-            "used_by": consumers_of(vault, pack_id, version),
-        }
+        return _after_fetch(
+            vault, pack_id, version, path=str(dest), refreshed=False
+        )
     if dest.is_dir() and confirm:
         gated = _preview_gate(
             confirm,
@@ -443,19 +493,14 @@ def fetch_pack(
     # Reload: the shelf just changed, so a `latest` record may resolve here now
     # and the pre-pull vault cannot see that.
     vault = load_vault(vault.root)
-    return {
-        "ok": True,
-        "pack": pack_id,
-        "version": version,
-        "path": pulled["path"],
-        "source": pulled.get("source"),
-        "refreshed": bool(pulled.get("pulled")),
-        # Seeding is the delivery: every map pinned to `latest` composes this
-        # version from now on, without anyone editing a map. Whoever just
-        # shipped is the one person positioned to tell them, and this is the
-        # moment they can be told.
-        "used_by": consumers_of(vault, pack_id, version),
-    }
+    return _after_fetch(
+        vault,
+        pack_id,
+        version,
+        path=pulled["path"],
+        refreshed=bool(pulled.get("pulled")),
+        source=pulled.get("source"),
+    )
 
 
 def _bytes_would_change(src: Path, dest: Path) -> bool:

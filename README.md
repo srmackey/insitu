@@ -132,7 +132,7 @@ delete_article / delete_role / delete_project
                             # Insitu never runs git; tracking the vault is yours
 
 # vault admin
-fetch_pack / remove_pack    # seed or drop a shelf version
+fetch_pack / remove_pack    # seed or drop a shelf version; fetch drops unreferenced siblings of that pack and returns removed
 validate / where_used
 operators                   # classes, admins, default (inspect)
 grant / revoke              # admin only; first admin is CLI-only
