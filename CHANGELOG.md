@@ -4,6 +4,18 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [0.21.0] - 2026-09-09
+
+Additive for callers that read the new field. Leftover shelf copies of the pack you just seeded go away without a second confirm.
+
+### Added
+
+- **`fetch_pack` returns `removed` and drops unreferenced sibling versions of that pack.** After a successful seed, other on-shelf versions with empty `used_by` are removed in the same call. An exact pin still names its version, so that copy stays. Re-fetch from the pack repo to get a dropped version back. `remove_pack` remains the deliberate delete.
+
+### Changed
+
+- Unreferenced leftover copies of a pack are no longer left on the shelf for someone to notice later. `validate` still reports `unreferenced_version` and still does not delete. `fetch_pack` is the operation that already knew.
+
 ## [0.20.0] - 2026-09-08
 
 Additive. Surgical article edits without rewriting the whole body.

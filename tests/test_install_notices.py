@@ -125,3 +125,40 @@ def test_fetch_and_list_agree_on_consumers(tmp_path: Path) -> None:
     listed = list_packs(vault)["packs"][0]["versions"][0]["used_by"]
     # One computation behind both, so they cannot drift.
     assert fetched["used_by"] == listed
+
+
+def test_seeding_drops_an_unreferenced_older_version(tmp_path: Path) -> None:
+    vault = _voices(tmp_path, "1.1")
+    write_project(vault, "gamma", core=[], include_global=False)
+    install_article(vault, "gamma", "identity/x", version="latest", pack="voices")
+    seed_pack_repo(tmp_path / "repo", "voices", "1.3")
+    out = fetch_pack(vault, "voices", "1.3")
+    assert out["ok"] is True
+    assert out["removed"] == ["1.1"]
+    assert not (vault / "library" / "voices" / "1.1").exists()
+    assert (vault / "library" / "voices" / "1.3").is_dir()
+    listed = list_packs(vault)["packs"][0]["versions"]
+    assert {row["version"] for row in listed} == {"1.3"}
+
+
+def test_exact_pin_keeps_the_older_version(tmp_path: Path) -> None:
+    vault = _voices(tmp_path, "1.1")
+    write_project(vault, "gamma", core=[], include_global=False)
+    install_article(vault, "gamma", "identity/x", version="1.1", pack="voices")
+    seed_pack_repo(tmp_path / "repo", "voices", "1.3")
+    out = fetch_pack(vault, "voices", "1.3")
+    assert out["ok"] is True
+    assert out["removed"] == []
+    assert (vault / "library" / "voices" / "1.1").is_dir()
+    assert (vault / "library" / "voices" / "1.3").is_dir()
+
+
+def test_first_seed_reports_nothing_removed(tmp_path: Path) -> None:
+    vault = _vault(tmp_path)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    seed_pack_repo(repo, "voices", "1.1")
+    write_pack_repos(vault, [{"name": "fixture", "path": str(repo)}])
+    out = fetch_pack(vault, "voices", "1.1")
+    assert out["ok"] is True
+    assert out["removed"] == []

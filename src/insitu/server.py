@@ -810,7 +810,7 @@ def fetch_pack(
     confirm: bool = False,
     expected: dict | None = None,
 ) -> dict:
-    """Admin: seed library/<id>/<version>/. No map change. Confirm if refreshing changed bytes. Returns used_by, the maps that compose this version now, since a latest pin moves them the moment it is seeded."""
+    """Admin: seed library/<id>/<version>/. No map change. Confirm if refreshing changed bytes. Returns used_by, the maps that compose this version now, since a latest pin moves them the moment it is seeded. Also returns removed: other on-shelf versions of this pack that nothing points at after the seed, which this call drops."""
     return fetch_pack_fn(
         current_vault(),
         pack,
