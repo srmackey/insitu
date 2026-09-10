@@ -163,7 +163,7 @@ uv run pytest
 uv run insitu
 ```
 
-See `DESIGN.md` for the spec.
+See `DESIGN.md` for how the system is structured, and `CHANGELOG.md` for what moved between versions.
 
 ## License
 
