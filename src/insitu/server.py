@@ -225,13 +225,13 @@ def project_status(working_folder: str, project: str | None = None) -> dict:
 
 @mcp.tool(annotations=READ_ONLY)
 def list_roles() -> dict:
-    """List role packs with id, name, description, member counts, and composed core size."""
+    """List role packs with id, name, description, member counts including skills, and composed core size."""
     return list_roles_fn(current_vault())
 
 
 @mcp.tool(annotations=READ_ONLY)
 def get_role(role_id: str) -> dict:
-    """Return one role file, member article metadata and sizes, and projects that include it."""
+    """Return one role file, member article and skill metadata and sizes, and projects that include it."""
     return get_role_fn(current_vault(), role_id)
 
 
@@ -329,7 +329,7 @@ def get_skill(skill_id: str, project: str | None = None) -> dict:
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
 def link_skill(working_folder: str, project: str, skill_id: str) -> dict:
-    """Add a skill to a project's skills list. Writes now. Does not edit role files."""
+    """Add a skill to a project's skills list. Writes now. Already composed via a role is already_linked. Does not edit role files."""
     return _gated(
         project,
         working_folder,
@@ -421,7 +421,7 @@ def delete_skill(
 
 @mcp.tool(annotations=READ_ONLY)
 def where_used_skill(skill_id: str) -> dict:
-    """List project maps that include this skill. Roles never appear."""
+    """List project maps and role files that include this skill."""
     return where_used_skill_fn(current_vault(), skill_id)
 
 
@@ -475,6 +475,7 @@ def create_role(
     description: str | None = None,
     core: list[str] | None = None,
     on_demand: list[str] | None = None,
+    skills: list[str] | None = None,
     why: str | None = None,
 ) -> dict:
     """Create a role file. The new role is on no project, so authoring is open to any chair. Optional why writes a provenance entry."""
@@ -490,6 +491,7 @@ def create_role(
             description=description,
             core=core,
             on_demand=on_demand,
+            skills=skills,
             why=why,
         ),
     )
@@ -505,6 +507,8 @@ def update_role(
     remove_core: list[str] | None = None,
     add_on_demand: list[str] | None = None,
     remove_on_demand: list[str] | None = None,
+    add_skills: list[str] | None = None,
+    remove_skills: list[str] | None = None,
     confirm: bool = False,
     expected: dict | None = None,
     why: str | None = None,
@@ -524,6 +528,8 @@ def update_role(
             remove_core=remove_core,
             add_on_demand=add_on_demand,
             remove_on_demand=remove_on_demand,
+            add_skills=add_skills,
+            remove_skills=remove_skills,
             confirm=confirm,
             expected=expected,
             why=why,

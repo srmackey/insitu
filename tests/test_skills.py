@@ -127,17 +127,15 @@ def test_resolve_protocol_skills_index_not_in_core(vault: Path) -> None:
     assert summary["skills_size"]["bytes"] > 0
 
 
-def test_role_skills_not_supported(vault: Path) -> None:
+def test_role_skills_missing_skill_is_an_issue(vault: Path) -> None:
     write_article(vault, "methodology/ledger-clerk", "BODY")
-    write_role(vault, "clerk", core=["methodology/ledger-clerk"], extra={"skills": ["close-books"]})
+    write_role(vault, "clerk", core=["methodology/ledger-clerk"], skills=["close-books"])
     write_project(vault, "river-ledger", roles=["clerk"])
     report = validate(vault)
     kinds = [item["kind"] for item in report["issues"]]
-    assert "role_skills_not_supported" in kinds
+    assert "missing_skill" in kinds
+    assert "role_skills_not_supported" not in kinds
     assert report["ok"] is False
-    fixed = validate(vault, fix=True)
-    kinds = [item["kind"] for item in fixed["issues"]]
-    assert "role_skills_not_supported" in kinds
 
 
 def test_global_skills_not_inherited(vault: Path) -> None:
@@ -263,15 +261,15 @@ def test_delete_skill_preview_and_confirm(vault: Path) -> None:
     assert "skills" not in raw
 
 
-def test_where_used_skill_lists_maps_only(vault: Path) -> None:
+def test_where_used_skill_lists_map_and_role(vault: Path) -> None:
     _close_books(vault)
     write_article(vault, "methodology/ledger-clerk", "BODY")
-    write_role(vault, "clerk", core=["methodology/ledger-clerk"], extra={"skills": ["close-books"]})
+    write_role(vault, "clerk", core=["methodology/ledger-clerk"], skills=["close-books"])
     write_project(vault, "river-ledger", roles=["clerk"], skills=["close-books"])
     used = where_used_skill(vault, "close-books")
     assert used["ok"] is True
-    assert used["used_by"] == [{"project": "river-ledger", "lists": ["skills"]}]
-    assert all("role" not in row for row in used["used_by"])
+    assert {"project": "river-ledger", "lists": ["skills", "role:clerk"]} in used["used_by"]
+    assert {"role": "clerk", "lists": ["skills"]} in used["used_by"]
 
 
 def test_update_skill_affects_projects(vault: Path) -> None:

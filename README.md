@@ -7,9 +7,9 @@ Insitu is a portable MCP server. One vault holds the reusable pieces of how an a
 The vault holds five kinds of thing:
 
 - **Articles.** Standing guidance (tone, method, review, identity that changes how the agent operates). One markdown file each.
-- **Roles.** Named packs of articles a kind of project includes as a unit (`node`, `repo`, and the like).
+- **Roles.** Named packs of articles and skills a kind of project includes as a unit (`node`, `repo`, and the like).
 - **Projects.** A map per working folder: core articles, on-demand articles, imported packs, and skills.
-- **Skills.** Procedures the host should expose as `/name`. Mapped on the project. Copied into host skill directories on `materialize`. Not concatenated into the protocol.
+- **Skills.** Procedures the host should expose as `/name`. Carried by a role or mapped on the project. Copied into host skill directories on `materialize`. Not concatenated into the protocol.
 - **Packs.** Versioned capabilities authored outside the vault (system-development, multi-platform, and the like). Installed onto a shelf, then imported by a project.
 
 You already have directions for how an agent should work with you. The pain is reuse. The same guidance needs to show up in more than one place, but not the same set every time. Copies drift. A new repo starts without the ones you meant to bring. You notice after the agent has already gone the wrong way.
@@ -19,10 +19,10 @@ Size reports on articles and on the composed protocol tell you when to trim. Ski
 ## How it works
 
 - An **article** is one markdown file of standing guidance.
-- A **role** is a named, ordered pack of articles a project can include as a unit.
+- A **role** is a named, ordered pack of articles and skills a project can include as a unit.
 - A **project map** selects articles as core (always loaded) or on-demand (pulled when the work needs them), plus imported packs and mapped skills.
 - A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
-- A **skill** is a procedure the host discovers as `/name`. `materialize` copies mapped skills into `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/`.
+- A **skill** is a procedure the host discovers as `/name`. `materialize` copies composed skills into `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/`.
 - A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_article` pull it and write this map. A single-article install may land in `core` or `on_demand`.
 
 ## Install

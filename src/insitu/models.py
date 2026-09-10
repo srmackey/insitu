@@ -38,6 +38,7 @@ class Role:
     description: str | None
     core: list[str]
     on_demand: list[str]
+    skills: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 
 

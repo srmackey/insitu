@@ -26,6 +26,7 @@ from insitu.identity import (
     validate_skill_id,
     validate_article_id,
 )
+from insitu.resolve import iter_composed_skills
 from insitu.size import size_fields
 from insitu.store import files_written, load_vault, read_frontmatter
 
@@ -600,7 +601,10 @@ def link_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict:
         return {"ok": False, "error": "missing_project", "id": key}
     if sid not in vault.skills:
         return {"ok": False, "error": "missing_skill", "id": sid}
-    if sid in proj.skills:
+    composed = iter_composed_skills(vault, proj)
+    if isinstance(composed, dict):
+        return composed
+    if any(skill.id == sid for skill in composed):
         return {
             "ok": False,
             "error": "already_linked",
@@ -654,14 +658,30 @@ def unlink_skill(vault_or_root: Path | str, project: str, skill_id: str) -> dict
 
 def _skill_delete_plan(vault, sid: str) -> dict:
     skill = vault.skills[sid]
-    projects = _projects_listing_skill(vault, sid)
+    role_ids = [
+        rid for rid, role in sorted(vault.roles.items()) if sid in role.skills
+    ]
+    direct = _projects_listing_skill(vault, sid)
+    via_role: list[str] = []
+    for key in project_keys(vault):
+        if key in direct:
+            continue
+        proj = vault.projects[key]
+        for raw_role in proj.roles:
+            role = vault.roles.get(raw_role)
+            if role is not None and sid in role.skills:
+                via_role.append(key)
+                break
+    affects = [key for key in project_keys(vault) if key in set(direct) | set(via_role)]
     return {
         "id": sid,
         "name": skill.name,
         "size": size_fields(skill.content),
-        "projects": projects,
-        "expected": {"projects": list(projects)},
-        "affects_projects": list(projects),
+        "projects": direct,
+        "via_role_projects": via_role,
+        "roles": role_ids,
+        "expected": {"roles": list(role_ids), "projects": list(direct)},
+        "affects_projects": affects,
     }
 
 
@@ -686,6 +706,15 @@ def delete_skill(
     if gated is not None:
         return gated
     paths: list[Path] = []
+    for rid in plan["expected"]["roles"]:
+        role = vault.roles[rid]
+        data = dict(role.raw)
+        skills = [item for item in role.skills if item != sid]
+        if skills:
+            data["skills"] = skills
+        else:
+            data.pop("skills", None)
+        paths.append(_write_role_file(vault_root, rid, data))
     for key in plan["expected"]["projects"]:
         proj = vault.projects[key]
         skills = [item for item in proj.skills if item != sid]
@@ -910,6 +939,7 @@ def create_role(
     description: str | None = None,
     core: list[str] | None = None,
     on_demand: list[str] | None = None,
+    skills: list[str] | None = None,
     why: str | None = None,
 ) -> dict:
     try:
@@ -922,6 +952,7 @@ def create_role(
         return {"ok": False, "error": "already_exists", "id": rid}
     core_ids = _as_list(core)
     on_demand_ids = _as_list(on_demand)
+    skill_ids = _as_list(skills)
     for sid in core_ids + on_demand_ids:
         try:
             validated = validate_article_id(sid)
@@ -929,6 +960,13 @@ def create_role(
             return _identity_error(sid, exc)
         if validated not in vault.articles:
             return {"ok": False, "error": "missing_article", "id": validated}
+    for sid in skill_ids:
+        try:
+            validated = validate_skill_id(sid)
+        except InvalidIdentity as exc:
+            return _identity_error(sid, exc)
+        if validated not in vault.skills:
+            return {"ok": False, "error": "missing_skill", "id": validated}
     data: dict[str, Any] = {}
     if name is not None:
         data["name"] = name
@@ -936,6 +974,8 @@ def create_role(
         data["description"] = description
     data["core"] = core_ids
     data["on_demand"] = on_demand_ids
+    if skill_ids:
+        data["skills"] = skill_ids
     path = _write_role_file(vault_root, rid, data)
     paths = [path]
     reviewed = files_written(vault_root, paths)
@@ -946,11 +986,27 @@ def create_role(
         "description": description,
         "core": core_ids,
         "on_demand": on_demand_ids,
+        "skills": skill_ids,
         "affects_projects": [],
         "written": True,
     }
     result.update(reviewed)
     return result
+
+
+def _skill_already_composed_excluding_role(
+    vault, project: str, skill_id: str, exclude_role: str
+) -> bool:
+    proj = vault.projects[project]
+    if skill_id in proj.skills:
+        return True
+    for raw in proj.roles:
+        if raw == exclude_role:
+            continue
+        role = vault.roles.get(raw)
+        if role is not None and skill_id in role.skills:
+            return True
+    return False
 
 
 def _role_membership_plan(
@@ -961,10 +1017,13 @@ def _role_membership_plan(
     remove_core: list[str],
     add_on_demand: list[str],
     remove_on_demand: list[str],
+    add_skills: list[str],
+    remove_skills: list[str],
 ) -> dict:
     touched = list(
         dict.fromkeys(add_core + remove_core + add_on_demand + remove_on_demand)
     )
+    touched_skills = list(dict.fromkeys(add_skills + remove_skills))
     projects = [key for key in project_keys(vault) if rid in vault.projects[key].roles]
     project_rows = []
     for key in projects:
@@ -977,19 +1036,30 @@ def _role_membership_plan(
             }
             for sid in touched
         ]
-        project_rows.append({"project": key, "articles": articles})
+        skills = [
+            {
+                "id": sid,
+                "already_composed": _skill_already_composed_excluding_role(
+                    vault, key, sid, rid
+                ),
+            }
+            for sid in touched_skills
+        ]
+        project_rows.append({"project": key, "articles": articles, "skills": skills})
     return {
         "role_id": rid,
         "projects": project_rows,
         "statement": (
             "Maps do not change. Next resolve/materialize for those projects "
-            "gains or loses the article unless first-wins already hid it."
+            "gains or loses the member unless first-wins already hid it."
         ),
         "expected": {
             "add_core": list(add_core),
             "remove_core": list(remove_core),
             "add_on_demand": list(add_on_demand),
             "remove_on_demand": list(remove_on_demand),
+            "add_skills": list(add_skills),
+            "remove_skills": list(remove_skills),
             "projects": list(projects),
         },
         "affects_projects": list(projects),
@@ -1006,6 +1076,8 @@ def update_role(
     remove_core: list[str] | None = None,
     add_on_demand: list[str] | None = None,
     remove_on_demand: list[str] | None = None,
+    add_skills: list[str] | None = None,
+    remove_skills: list[str] | None = None,
     confirm: bool = False,
     expected: dict | None = None,
     why: str | None = None,
@@ -1021,7 +1093,14 @@ def update_role(
         return {"ok": False, "error": "not_found", "id": rid}
     membership = any(
         value is not None
-        for value in (add_core, remove_core, add_on_demand, remove_on_demand)
+        for value in (
+            add_core,
+            remove_core,
+            add_on_demand,
+            remove_on_demand,
+            add_skills,
+            remove_skills,
+        )
     )
     if not membership:
         if name is None and description is None:
@@ -1035,6 +1114,10 @@ def update_role(
             data["core"] = list(role.core)
         if "on_demand" not in data:
             data["on_demand"] = list(role.on_demand)
+        if role.skills:
+            data["skills"] = list(role.skills)
+        elif "skills" in data and not data["skills"]:
+            data.pop("skills", None)
         path = _write_role_file(vault_root, rid, data)
         reviewed = files_written(vault_root, [path])
         result = {
@@ -1050,6 +1133,8 @@ def update_role(
     remove_core_ids = _as_list(remove_core)
     add_on_demand_ids = _as_list(add_on_demand)
     remove_on_demand_ids = _as_list(remove_on_demand)
+    add_skill_ids = _as_list(add_skills)
+    remove_skill_ids = _as_list(remove_skills)
     for sid in add_core_ids + add_on_demand_ids:
         try:
             validated = validate_article_id(sid)
@@ -1062,6 +1147,18 @@ def update_role(
             validate_article_id(sid)
         except InvalidIdentity as exc:
             return _identity_error(sid, exc)
+    for sid in add_skill_ids:
+        try:
+            validated = validate_skill_id(sid)
+        except InvalidIdentity as exc:
+            return _identity_error(sid, exc)
+        if validated not in vault.skills:
+            return {"ok": False, "error": "missing_skill", "id": validated}
+    for sid in remove_skill_ids:
+        try:
+            validate_skill_id(sid)
+        except InvalidIdentity as exc:
+            return _identity_error(sid, exc)
 
     plan = _role_membership_plan(
         vault,
@@ -1070,6 +1167,8 @@ def update_role(
         remove_core=remove_core_ids,
         add_on_demand=add_on_demand_ids,
         remove_on_demand=remove_on_demand_ids,
+        add_skills=add_skill_ids,
+        remove_skills=remove_skill_ids,
     )
     gated = _preview_gate(confirm, expected, plan)
     if gated is not None:
@@ -1077,6 +1176,7 @@ def update_role(
 
     core = list(role.core)
     on_demand = list(role.on_demand)
+    skills = list(role.skills)
     for sid in add_core_ids:
         if sid not in core:
             core.append(sid)
@@ -1085,12 +1185,18 @@ def update_role(
         if sid not in on_demand:
             on_demand.append(sid)
     on_demand = [item for item in on_demand if item not in set(remove_on_demand_ids)]
-    original_members = set(role.core) | set(role.on_demand)
-    final_members = set(core) | set(on_demand)
+    for sid in add_skill_ids:
+        if sid not in skills:
+            skills.append(sid)
+    skills = [item for item in skills if item not in set(remove_skill_ids)]
     data = dict(role.raw)
     data["core"] = core
     data["on_demand"] = on_demand
     data.pop("available", None)
+    if skills:
+        data["skills"] = skills
+    else:
+        data.pop("skills", None)
     if name is not None:
         data["name"] = name
     if description is not None:

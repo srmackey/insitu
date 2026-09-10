@@ -1,6 +1,6 @@
 # Insitu — Design Spec
 
-**Version 0.21**
+**Version 0.22**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -48,13 +48,13 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
 | **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. |
 | **`_global`** | A distinguished project whose composed core is automatically included in every other project's protocol, unless the project opts out. Keep it very small: only articles that truly transcend projects. |
-| **Role** | A named, ordered pack of articles. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
+| **Role** | A named, ordered pack of articles and skills. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
 | **Core** | Articles always injected into the protocol. |
 | **On-demand** | Articles associated with a project but only loaded when the work needs them (`get_article`). Their titles and descriptions are surfaced on the resolved protocol so agents know what they can pull. |
 | **Pack** | Versioned bundle of articles and roles, authored outside the vault. Installed copy lives under `library/<id>/<version>/`. An optional `skills/` folder is copied onto the shelf. |
 | **Library** | Vault shelf of pulled pack versions. Not native `articles/`. |
 | **Import record** | A project map entry: this node uses a whole **capability** or listed **articles** from a pack id at `version` or `latest`. |
-| **Skill** | A procedure the host discovers as `/name`. Vault object under `skills/<id>/SKILL.md`. Membership is `map.yaml` `skills:` only. Roles do not carry skills, and `_global.skills` is not inherited. |
+| **Skill** | A procedure the host discovers as `/name`. Vault object under `skills/<id>/SKILL.md`. Membership is `roles/<id>.yaml` `skills:` plus `map.yaml` `skills:`. `_global.skills` is not inherited. |
 
 ---
 
@@ -169,7 +169,7 @@ include_global: true              # optional; default true. Set false to
 
 ### 6.1 Roles
 
-A **role** is a named, ordered pack of articles: how a kind of project carries a shared set of rules without listing every member on every map, and without stuffing `_global`. Roles are vault content, not server builtins; the server has no built-in role names.
+A **role** is a named, ordered pack of articles and skills: how a kind of project carries a shared set without listing every member on every map, and without stuffing `_global`. Roles are vault content, not server builtins; the server has no built-in role names.
 
 **On disk.** One file per role, `roles/<id>.yaml`, the filename stem being the role id. Missing `roles/` is empty.
 
@@ -180,18 +180,20 @@ description: Receive the inbox; propose cross-project notes upward.
 core:
   - methodology/clerk-inbox
 on_demand: []                     # optional; default empty
+skills:                           # optional; omit when empty
+  - close-books
 ```
 
 - `core` and `on_demand` use the same article-id rules as a project map.
+- `skills` uses the same skill-id rules as a project map. Omit the key when empty.
 - A role must not list another role. No nesting.
-- A role file must not carry a `skills` key (`role_skills_not_supported`).
 - Unknown extra fields are ignored on load, though `validate` may warn.
 
 **Membership has one home.** An article does not declare its roles. Membership is a fact about the role file, and an article belongs to it the way a song belongs to a playlist: the playlist knows. Article frontmatter cannot be the membership source, because injection order must be explicit and stable, and because a frontmatter tag would silently enlarge every protocol carrying that article. `get_role` answers membership from the file that owns it. A stale `roles:` key left in an article by an older vault is ignored on load, never read, and never rewritten.
 
-**Project includes.** `map.yaml` `roles:` is an ordered list of role ids. A project may also list articles directly in `core` / `on_demand`. First occurrence wins when the same article appears in a role and again on the map.
+**Project includes.** `map.yaml` `roles:` is an ordered list of role ids. A project may also list articles directly in `core` / `on_demand`, and skills directly in `skills:`. First occurrence wins when the same article or skill appears in a role and again on the map.
 
-**Not a mode.** A role is composition, not a runtime hat. Including a role means those articles are in the protocol. It does not switch behavior sets or change tool privilege.
+**Not a mode.** A role is composition, not a runtime hat. Including a role means those articles and skills are in the protocol. It does not switch behavior sets or change tool privilege.
 
 **`_global` vs roles.** `_global` is the tiny "every project, always" prefix (reply shape, output voice). A role is "every project of this kind." Do not put role behavior on `_global` in order to skip roles. A project that must not receive another kind's rules simply does not include that role.
 
@@ -203,11 +205,11 @@ User-facing language is "install capability X 1.0," "install identity x at 1.1,"
 
 **Pack kind.** A pack declares `kind: capability` or `kind: theme` in `pack.yaml`, and the declaration binds. A capability pack is meant to be taken whole, and its `roles/<pack-id>.yaml` is the delivery manifest. A theme pack is a menu whose members are taken one at a time; `install_capability` against one is refused with `theme_pack_not_capability` and the members are named.
 
-**Shelf.** `library/<pack-id>/<version>/` is a mini-vault (`articles/`, `roles/`, `pack.yaml`, `VERSION`, optional `skills/`). Pack-delivered skills stay on the shelf; `install_skill` maps one id onto this project, and `materialize` writes host copies from that shelf version. A whole-capability install does not attach the pack's skill list. Multiple versions of one id sit side by side, `library/lock.yaml` inventories what is on disk, and native `articles/`, `roles/`, and `skills/` are never merged into.
+**Shelf.** `library/<pack-id>/<version>/` is a mini-vault (`articles/`, `roles/`, `pack.yaml`, `VERSION`, optional `skills/`). Pack-delivered skills stay on the shelf; `materialize` writes host copies from that shelf version. A whole-capability install expands that version's `roles/<pack>.yaml`, skills included. `pack.yaml` `skills:` is the catalog of what the pack contains; a skill listed only there still needs `install_skill`. Multiple versions of one id sit side by side, `library/lock.yaml` inventories what is on disk, and native `articles/`, `roles/`, and `skills/` are never merged into.
 
 **Version on a record** is semver (sticky) or `latest` (floats on each resolve and materialize). An exact pin alongside a newer copy composes the pin and reports `newer_available`. Do not auto-upgrade, and do not force other nodes onto a newer version.
 
-**Composition.** `expand(imports)` walks map records in order, resolving `latest` first. A whole capability expands that version's `roles/<pack>.yaml` like a native role. A record's `articles:` are core members and its `on_demand:` are indexed rather than injected. A record's `skills:` compose after native `project.skills`. The same article or skill id arriving from two records on one project is a hard error. Native `roles:` never searches `library/`, and `imports:` never searches vault `roles/`. `get_article` looks in native `articles/` first, then this project's import records at their versions.
+**Composition.** `expand(imports)` walks map records in order, resolving `latest` first. A whole capability expands that version's `roles/<pack>.yaml` like a native role, articles and skills. A record's `articles:` are core members and its `on_demand:` are indexed rather than injected. A record's `skills:` compose with native role and map skills. The same article or skill id arriving from two records on one project is a hard error. Native `roles:` never searches `library/`, and `imports:` never searches vault `roles/`. `get_article` looks in native `articles/` first, then this project's import records at their versions.
 
 **Pack repos** are working copies with one `VERSION`, so a repo query returns that version only. Older versions live on the shelf once pulled.
 
@@ -365,7 +367,7 @@ Imposed sets run broadest to narrowest, and both run ahead of anything the map c
 - **An unparseable file is a hard error naming that file.** A malformed article, skill, role, map, lock, pack, or config file fails with its own path and parse position (`VaultReadError`) wherever it is read. Pack trees count: content Insitu did not author still gets named rather than swallowed.
 - **Syntax and semantics fail differently.** A file that will not parse raises `VaultReadError`. A file that parses but carries a bad value returns its own structured miss. The first says the file is unreadable, the second says it was read and is wrong.
 - **On-demand articles are not in the protocol content.** The resolved protocol carries an **index** of them (id, title, description, size) so the agent knows what it can request via `get_article`.
-- **Skills index.** After the on-demand index, `resolve_protocol` lists composed skills (id, name, description, size): native `project.skills`, then pack import skills. No skill content — skill text is never injected into core. A missing skill id is `missing_skill`; a native-and-pack or two-pack collision is `duplicate_import_skill`.
+- **Skills index.** After the on-demand index, `resolve_protocol` lists composed skills (id, name, description, size): `expand(project.roles).skills`, then pack import skills (capability via the pack role, or a record's `skills:`), then native `project.skills`. No skill content — skill text is never injected into core. First-wins inside native lists. A missing skill id is `missing_skill`; a native-and-pack or two-pack collision is `duplicate_import_skill`. `_global.skills` is not inherited, and skills on a role that `_global` carries do not fan into other projects.
 - **Size metadata** comes *before* the core bodies: article count, total bytes, and estimated tokens (`chars / 4`, labeled an estimate), plus the same fields per article, and a separate `skills_size` summary. Size is an authoring surface, not telemetry. A user should be able to see protocol weight and trim it before it bloats every session.
 - **Aliases** (`name`, `aka`) do not select a protocol. They are for `list_projects`, and for an agent that heard "RL" and needs to know it means `river-ledger`.
 
@@ -389,7 +391,7 @@ Imposed sets run broadest to narrowest, and both run ahead of anything the map c
 
 `resolve_protocol` is a live inspect tool: weigh the composition, refresh mid-session, compare against a materialized header. It is not how core guidance enters the session (§10). `list_articles` is a bootstrapping and authoring tool — see what exists, check sizes, then link — not agent-session bootstrap. `project_status` is a folder inspect card and never writes.
 
-Native vault skills use `link_skill`; pack skills use `install_skill`. `link_article(..., target="skills")` is `invalid_target`.
+Native vault skills use `link_skill`; pack skills use `install_skill`. Either returns `already_linked` when the skill is already composed for that project (via a role, a map list, or an import). `link_article(..., target="skills")` is `invalid_target`. `create_role` may set `skills=`. `update_role` takes `add_skills` / `remove_skills` under the same preview/confirm gate as article members. `where_used_skill` names maps and role files. `delete_skill` unlinks both.
 
 **Linking and installing refuse a declared conflict or a class prohibition, and installing reports what the text mentions** (§6.3, §6.5). Resolution warns on a conflict and excludes a prohibited article; it refuses neither.
 
@@ -403,7 +405,7 @@ Native vault skills use `link_skill`; pack skills use `install_skill`. `link_art
 
 There is no `list_protocols` or `get_protocol`. A protocol is not a catalog row. It is what `resolve_protocol` returns and what `materialize` writes.
 
-**Deliberately absent:** search, ACL, `rename_article` / `rename_role` / `rename_project`, nested roles, and role-carried skills. Registering the first admin is not a tool either; it is `insitu init --admin` on the command line.
+**Deliberately absent:** search, ACL, `rename_article` / `rename_role` / `rename_project`, and nested roles. Registering the first admin is not a tool either; it is `insitu init --admin` on the command line.
 
 ---
 
