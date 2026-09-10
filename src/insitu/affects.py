@@ -101,12 +101,19 @@ def projects_carrying_role(vault: Vault, role_id: str) -> list[str]:
 
 
 def projects_listing_skill(vault: Vault, skill_id: str) -> list[str]:
-    """Maps whose subscription lists this skill."""
-    return [
-        key
-        for key in project_keys(vault)
-        if skill_id in list(vault.projects[key].skills or [])
-    ]
+    """Maps that compose this skill, via the map list or a role they carry."""
+    found: list[str] = []
+    for key in project_keys(vault):
+        proj = vault.projects[key]
+        if skill_id in list(proj.skills or []):
+            found.append(key)
+            continue
+        for raw_role in proj.roles:
+            role = vault.roles.get(raw_role)
+            if role is not None and skill_id in role.skills:
+                found.append(key)
+                break
+    return found
 
 
 def article_already_in_protocol(

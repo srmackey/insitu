@@ -200,10 +200,10 @@ def expand_import_skills(
     out: list[tuple[str, PackVersion]] = []
     seen: dict[str, str] = {}
     for record in records:
-        if record.is_capability() or not record.skills:
-            continue
         resolved = concrete_version(vault, record)
         if isinstance(resolved, dict):
+            if not record.is_capability() and not record.skills:
+                continue
             if record.version != "latest":
                 return {
                     "ok": False,
@@ -214,13 +214,21 @@ def expand_import_skills(
             return resolved
         pack = vault.library.get(record.pack, {}).get(resolved)
         if pack is None:
+            if not record.is_capability() and not record.skills:
+                continue
             return {
                 "ok": False,
                 "error": "broken_pin",
                 "pack": record.pack,
                 "version": resolved,
             }
-        for sid in record.skills:
+        if record.is_capability():
+            ids = list(pack.role.skills) if pack.role is not None else []
+        elif record.skills:
+            ids = list(record.skills)
+        else:
+            continue
+        for sid in ids:
             origin = f"{record.pack}@{resolved}"
             if sid in seen:
                 return {
@@ -238,7 +246,11 @@ def expand_import_skills(
 def iter_composed_skills(vault: Vault, proj: Project) -> list[Skill] | dict:
     items: list[Skill] = []
     seen: set[str] = set()
-    for raw_id in proj.skills:
+    from_import: set[str] = set()
+    role_ids = expand_role_field(vault, proj.roles, "skills")
+    if isinstance(role_ids, dict):
+        return role_ids
+    for raw_id in role_ids:
         try:
             skill_id = validate_skill_id(raw_id)
         except InvalidIdentity as exc:
@@ -275,6 +287,25 @@ def iter_composed_skills(vault: Vault, proj: Project) -> list[Skill] | dict:
                 "pack": pack.pack_id,
                 "version": pack.version,
             }
+        seen.add(skill_id)
+        from_import.add(skill_id)
+        items.append(skill)
+    for raw_id in proj.skills:
+        try:
+            skill_id = validate_skill_id(raw_id)
+        except InvalidIdentity as exc:
+            return _identity_error(raw_id, exc)
+        if skill_id in from_import:
+            return {
+                "ok": False,
+                "error": "duplicate_import_skill",
+                "id": skill_id,
+            }
+        if skill_id in seen:
+            continue
+        skill = vault.skills.get(skill_id)
+        if skill is None:
+            return {"ok": False, "error": "missing_skill", "id": skill_id}
         seen.add(skill_id)
         items.append(skill)
     return items

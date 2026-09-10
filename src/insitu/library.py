@@ -117,8 +117,6 @@ def version_missing(pack_id: str, version: str, available: list[str]) -> dict:
 
 def record_member_ids(record: ImportRecord, pack: PackVersion, field: str) -> list[str]:
     if record.is_capability():
-        if field == "skills":
-            return []
         if pack.role is not None:
             return list(getattr(pack.role, field))
         if field == "core":
@@ -1001,6 +999,30 @@ def _infer_pack_skill(vault: Vault, skill_id: str, version: str) -> str | dict:
     }
 
 
+def _skill_already_on_project(vault: Vault, proj, skill_id: str) -> bool:
+    if skill_id in list(proj.skills or []):
+        return True
+    for rid in proj.roles:
+        role = vault.roles.get(rid)
+        if role is not None and skill_id in role.skills:
+            return True
+    for record in proj.imports:
+        if record.is_capability():
+            resolved = concrete_version(vault, record)
+            if isinstance(resolved, dict):
+                continue
+            pack = vault.library.get(record.pack, {}).get(resolved)
+            if (
+                pack is not None
+                and pack.role is not None
+                and skill_id in pack.role.skills
+            ):
+                return True
+        elif record.skills and skill_id in record.skills:
+            return True
+    return False
+
+
 def install_skill(
     vault_or_root: Path | str | Vault,
     project: str,
@@ -1047,6 +1069,13 @@ def install_skill(
         }
     proj = vault.projects[key]
     installed = pack_ver.skills[sid]
+    if _skill_already_on_project(vault, proj, sid):
+        return {
+            "ok": False,
+            "error": "already_linked",
+            "id": sid,
+            "project": key,
+        }
     split = cross_version_warning(proj, pack_id, requested)
     records = _append_skill(list(proj.imports), pack_id, requested, sid)
     if isinstance(records, dict):

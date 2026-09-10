@@ -2,9 +2,9 @@
 
 Guidance for agents and contributors working in this repo.
 
-**Product.** Insitu is a portable MCP server for **situated identity**: who you are *here*. It stores reusable **articles**, **roles**, project-mapped **skills**, and versioned **packs**, and composes a **project-specific protocol**. Complementary to ContextForge (system/dev context). Not a second brain.
+**Product.** Insitu is a portable MCP server for **situated identity**: who you are *here*. It stores reusable **articles**, **roles**, **skills**, and versioned **packs**, and composes a **project-specific protocol**. Complementary to ContextForge (system/dev context). Not a second brain.
 
-**Design lock.** `DESIGN.md` is the locked spec, and its header carries the version. Implement against it. Everything it names is in `src/`. Do not add surface it does not name (search, ACL, rename tools, nested roles, role-carried skills) without an explicit design change.
+**Design lock.** `DESIGN.md` is the locked spec, and its header carries the version. Implement against it. Everything it names is in `src/`. Do not add surface it does not name (search, ACL, rename tools, nested roles) without an explicit design change.
 
 DESIGN is the current shape, not a settled demand. Best practices, first-principles thinking, optimization, and enabling the operator to iterate quickly should always be considered. Proposing defensible improvements is always in scope.
 

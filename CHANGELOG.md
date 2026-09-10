@@ -4,6 +4,25 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [0.22.0] - 2026-09-10
+
+Roles carry skills. A kind of project can subscribe once and get the procedures as well as the articles. Host writing is unchanged: `materialize` still copies the composed skill list into each enabled surface's skills directory.
+
+### Added
+
+- **Role files may list `skills:`.** `create_role` takes `skills=`. `update_role` takes `add_skills` / `remove_skills` under the same preview/confirm gate as article members. `where_used_skill` names role files. `delete_skill` unlinks them.
+- **Capability packs deliver role skills.** A whole-capability install expands that version's pack role, skills included. `pack.yaml` `skills:` remains the catalog: a skill listed only there still needs `install_skill`.
+
+### Changed
+
+- Composed skills are `expand(project.roles).skills`, then pack import skills, then map `skills:`. First-wins inside native lists. Native-and-pack collision is still `duplicate_import_skill`.
+- `link_skill` and `install_skill` return `already_linked` when the skill is already composed for that project.
+- `_global.skills` is still not inherited. Skills on a role that `_global` carries do not fan into other projects.
+
+### Removed
+
+- `role_skills_not_supported`. A `skills` key on a role is membership.
+
 ## [0.21.0] - 2026-09-09
 
 Additive for callers that read the new field. Leftover shelf copies of the pack you just seeded go away without a second confirm.

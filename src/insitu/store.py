@@ -243,22 +243,26 @@ def _load_lock(root: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _load_pack_role(pack_id: str, version_root: Path) -> Role | None:
-    path = version_root / "roles" / f"{pack_id}.yaml"
-    if not path.is_file():
-        return None
-    raw = read_yaml(path)
+def role_from_raw(role_id: str, path: Path, raw: Any) -> Role:
     if not isinstance(raw, dict):
         raw = {}
     return Role(
-        id=pack_id,
+        id=role_id,
         path=path,
         name=str(raw["name"]) if raw.get("name") else None,
         description=str(raw["description"]) if raw.get("description") else None,
         core=_as_str_list(raw.get("core")),
         on_demand=load_on_demand_list(raw),
+        skills=_as_str_list(raw.get("skills")),
         raw=dict(raw),
     )
+
+
+def _load_pack_role(pack_id: str, version_root: Path) -> Role | None:
+    path = version_root / "roles" / f"{pack_id}.yaml"
+    if not path.is_file():
+        return None
+    return role_from_raw(pack_id, path, read_yaml(path))
 
 
 def _load_pack_version(
@@ -374,16 +378,5 @@ def _load_roles(root: Path) -> dict[str, Role]:
             role_id = validate_role_id(path.stem)
         except InvalidIdentity:
             continue
-        raw = read_yaml(path)
-        if not isinstance(raw, dict):
-            raw = {}
-        roles[role_id] = Role(
-            id=role_id,
-            path=path,
-            name=str(raw["name"]) if raw.get("name") else None,
-            description=str(raw["description"]) if raw.get("description") else None,
-            core=_as_str_list(raw.get("core")),
-            on_demand=load_on_demand_list(raw),
-            raw=dict(raw),
-        )
+        roles[role_id] = role_from_raw(role_id, path, read_yaml(path))
     return roles

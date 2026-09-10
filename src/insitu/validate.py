@@ -260,7 +260,7 @@ def _collect_findings(vault: Vault) -> dict:
 
     empty_roles: list[dict] = []
     for rid, role in sorted(vault.roles.items()):
-        if not role.core and not role.on_demand:
+        if not role.core and not role.on_demand and not role.skills:
             empty_roles.append({"id": rid, "label": role.name or rid})
 
     referenced: set[str] = set()
@@ -311,6 +311,8 @@ def _collect_findings(vault: Vault) -> dict:
     referenced_skills: set[str] = set()
     for proj in vault.projects.values():
         referenced_skills.update(proj.skills)
+    for role in vault.roles.values():
+        referenced_skills.update(role.skills)
     unreferenced_skill: list[dict] = []
     for sid, skill in sorted(vault.skills.items()):
         if sid not in referenced_skills:
@@ -471,13 +473,39 @@ def _collect_skill_catalog_issues(issues: list[dict], vault: Vault) -> None:
 
 def _collect_role_skills_issues(issues: list[dict], vault: Vault) -> None:
     for rid, role in sorted(vault.roles.items()):
-        if "skills" in role.raw:
-            issues.append(
-                {
-                    "kind": "role_skills_not_supported",
-                    "role": rid,
-                }
-            )
+        seen: set[str] = set()
+        for raw_id in role.skills:
+            try:
+                sid = validate_skill_id(raw_id)
+            except InvalidIdentity:
+                issues.append(
+                    {
+                        "kind": "invalid_identity",
+                        "id": raw_id,
+                        "list": "skills",
+                        "role": rid,
+                    }
+                )
+                continue
+            if sid not in vault.skills:
+                issues.append(
+                    {
+                        "kind": "missing_skill",
+                        "id": sid,
+                        "list": "skills",
+                        "role": rid,
+                    }
+                )
+            if sid in seen:
+                issues.append(
+                    {
+                        "kind": "duplicate",
+                        "id": sid,
+                        "list": "skills",
+                        "role": rid,
+                    }
+                )
+            seen.add(sid)
 
 
 def _skill_missing_skill_md(vault: Vault) -> list[dict]:

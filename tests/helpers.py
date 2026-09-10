@@ -121,6 +121,7 @@ def write_role(
     core: list[str] | None = None,
     on_demand: list[str] | None = None,
     available: list[str] | None = None,
+    skills: list[str] | None = None,
     name: str | None = None,
     description: str | None = None,
     extra: dict | None = None,
@@ -137,6 +138,8 @@ def write_role(
         data["available"] = list(available)
     else:
         data["on_demand"] = list(on_demand or [])
+    if skills:
+        data["skills"] = list(skills)
     if extra:
         data.update(extra)
     path = folder / f"{role_id}.yaml"

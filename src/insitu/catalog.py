@@ -18,6 +18,7 @@ from insitu.resolve import (
     expand_import_field,
     expand_import_skills,
     first_wins,
+    iter_composed_skills,
     resolve_protocol,
 )
 from insitu.size import size_fields, total_size
@@ -53,6 +54,19 @@ def _article_index_row(article, origin: str = "native") -> dict:
     }
     row.update(size_fields(article.content))
     return row
+
+
+def _role_skill_row(vault: Vault, raw_id: str) -> dict:
+    skill = vault.skills.get(raw_id)
+    if skill is None:
+        return {"id": raw_id}
+    item = {
+        "id": skill.id,
+        "name": skill.name,
+        "description": skill.description,
+    }
+    item.update(size_fields(skill.content))
+    return item
 
 
 def _role_member_row(vault: Vault, raw_id: str) -> dict:
@@ -287,6 +301,7 @@ def list_roles(vault_or_root: Vault | Path | str) -> dict:
                 "description": role.description,
                 "core_count": len(role.core),
                 "on_demand_count": len(role.on_demand),
+                "skills_count": len(role.skills),
                 "size": total_size(texts),
             }
         )
@@ -304,6 +319,7 @@ def get_role(vault_or_root: Vault | Path | str, role_id: str) -> dict:
         return {"ok": False, "error": "missing_role", "id": rid}
     core_items = [_role_member_row(vault, member_id) for member_id in role.core]
     on_demand_items = [_role_member_row(vault, member_id) for member_id in role.on_demand]
+    skill_items = [_role_skill_row(vault, member_id) for member_id in role.skills]
     texts = []
     for member_id in first_wins(list(role.core)):
         article = vault.articles.get(member_id)
@@ -326,6 +342,7 @@ def get_role(vault_or_root: Vault | Path | str, role_id: str) -> dict:
         "description": role.description,
         "core": core_items,
         "on_demand": on_demand_items,
+        "skills": skill_items,
         "projects": projects,
         "size": total_size(texts),
     }
@@ -353,7 +370,10 @@ def _projects_listing_skill(vault: Vault, skill_id: str) -> list[str]:
         keys.append(GLOBAL_PROJECT)
     keys.extend(sorted(k for k in vault.projects if k != GLOBAL_PROJECT))
     for key in keys:
-        if skill_id in vault.projects[key].skills:
+        composed = iter_composed_skills(vault, vault.projects[key])
+        if isinstance(composed, dict):
+            continue
+        if any(skill.id == skill_id for skill in composed):
             found.append(key)
     return found
 
@@ -430,8 +450,36 @@ def where_used_skill(vault_or_root: Vault | Path | str, skill_id: str) -> dict:
     except InvalidIdentity as exc:
         return _identity_error(skill_id, exc)
     vault = _as_vault(vault_or_root)
-    used = [
-        {"project": key, "lists": ["skills"]}
-        for key in _projects_listing_skill(vault, sid)
-    ]
+    used: list[dict] = []
+    keys = []
+    if GLOBAL_PROJECT in vault.projects:
+        keys.append(GLOBAL_PROJECT)
+    keys.extend(sorted(k for k in vault.projects if k != GLOBAL_PROJECT))
+    for key in keys:
+        proj = vault.projects[key]
+        lists: list[str] = []
+        if sid in proj.skills:
+            lists.append("skills")
+        for raw_role in proj.roles:
+            try:
+                rid = validate_role_id(raw_role)
+            except InvalidIdentity:
+                continue
+            role = vault.roles.get(rid)
+            if role is not None and sid in role.skills:
+                lists.append(f"role:{rid}")
+        imported = expand_import_skills(vault, proj.imports)
+        if not isinstance(imported, dict):
+            for imported_id, pack in imported:
+                if imported_id != sid:
+                    continue
+                label = f"import:{pack.pack_id}@{pack.version}"
+                if label not in lists:
+                    lists.append(label)
+        if lists:
+            used.append({"project": key, "lists": lists})
+    for rid in sorted(vault.roles):
+        role = vault.roles[rid]
+        if sid in role.skills:
+            used.append({"role": rid, "lists": ["skills"]})
     return {"ok": True, "id": sid, "used_by": used}

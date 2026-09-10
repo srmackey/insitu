@@ -70,6 +70,41 @@ def test_install_capability_does_not_attach_pack_skills(tmp_path: Path) -> None:
     assert [row["id"] for row in resolved["core"]] == ["methodology/dock-rule"]
 
 
+def _role_with_close_hatch(tmp_path: Path) -> Path:
+    vault = _with_repo(tmp_path)
+    role_path = tmp_path / "repo" / "harbor-kit" / "roles" / "harbor-kit.yaml"
+    data = yaml.safe_load(role_path.read_text(encoding="utf-8"))
+    data["skills"] = ["close-hatch"]
+    role_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return vault
+
+
+def test_install_capability_attaches_role_skills(tmp_path: Path) -> None:
+    vault = _role_with_close_hatch(tmp_path)
+    assert install_capability(vault, "alpha", "harbor-kit", "0.1.0")["ok"] is True
+    resolved = resolve_protocol(vault, "alpha")
+    assert resolved["ok"] is True
+    assert [row["id"] for row in resolved["skills"]] == ["close-hatch"]
+    found = get_skill(vault, "close-hatch", project="alpha")
+    assert found["ok"] is True
+    assert found["origin"] == "library/harbor-kit@0.1.0"
+
+
+def test_install_skill_already_linked_when_capability_role_has_it(tmp_path: Path) -> None:
+    vault = _role_with_close_hatch(tmp_path)
+    assert install_capability(vault, "alpha", "harbor-kit", "0.1.0")["ok"] is True
+    result = install_skill(vault, "alpha", "close-hatch", version="0.1.0")
+    assert result["ok"] is False
+    assert result["error"] == "already_linked"
+    data = yaml.safe_load(
+        (vault / "projects" / "alpha" / "map.yaml").read_text(encoding="utf-8")
+    )
+    assert data["imports"] == [{"pack": "harbor-kit", "version": "0.1.0"}]
+
+
 def test_install_skill_after_capability_is_a_second_record(tmp_path: Path) -> None:
     vault = _with_repo(tmp_path)
     assert install_capability(vault, "alpha", "harbor-kit", "0.1.0")["ok"] is True
