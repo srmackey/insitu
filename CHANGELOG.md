@@ -4,6 +4,8 @@ Notable changes for people using Insitu. Newest first, following [keepachangelog
 
 Insitu is pre-1.0. A minor bump may break callers, and breaking changes are called out under **Changed** and **Removed**.
 
+## [Unreleased]
+
 ## [0.22.0] - 2026-09-10
 
 Roles carry skills. A kind of project can subscribe once and get the procedures as well as the articles. Host writing is unchanged: `materialize` still copies the composed skill list into each enabled surface's skills directory.

@@ -1,10 +1,10 @@
-# Insitu — Design Spec
+# Insitu
 
 **Version 0.22**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
-An **article** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here." The working title during design was Protocol Vault.
+An **article** is a portable section of standing guidance. A **skill** is a procedure the host should expose as `/name`. A **protocol** is the assembled, project-specific "who I am here."
 
 ---
 
