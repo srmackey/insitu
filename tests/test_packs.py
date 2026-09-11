@@ -451,6 +451,25 @@ def test_install_article_rejects_an_unknown_target(tmp_path: Path) -> None:
     assert result["value"] == "whenever"
 
 
+def test_install_article_keeps_a_second_member_of_the_same_pack(tmp_path: Path) -> None:
+    # Two install_article calls, same pack, same version, both to core.
+    # A last-write that replaced the import record would drop the first member.
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.1")
+    assert install_article(vault, "alpha", "methodology/dock-rule", "0.1.1")["ok"] is True
+    assert install_article(vault, "alpha", "methodology/harbor-watch", "0.1.1")["ok"] is True
+
+    data = yaml.safe_load((vault / "projects" / "alpha" / "map.yaml").read_text("utf-8"))
+    assert data["imports"] == [
+        {
+            "pack": "harbor-kit",
+            "version": "0.1.1",
+            "articles": ["methodology/dock-rule", "methodology/harbor-watch"],
+        }
+    ]
+    resolved = resolve_protocol(vault, "alpha")
+    assert _core_ids(resolved) == ["methodology/dock-rule", "methodology/harbor-watch"]
+
+
 def test_one_pack_version_can_split_across_core_and_on_demand(tmp_path: Path) -> None:
     vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.1")
     assert install_article(vault, "alpha", "methodology/dock-rule", "0.1.1")["ok"] is True
