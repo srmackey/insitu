@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.22**
+**Version 0.23**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -389,7 +389,7 @@ Imposed sets run broadest to narrowest, and both run ahead of anything the map c
 
 `update_article` takes either a whole-body `content` replacement or a surgical `old_string` / `new_string` patch (both required together; refused unless the old string matches exactly once). Do not pass `content` and a patch in the same call. A successful write returns `change` as `patch`, `content`, or `fields`. Why-only calls (no body or frontmatter change) still return `no_changes`.
 
-`resolve_protocol` is a live inspect tool: weigh the composition, refresh mid-session, compare against a materialized header. It is not how core guidance enters the session (§10). `list_articles` is a bootstrapping and authoring tool — see what exists, check sizes, then link — not agent-session bootstrap. `project_status` is a folder inspect card and never writes.
+`resolve_protocol` is a live inspect tool: weigh the composition, refresh mid-session, compare against a materialized header. It is not how core guidance enters the session (§10). `list_articles` is a bootstrapping and authoring tool — see what exists, check sizes, then link — not agent-session bootstrap. `list_skills` is the same job for skills: native vault skills, then each shelf copy, with `origin`. Not session start. `project_status` is a folder inspect card and never writes.
 
 Native vault skills use `link_skill`; pack skills use `install_skill`. Either returns `already_linked` when the skill is already composed for that project (via a role, a map list, or an import). `link_article(..., target="skills")` is `invalid_target`. `create_role` may set `skills=`. `update_role` takes `add_skills` / `remove_skills` under the same preview/confirm gate as article members. `where_used_skill` names maps and role files. `delete_skill` unlinks both.
 

@@ -317,7 +317,7 @@ def update_article(
 
 @mcp.tool(annotations=READ_ONLY)
 def list_skills(prefix: str | None = None) -> dict:
-    """List vault skills with name, description, size, and which projects list them. Not session start."""
+    """List native and shelf skills with origin, size, and which projects compose them. Not session start."""
     return list_skills_fn(current_vault(), prefix=prefix)
 
 
