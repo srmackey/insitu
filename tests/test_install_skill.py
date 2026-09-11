@@ -7,7 +7,7 @@ import yaml
 
 from helpers import seed_pack_repo, write_pack_repos, write_project, write_skill
 
-from insitu.catalog import get_skill
+from insitu.catalog import get_skill, list_skills
 from insitu.library import (
     fetch_pack,
     install_capability,
@@ -59,6 +59,21 @@ def test_install_skill_maps_pack_skill_without_native_copy(tmp_path: Path) -> No
     assert found["ok"] is True
     assert "CLOSE-0.1.0" in found["content"]
     assert found["origin"] == "library/harbor-kit@0.1.0"
+
+
+def test_list_skills_honors_library(tmp_path: Path) -> None:
+    vault = _with_repo(tmp_path)
+    assert install_skill(vault, "alpha", "close-hatch", version="0.1.0")["ok"] is True
+    listed = list_skills(vault)
+    assert listed["ok"] is True
+    origins = {
+        (row["id"], row["origin"])
+        for row in listed["skills"]
+        if row["id"] == "close-hatch"
+    }
+    assert ("close-hatch", "library/harbor-kit@0.1.0") in origins
+    row = next(r for r in listed["skills"] if r["id"] == "close-hatch")
+    assert "alpha" in row["projects"]
 
 
 def test_install_capability_does_not_attach_pack_skills(tmp_path: Path) -> None:

@@ -6,6 +6,14 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-11
+
+Additive. The skill catalog now sees the shelf, the same way `list_articles` already did.
+
+### Added
+
+- **`list_skills` includes pack skills on the shelf.** Native rows carry `origin: native`. A skill that exists only under `library/<pack>@<version>` appears with that origin, and `projects` still lists the maps that compose it. Prefix still filters both. `get_skill` without `project` remains native-only.
+
 ## [0.22.0] - 2026-09-10
 
 Roles carry skills. A kind of project can subscribe once and get the procedures as well as the articles. Host writing is unchanged: `materialize` still copies the composed skill list into each enabled surface's skills directory.

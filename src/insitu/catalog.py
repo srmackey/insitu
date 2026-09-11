@@ -378,6 +378,10 @@ def _projects_listing_skill(vault: Vault, skill_id: str) -> list[str]:
     return found
 
 
+def _skill_matches_prefix(skill_id: str, prefix: str) -> bool:
+    return skill_id == prefix or skill_id.startswith(prefix)
+
+
 def list_skills(vault_or_root: Vault | Path | str, prefix: str | None = None) -> dict:
     vault = _as_vault(vault_or_root)
     prefix_norm: str | None = None
@@ -387,10 +391,27 @@ def list_skills(vault_or_root: Vault | Path | str, prefix: str | None = None) ->
             return _identity_error(prefix, InvalidIdentity("skill prefix is empty"))
     rows = []
     for sid in sorted(vault.skills):
-        if prefix_norm and sid != prefix_norm and not sid.startswith(prefix_norm):
+        if prefix_norm and not _skill_matches_prefix(sid, prefix_norm):
             continue
         skill = vault.skills[sid]
-        rows.append(_skill_index_row(skill, _projects_listing_skill(vault, sid)))
+        rows.append(
+            _skill_index_row(
+                skill, _projects_listing_skill(vault, sid), origin="native"
+            )
+        )
+    for pack_id in sorted(vault.library):
+        for version in sorted(vault.library[pack_id]):
+            pack = vault.library[pack_id][version]
+            origin = f"library/{pack_id}@{version}"
+            for sid in sorted(pack.skills):
+                if prefix_norm and not _skill_matches_prefix(sid, prefix_norm):
+                    continue
+                skill = pack.skills[sid]
+                rows.append(
+                    _skill_index_row(
+                        skill, _projects_listing_skill(vault, sid), origin=origin
+                    )
+                )
     return {"ok": True, "skills": rows}
 
 
