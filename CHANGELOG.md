@@ -6,6 +6,14 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-16
+
+Additive. A product checkout can ship a public-contract extract list. Harvest seeds the shelf without writing maps.
+
+### Added
+
+- **`harvest_provisions`.** On install or update of a checkout, if `provisions/pack.yaml` is present, copy the listed members onto `library/<id>/<version>/` in pack shape. No map change. `first_harvest` is true when nothing composes it yet. `removed` drops unreferenced sibling versions, same as `fetch_pack`. Missing yaml is `harvested: false`, not an error. Same provision version with unchanged bytes is `already_present`. Member lists are `id` plus `path`; a bare id is `extract_list_needs_path`.
+
 ## [0.23.0] - 2026-09-11
 
 Additive. The skill catalog now sees the shelf, the same way `list_articles` already did.

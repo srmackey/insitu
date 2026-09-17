@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 from insitu.catalog import (
     get_project,
@@ -26,6 +26,7 @@ from insitu.identity import (
     validate_skill_id,
     validate_article_id,
 )
+from insitu.harvest import harvest_provisions
 from insitu.library import (
     fetch_pack,
     get_pack,
@@ -80,6 +81,7 @@ __all__ = [
     "delete_article",
     "fetch_pack",
     "get_pack",
+    "harvest_provisions",
     "get_skill",
     "get_article",
     "install_capability",

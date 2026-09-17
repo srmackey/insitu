@@ -19,6 +19,7 @@ from insitu.catalog import (
     where_used as where_used_fn,
     where_used_skill as where_used_skill_fn,
 )
+from insitu.harvest import harvest_provisions as harvest_provisions_fn
 from insitu.library import (
     fetch_pack as fetch_pack_fn,
     get_pack as get_pack_fn,
@@ -804,6 +805,21 @@ def uninstall_skill(
         lambda: uninstall_skill_fn(
             current_vault(), project, skill_id, pack, version
         ),
+    )
+
+
+@mcp.tool(annotations=WRITE_IDEMPOTENT)
+def harvest_provisions(
+    working_folder: str,
+    confirm: bool = False,
+    expected: dict | None = None,
+) -> dict:
+    """On install or update of a product checkout: if provisions/pack.yaml is present, seed that public contract onto the shelf. No map change. Skip when the yaml is absent or the provision version is already on the shelf unchanged. Confirm if refreshing changed bytes. Returns used_by, first_harvest, and removed. Generic trigger: not a sibling updater name."""
+    return harvest_provisions_fn(
+        current_vault(),
+        working_folder,
+        confirm=confirm,
+        expected=expected,
     )
 
 
