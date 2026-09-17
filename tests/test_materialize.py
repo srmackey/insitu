@@ -185,6 +185,34 @@ def test_a_named_project_must_match_the_folder_it_is_written_into(
     assert not work.exists(), "a refused call must not create the folder"
 
 
+def test_a_missing_checkout_is_refused_not_created(
+    vault: Path, tmp_path: Path
+) -> None:
+    _seed(vault)
+    work = tmp_path / "river-ledger"
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is False
+    assert result["error"] == "working_folder_missing"
+    assert result["project"] == "river-ledger"
+    assert Path(result["path"]) == work
+    assert "does not exist" in result["detail"]
+    assert not work.exists(), "a missing checkout must not be created"
+
+
+def test_a_file_path_is_not_a_checkout(vault: Path, tmp_path: Path) -> None:
+    _seed(vault)
+    work = tmp_path / "river-ledger"
+    work.write_text("not a folder\n", encoding="utf-8")
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is False
+    assert result["error"] == "working_folder_not_directory"
+    assert work.is_file()
+
+
 def test_a_mismatch_leaves_an_existing_checkout_untouched(
     vault: Path, tmp_path: Path
 ) -> None:

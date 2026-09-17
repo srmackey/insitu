@@ -260,6 +260,8 @@ Where one held class imposes what another forbids, the prohibition wins and `val
 
 **`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. A named `project` must match the destination folder's basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. This is a check rather than a preference because the project key is *defined* as the folder basename (§5). A sweep names each project's own checkout, so correct usage never meets the refusal.
 
+The destination must already exist and be a directory. A missing path is `working_folder_missing`; a file is `working_folder_not_directory`. Both results name the path and tell the caller to stop and ask which folder this project lives in. `materialize` does not create checkouts. Creating a missing folder is how a relative project key and the wrong cwd become a second tree of generated host files.
+
 **Reach, not ownership.** An article, role, or skill belongs to no single map, so binding one to a key would be a category error. What is gated instead is reach: a write that changes what a map other than the calling chair composes is composition authority, and that is admin. The writers of shared objects therefore also take `working_folder`, including `validate` when `fix=true`.
 
 Three consequences follow, and they are the whole rule:

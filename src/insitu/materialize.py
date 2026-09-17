@@ -356,7 +356,29 @@ def materialize(
             ),
         }
 
-    work.mkdir(parents=True, exist_ok=True)
+    if not work.exists():
+        return {
+            "ok": False,
+            "error": "working_folder_missing",
+            "path": str(work),
+            "project": key,
+            "detail": (
+                f"working folder {str(work)!r} does not exist. "
+                "materialize writes into an existing checkout; it does not "
+                "create one. Stop and ask which folder this project lives in."
+            ),
+        }
+    if not work.is_dir():
+        return {
+            "ok": False,
+            "error": "working_folder_not_directory",
+            "path": str(work),
+            "project": key,
+            "detail": (
+                f"working folder {str(work)!r} is not a directory. "
+                "Stop and ask which folder this project lives in."
+            ),
+        }
 
     resolved = resolve_protocol(vault, key)
     if not resolved["ok"]:

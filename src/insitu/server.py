@@ -697,7 +697,12 @@ def where_used(article_id: str) -> dict:
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
 def materialize(working_folder: str, project: str | None = None) -> dict:
-    """Write PROTOCOL.md and configured host adapters into the working folder."""
+    """Write PROTOCOL.md and configured host adapters into an existing checkout.
+
+    The folder must already exist. A missing path is working_folder_missing:
+    stop and ask which folder this project lives in. materialize does not
+    create checkouts.
+    """
     # No project named means this folder's own map, which the gate always
     # allows. Passing the raw path here would compare a path to a key.
     return _gated(
