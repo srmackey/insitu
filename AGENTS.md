@@ -41,6 +41,8 @@ This repo ships no real personal data. A vault holds someone's standing guidance
 | `tests/` | pytest |
 | `install/` | Global routers and MCP config examples |
 | `examples/vault/` | Fictional example vault (tests and docs) |
+| `articles/`, `skills/` | Public contract (how other chairs use Insitu). Canonical home. |
+| `provisions/pack.yaml` | Extract list for `harvest_provisions`. Provision version, not the server version. |
 
 ## Public repo
 

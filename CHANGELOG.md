@@ -6,6 +6,8 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+The first-party public contract (`insitu-core`) now lives in this repo (`articles/`, `skills/`, `provisions/pack.yaml`). Harvest onto the shelf with `harvest_provisions`. Provision version is independent of the server tag.
+
 ## [0.24.0] - 2026-09-16
 
 Additive. A product checkout can ship a public-contract extract list. Harvest seeds the shelf without writing maps.

@@ -1,0 +1,14 @@
+id: insitu-core
+name: Insitu core
+kind: theme
+version: 0.7.0
+articles:
+  - id: methodology/insitu-orientation
+    path: articles/methodology/insitu-orientation.md
+  - id: methodology/insitu-ai-project-developer
+    path: articles/methodology/insitu-ai-project-developer.md
+  - id: methodology/insitu-guru
+    path: articles/methodology/insitu-guru.md
+skills:
+  - id: protocol-audit
+    path: skills/protocol-audit/SKILL.md
