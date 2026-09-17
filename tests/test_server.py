@@ -36,6 +36,7 @@ REQUIRED = {
     "uninstall_article",
     "uninstall_skill",
     "fetch_pack",
+    "harvest_provisions",
     "remove_pack",
     "list_skills",
     "get_skill",

@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.23**
+**Version 0.24**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -214,6 +214,8 @@ User-facing language is "install capability X 1.0," "install identity x at 1.1,"
 **Pack repos** are working copies with one `VERSION`, so a repo query returns that version only. Older versions live on the shelf once pulled.
 
 **Unreferenced versions** — on disk, cited by no map, not the current target of a `latest` — are the finding `unreferenced_version`. `fix` does not delete them. `fetch_pack` drops them for the pack it just seeded, in the same call, and returns `removed`. `remove_pack` is the deliberate delete, on confirm.
+
+**Product public contracts** are harvested, not fetched from a pack repo. A product checkout lists members in `provisions/pack.yaml` (`id`, `path` into that product's tree, a **provision** `version` independent of the product release). `harvest_provisions` copies those whole files onto the shelf in ordinary pack shape, writes no maps, and returns the same `used_by` / `removed` / `first_harvest` notice `fetch_pack` does. Absent yaml is success with `harvested: false`. Unchanged provision version is `already_present`. Theme packs; chairs subscribe to members. Generic trigger: install or update of a checkout. Not a sibling updater name.
 
 **Seeding is the delivery, so `fetch_pack` says who received it.** Every result returns `used_by`: the maps that compose that version now, at the grain each takes it. A `latest` record resolves to the newest version on the shelf, so seeding moves its consumers without anyone editing a map, and the tool doing the seeding is the only party positioned to know at that moment. `list_packs` reports the same list from the same computation, so the two cannot drift. The same result returns `removed`: other on-shelf versions of that pack that no map composes after this call. The previous copy is unreferenced in the same moment a `latest` pin moved. An exact pin still names its version, and that copy stays. Re-fetch from the pack repo to get a dropped version back.
 
