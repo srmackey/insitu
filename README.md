@@ -82,7 +82,7 @@ A router tells the host that Insitu exists. It is not the project protocol. It a
 
 Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`.
 
-Enable host adapters in the vault with `config/surfaces.yaml` (`grok`, `claude`, `cursor`). From a project checkout, call `materialize`. That writes `PROTOCOL.md` plus adapter files under `.grok/rules/`, `.claude/rules/`, and `.cursor/rules/`, and generated skill copies under `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/` for each mapped skill.
+Enable host adapters in the vault with `config/surfaces.yaml` (`grok`, `claude`, `cursor`). From an existing project checkout, call `materialize`. That writes `PROTOCOL.md` plus adapter files under `.grok/rules/`, `.claude/rules/`, and `.cursor/rules/`, and generated skill copies under `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/` for each mapped skill. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
 
 ## Working with an agent
 

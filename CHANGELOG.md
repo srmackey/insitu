@@ -6,6 +6,12 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.24.2] - 2026-09-17
+
+### Fixed
+
+- **`materialize` refuses a missing working folder.** It used to `mkdir` the destination, so a relative project key from the wrong cwd created a fake checkout of generated host files. A missing path is now `working_folder_missing`; a file is `working_folder_not_directory`. Both name the path and tell the caller to stop and ask which folder this project lives in. Adapter and skill dirs inside an existing checkout are still created as before.
+
 ## [0.24.1] - 2026-09-16
 
 The first-party public contract (`insitu-core`) now lives in this repo (`articles/`, `skills/`, `provisions/pack.yaml`). Harvest onto the shelf with `harvest_provisions`. Provision version is independent of the server tag.
