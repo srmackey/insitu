@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.24.2"
+__version__ = "0.24.3"
 
 from insitu.catalog import (
     get_project,

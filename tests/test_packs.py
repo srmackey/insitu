@@ -523,6 +523,40 @@ def test_uninstall_the_last_on_demand_member_drops_the_record(tmp_path: Path) ->
     assert "imports" not in data
 
 
+def test_uninstall_article_drops_a_latest_pin_when_passed_the_resolved_version(
+    tmp_path: Path,
+) -> None:
+    vault, repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert fetch_pack(vault, "harbor-kit", "0.1.0", repo="fixture")["ok"] is True
+    seed_pack_repo(repo, "harbor-kit", "0.1.1")
+    assert install_article(
+        vault, "alpha", "methodology/dock-rule", "latest", pack="harbor-kit"
+    )["ok"] is True
+    result = uninstall_article(
+        vault, "alpha", "methodology/dock-rule", "harbor-kit", "0.1.1"
+    )
+    assert result["ok"] is True
+    data = yaml.safe_load(
+        (vault / "projects" / "alpha" / "map.yaml").read_text(encoding="utf-8")
+    )
+    assert "imports" not in data
+    assert where_used(vault, "methodology/dock-rule")["used_by"] == []
+
+
+def test_uninstall_article_says_unchanged_when_nothing_dropped(tmp_path: Path) -> None:
+    vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
+    assert install_article(
+        vault, "alpha", "methodology/dock-rule", "0.1.0", pack="harbor-kit"
+    )["ok"] is True
+    before = (vault / "projects" / "alpha" / "map.yaml").read_text(encoding="utf-8")
+    result = uninstall_article(
+        vault, "alpha", "methodology/harbor-watch", "harbor-kit", "0.1.0"
+    )
+    assert result["ok"] is False
+    assert result["error"] == "unchanged"
+    assert (vault / "projects" / "alpha" / "map.yaml").read_text(encoding="utf-8") == before
+
+
 def test_an_on_demand_only_import_still_validates(tmp_path: Path) -> None:
     vault, _repo = _with_repo(tmp_path, "harbor-kit", "0.1.0")
     install_article(vault, "alpha", "methodology/dock-rule", "0.1.0", target="on_demand")

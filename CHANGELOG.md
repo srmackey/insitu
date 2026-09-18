@@ -6,6 +6,12 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.24.3] - 2026-09-17
+
+### Fixed
+
+- **`uninstall_article` matches a `latest` pin to the resolved shelf version.** Passing the concrete version used to compare strings only, return `ok: true`, and leave the map unchanged. A `latest` pin now drops when the argument is that newest version. If nothing was dropped, the result is `unchanged` and the map is not written.
+
 ## [0.24.2] - 2026-09-17
 
 ### Fixed
