@@ -160,6 +160,19 @@ def consumers_of(vault: Vault, pack_id: str, version: str) -> list[dict[str, Any
     return used_by
 
 
+def _import_matches_requested(
+    record: ImportRecord,
+    pack_id: str,
+    requested: str,
+    newest: str | None,
+) -> bool:
+    if record.pack != pack_id:
+        return False
+    if record.version == requested:
+        return True
+    return record.version == "latest" and newest == requested
+
+
 def _unreferenced_siblings(vault: Vault, pack_id: str, keep: str) -> list[str]:
     """Other on-shelf versions of this pack that no map composes."""
     dropped: list[str] = []
@@ -877,9 +890,11 @@ def uninstall_article(
     proj = vault.projects.get(key)
     if proj is None:
         return {"ok": False, "error": "project_missing", "project": key}
+    newest = newest_version(available_versions(vault, pack_id))
     kept: list[ImportRecord] = []
+    dropped = False
     for record in proj.imports:
-        if record.pack != pack_id or record.version != requested:
+        if not _import_matches_requested(record, pack_id, requested, newest):
             kept.append(record)
             continue
         if record.is_capability():
@@ -888,6 +903,7 @@ def uninstall_article(
         if record.articles is None and record.on_demand is None:
             kept.append(record)
             continue
+        had = sid in (record.articles or []) or sid in (record.on_demand or [])
         articles = (
             [item for item in record.articles if item != sid]
             if record.articles is not None
@@ -898,6 +914,8 @@ def uninstall_article(
             if record.on_demand is not None
             else None
         )
+        if had:
+            dropped = True
         if not articles and not on_demand and not record.skills:
             continue
         kept.append(
@@ -909,6 +927,15 @@ def uninstall_article(
                 on_demand=on_demand or None,
             )
         )
+    if not dropped:
+        return {
+            "ok": False,
+            "error": "unchanged",
+            "project": key,
+            "pack": pack_id,
+            "version": requested,
+            "article": sid,
+        }
     _write_map_imports(proj.path, proj.raw, kept)
     return {
         "ok": True,
