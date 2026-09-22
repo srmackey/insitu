@@ -1,6 +1,8 @@
 # Insitu
 
-Situated identity for agents: who you are *here*.
+Insitu gives an AI client a vault of reusable guidance and composes the right piece for the project it is sitting in.
+
+Not a wiki, not a bulletin, and not a model of a codebase. It does not run git and it does not use the network.
 
 Insitu is a portable MCP server. One vault holds the reusable pieces of how an agent should work with you. A project map names which of those pieces apply in this folder. The server composes them into a protocol and writes that core into files the host already loads.
 
@@ -36,7 +38,7 @@ uv sync
 uv run pytest
 ```
 
-`uv run insitu` starts the server on stdio.
+`uv run insitu` starts the server on stdio through FastMCP 2. There is no published package. Clone and run from the checkout.
 
 ### Vault
 
@@ -56,7 +58,7 @@ Keep a personal vault outside the checkout.
 
 ### Add the server to a host
 
-See `install/mcp.json.examples.md` for Cursor, Claude Code, and Grok. Typical shape:
+See `install/mcp.json.examples.md` for Cursor, Claude Code, and Grok. Cursor and Claude Code use JSON. Grok uses TOML. Typical JSON shape:
 
 ```json
 {
@@ -100,43 +102,9 @@ Once the server, vault, and router are in place, you talk to the agent in the pr
 
 ## Tools
 
-```text
-# after a vault or map change
-materialize                 # PROTOCOL.md + host adapters + mapped skill dirs
+Forty-five tools. The list, the hint set on each one, and what it returns are in [docs/tools.md](docs/tools.md).
 
-# agent, live
-project_status              # folder inspect card (map, sourced ids, disk). not session start
-resolve_protocol            # inspect weight, compare to the materialized header
-get_article ...              # pull an on-demand article
-list_on_demand              # non-core index for this project
-
-# catalog
-list_articles                # what exists, and how heavy each piece is
-list_skills                 # skill catalog (not session start)
-list_roles / list_projects / list_packs
-get_project                 # how heavy is this project's protocol?
-get_skill / get_role / get_pack
-
-# authoring
-create_article / update_article  # update: content= whole body, or old_string/new_string patch
-link_article / unlink_article # project maps only; target core or on_demand
-create_skill / update_skill / delete_skill / where_used_skill
-link_skill / unlink_skill
-create_role / update_role   # member add/remove is preview then confirm
-create_project / update_project
-install_capability / install_article / install_skill
-uninstall_capability / uninstall_article / uninstall_skill
-delete_article / delete_role / delete_project
-                            # delete is user-gated: preview, then confirm
-                            # mutations write files and report them in `files`
-                            # Insitu never runs git; tracking the vault is yours
-
-# vault admin
-fetch_pack / remove_pack    # seed or drop a shelf version; fetch drops unreferenced siblings of that pack and returns removed
-validate / where_used
-operators                   # classes, admins, default (inspect)
-grant / revoke              # admin only; first admin is CLI-only
-```
+On initialize the server returns a short operating note: session start is `resolve_protocol` to inspect, and `materialize` writes the composed protocol. That note lives in the server. This page does not repeat it.
 
 Every mutating tool takes `working_folder`. A **bound** chair (the default) may
 write only the map whose key matches that folder's basename; an **admin** chair
@@ -155,6 +123,16 @@ insitu operators                    # show the config
 insitu                              # start the MCP server (unchanged)
 ```
 
+## Trust boundary
+
+- Transport is stdio. The host starts a local process as the user who launched it.
+- The process reads and writes the vault (`INSITU_HOME`, or `~/.insitu`).
+- `materialize` also writes generated files into the working folder the caller names, and only when that folder already exists.
+- It does not run git, it does not start a shell, and it does not use the network.
+- It does not take a credential.
+
+The same boundary, and how to report a vulnerability, is in [SECURITY.md](SECURITY.md). How the system is structured is in [DESIGN.md](DESIGN.md). What moved between versions is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Develop
 
 ```bash
@@ -162,8 +140,6 @@ uv sync
 uv run pytest
 uv run insitu
 ```
-
-See `DESIGN.md` for how the system is structured, and `CHANGELOG.md` for what moved between versions.
 
 ## License
 
