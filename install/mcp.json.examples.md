@@ -45,25 +45,15 @@ Replace the repo path with your checkout.
 }
 ```
 
-## Grok (`~/.grok/mcp.json` or the host's MCP config)
+## Grok (`~/.grok/config.toml`)
 
-```json
-{
-  "mcpServers": {
-    "insitu": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/path/to/insitu",
-        "insitu"
-      ],
-      "env": {
-        "INSITU_HOME": "/path/to/your/vault"
-      }
-    }
-  }
-}
+```toml
+[mcp_servers.insitu]
+command = "uv"
+args = ["run", "--directory", "/path/to/insitu", "insitu"]
+
+[mcp_servers.insitu.env]
+INSITU_HOME = "/path/to/your/vault"
 ```
 
 `INSITU_HOME` wins over `--vault` when both are set. Point demos at `examples/vault` in this repo.

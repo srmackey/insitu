@@ -49,3 +49,5 @@ This repo ships no real personal data. A vault holds someone's standing guidance
 This checkout is public. Do not run `git add -A`, `git add .`, or `git add -u`. Stage paths by name.
 
 Enable the hygiene hook in each clone: `git config core.hooksPath .githooks`. The denylist lives in `.git/hygiene-denylist` (untracked).
+
+The README's first sentence is the GitHub description. A tool add, remove, or rename updates `docs/tools.md` and `CHANGELOG.md` together. Vulnerability reports go to `SECURITY.md`, not a public issue.
