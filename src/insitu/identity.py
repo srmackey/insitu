@@ -26,21 +26,44 @@ def _is_absolute(value: str) -> bool:
 
 
 def validate_project_key(key: str) -> str:
+    """A project key is one segment, or an address of two.
+
+    An address is `nexus/node`. The stored form is lowercase. `_global` stays
+    a single reserved name. `..` is rejected. The on-disk folder encodes a
+    slash as `~` so a nexus map and its children's maps stay siblings.
+    """
     if not isinstance(key, str) or not key.strip():
         raise InvalidIdentity("project key is empty")
     if _is_absolute(key):
         raise InvalidIdentity(f"project key must not be absolute: {key}")
-    if key in {".", ".."} or "/" in key or "\\" in key:
-        raise InvalidIdentity(f"project key is not a single folder name: {key}")
     if key == GLOBAL_PROJECT:
         return key
-    # Folder basenames may be mixed-case (ProjectName). Stored keys stay lowercase.
-    normalized = key.lower()
-    if not SEGMENT_RE.fullmatch(normalized):
-        raise InvalidIdentity(
-            f"project key must be a-z, 0-9, hyphen (or reserved _global): {key}"
-        )
-    return normalized
+    text = key.replace("\\", "/")
+    parts = text.split("/")
+    if len(parts) > 2:
+        raise InvalidIdentity(f"project key has more than one address separator: {key}")
+    normalized_parts: list[str] = []
+    for part in parts:
+        if part in {"", ".", ".."}:
+            raise InvalidIdentity(f"project key must not escape its folder: {key}")
+        normalized = part.lower()
+        if not SEGMENT_RE.fullmatch(normalized):
+            raise InvalidIdentity(
+                f"project key must be a-z, 0-9, hyphen (or reserved _global): {key}"
+            )
+        normalized_parts.append(normalized)
+    return "/".join(normalized_parts)
+
+
+def project_dirname(key: str) -> str:
+    """One folder name for a key. An address `nexus/node` is stored as `nexus~node`."""
+    return validate_project_key(key).replace("/", "~")
+
+
+def project_key_from_dirname(name: str) -> str:
+    if "~" in name:
+        return validate_project_key(name.replace("~", "/"))
+    return validate_project_key(name)
 
 
 def validate_role_id(role_id: str) -> str:

@@ -46,7 +46,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 | **Provision** | Anything Insitu provides to a project, at any grain: an article, a role, a skill, a pack, or a member pulled out of one. It names a relationship rather than a size, so it sits above the rows below rather than beside them. Use it when the grain is not the point — "which provisions does this project subscribe to?" — and use the specific noun when it is. |
 | **Article** | One portable section of standing agent guidance. A markdown file in the vault. Composed into a protocol. |
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
-| **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. |
+| **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. An address `nexus/node` is stored as `projects/nexus~node/`. |
 | **`_global`** | A distinguished project whose composed core is automatically included in every other project's protocol, unless the project opts out. Keep it very small: only articles that truly transcend projects. |
 | **Role** | A named, ordered pack of articles and skills. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
 | **Core** | Articles always injected into the protocol. |
@@ -118,19 +118,21 @@ Folders under `articles/` are a human convention. They are not a type system and
 
 ## 5. Project identity
 
-The project key **is** the directory name under `projects/`.
+The project key **is** the directory name under `projects/`. An address `nexus/node` is stored as `projects/nexus~node/`, so a nexus map and a child map stay siblings.
 
-**Convention.** The working folder's basename is the project key. Mixed-case folder names fold to lowercase (`ProjectName/` loads `projects/projectname/`). Work in `river-ledger/` and the server loads `projects/river-ledger/`. No extra binding file is required for the common case.
+**Convention.** Outside an install tree, the working folder's basename is the project key. Mixed-case folder names fold to lowercase (`ProjectName/` loads `projects/projectname/`). Work in `river-ledger/` and the server loads `projects/river-ledger/`.
+
+When `INSITU_ROOT` points at a folder that has `nexus.md`, the key is the address derived from that file. A nested nexus is addressed by its own name (`pier`). A node of that nexus is `pier/skiff`. The folder basename is not the key. A unique bare name still resolves (`skiff` loads `pier/skiff` when only one node has that name). An ambiguous bare name does not. A two-segment address whose second part is itself a nexus does not resolve; use that nexus's own name. `INSITU_ROOT` is the install tree, not a second vault.
 
 **Labels, not identity.** `map.yaml` may carry `repo`, `name`, and `aka` for display and colloquial lookup. They do not change which project is selected.
 
-**Miss.** If no `projects/<folder>/` exists, `resolve_protocol` returns a structured miss naming the key it tried and the path that was missing. It does not scan the article catalog, and it does not return an empty protocol that looks like success.
+**Miss.** If no `projects/<dirname>/` exists, `resolve_protocol` returns a structured miss naming the key it tried and the path that was missing. An address names the encoded dirname (`projects/pier~skiff/` for `pier/skiff`). It does not scan the article catalog, and it does not return an empty protocol that looks like success.
 
 **Vault root** is a server concern, not a field on the project map: `INSITU_HOME`, else `--vault`, else `~/.insitu`. One vault per process. A project lives inside a vault; it does not point at one. Pointing the process at another vault is how demos work.
 
-**Charset.** Project keys, article path segments, role ids, pack ids, and skill ids are `a-z`, `0-9`, `-`. Skill ids are a single path segment. `_global` is the only reserved `_` name. Reject `..`, absolute paths, and anything that would escape `articles/`, `provenance/`, `projects/`, `roles/`, `library/`, or `skills/`.
+**Charset.** Each project-key segment, article path segment, role id, pack id, and skill id is `a-z`, `0-9`, `-`. A project key is one segment, or two segments with a single `/`. Article ids may have several segments. Skill ids, role ids, and pack ids are one segment. `_global` is the only reserved `_` name. Reject `..`, a `~` in a segment, absolute paths, and anything that would escape `articles/`, `provenance/`, `projects/`, `roles/`, `library/`, or `skills/`.
 
-**Not in v1:** a repo-local override file, for a checkout whose folder name is not the project key or a per-repo vault pointer. Add it when a real checkout needs it.
+**Not in v1:** a repo-local override file, or a per-repo vault pointer. An install that has `nexus.md` already derives the key from the tree.
 
 ---
 
@@ -243,7 +245,7 @@ A chair holds a **set** of classes. `admin` and `bound` are the rights ladder an
 
 | Rights | Mutate maps | Mutate shared objects | `materialize` | Grant / revoke |
 |---|---|---|---|---|
-| **admin** | any project key | yes | any project, into that project's own checkout | yes |
+| **admin** | any project key when no install root is set; otherwise this nexus and the addresses under it, and any key for the top nexus | yes | any project, into that project's own checkout | yes |
 | **bound** (default) | this project only | only what no other map composes | this folder only | no |
 
 **An obligation is composed because of what the chair is, not what it chose.** It appears in no `map.yaml`, and `include_global: false` does not shed it — opting out of `_global` is a choice, and an obligation is the thing that is not. Order is in §8.
@@ -256,9 +258,9 @@ Where one held class imposes what another forbids, the prohibition wins and `val
 
 `validate` also reports `missing_obligation` and `missing_prohibition` for a declaration naming an article that does not exist. The first is the sharper one: an obligation that resolves nowhere fails resolution for every chair in that class at once.
 
-**The calling chair** is the basename of `working_folder`, case-folded. Every mutating map tool requires it, and a bound chair whose key is not `project` gets `chair_bound`. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
+**The calling chair** is the address derived from `working_folder` when that folder sits inside `INSITU_ROOT`, and the basename, case-folded, otherwise. A folder inside the tree that is not a chair is `not_in_registry`. Every mutating map tool requires the folder, and a bound chair whose key is not `project` gets `chair_bound`. An admin of a nexus writes maps for that nexus and addresses under it. The admin of the top nexus writes any map. An admin outside that prefix gets `admin_scope`. A sensitive nexus imposes class `sensitive` on its own map and every map under it. `sensitive` is a class, not a third rights rung. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
 
-**`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. A named `project` must match the destination folder's basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. This is a check rather than a preference because the project key is *defined* as the folder basename (§5). A sweep names each project's own checkout, so correct usage never meets the refusal.
+**`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. Inside an install, a named `project` must be that folder's address (a unique bare name counts). Outside it, the named project must match the folder basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. An address key with no `INSITU_ROOT` is `registry_required`. A sweep names each project's own checkout, so correct usage never meets the refusal.
 
 The destination must already exist and be a directory. A missing path is `working_folder_missing`; a file is `working_folder_not_directory`. Both results name the path and tell the caller to stop and ask which folder this project lives in. `materialize` does not create checkouts. Creating a missing folder is how a relative project key and the wrong cwd become a second tree of generated host files.
 
@@ -401,7 +403,7 @@ Native vault skills use `link_skill`; pack skills use `install_skill`. Either re
 
 **Deletes are user-gated.** `delete_*` and `remove_pack` preview without writing unless `confirm=true` carries the preview's `expected`. Deleting an article unlinks it from role files and maps, then removes the article and its why-log. Deleting a project removes `projects/<key>/` only; articles and roles stay, and `_global` cannot be deleted (`cannot_delete_global`).
 
-**Every write result includes `affects_projects`,** and previews may carry the same list. After an authoring write, if the working-folder basename is in that list, rematerialize and start a new session.
+**Every write result includes `affects_projects`,** and previews may carry the same list. After an authoring write, if this chair's project key is in that list, rematerialize and start a new session.
 
 **Every mutating tool takes `working_folder`** (§6.3). Inspect tools do not.
 

@@ -11,6 +11,7 @@ from insitu.affects import composed_id_sets, project_keys
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
+    project_dirname,
     validate_role_id,
     validate_skill_id,
     validate_article_id,
@@ -706,7 +707,7 @@ def _paths_for_fixes(vault: Vault, applied: list[dict]) -> list[Path]:
     for item in applied:
         path: Path | None = None
         if item.get("kind") == "duplicate" and item.get("project"):
-            path = vault.root / "projects" / str(item["project"]) / "map.yaml"
+            path = vault.root / "projects" / project_dirname(str(item["project"])) / "map.yaml"
         elif item.get("kind") == "legacy_available_key" and item.get("path"):
             path = Path(str(item["path"]))
         if path is None or path in seen:

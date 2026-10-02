@@ -93,11 +93,29 @@ class OperatorConfig:
         return sorted(k for k in self.projects if self.is_admin(k))
 
     def classes_for(self, project: str) -> list[str]:
-        """The set of classes a chair holds. Unlisted keys take the default."""
-        held = self.projects.get(_norm(project))
-        if not held:
-            return [self.default_class]
-        return list(held)
+        """The set of classes a chair holds. Unlisted keys take the default.
+
+        A sensitive nexus imposes that class on its own map and every map
+        under it, whether or not the operator row lists it.
+        """
+        held = self._row(project)
+        names = list(held) if held else [self.default_class]
+        if _address_is_sensitive(project) and "sensitive" not in names:
+            names.append("sensitive")
+        return names
+
+    def _row(self, project: str) -> list[str] | None:
+        norm = _norm(project)
+        if norm in self.projects:
+            return self.projects[norm]
+        matches = [
+            key
+            for key in self.projects
+            if key.casefold() == norm or key.casefold().endswith("/" + norm)
+        ]
+        if len(matches) == 1:
+            return self.projects[matches[0]]
+        return None
 
     def definition(self, class_name: str) -> ClassDef:
         """A class definition, synthesised for the two built-in rights classes."""
@@ -181,6 +199,56 @@ class OperatorConfig:
 
 def _norm(project: str) -> str:
     return str(project or "").strip().casefold()
+
+
+def _canonical_target(project: str) -> str:
+    from insitu.address import load_tree, registry_root, resolve
+    from insitu.identity import InvalidIdentity, validate_project_key
+
+    try:
+        key = validate_project_key(project)
+    except InvalidIdentity:
+        return _norm(project)
+    reg = registry_root()
+    if reg is None:
+        return key
+    tree = load_tree(reg)
+    if tree is None:
+        return key
+    located = resolve(tree, key)
+    if located is None:
+        return key
+    return located.address
+
+
+def _admin_covers(chair: str, target: str) -> bool:
+    """No registry: an admin may name any key. With one: the top nexus admin
+    stewards the shelf, and any other admin covers its own address and below.
+    """
+    from insitu.address import load_tree, registry_root
+
+    reg = registry_root()
+    if reg is None:
+        return True
+    tree = load_tree(reg)
+    if tree is None:
+        return True
+    if chair == tree.top.name.casefold():
+        return True
+    return target == chair or target.startswith(chair + "/")
+
+
+def _address_is_sensitive(project: str) -> bool:
+    from insitu.address import load_tree, registry_root, resolve
+
+    reg = registry_root()
+    if reg is None:
+        return False
+    tree = load_tree(reg)
+    if tree is None:
+        return False
+    located = resolve(tree, project)
+    return bool(located and located.sensitive)
 
 
 def config_path(root: str | Path) -> Path:
@@ -315,8 +383,20 @@ def init_admin(root: str | Path, project: str) -> dict:
 
 
 def chair_key(working_folder: str | Path) -> str:
-    """The calling chair is the basename of the folder the session sits in."""
-    return Path(str(working_folder).strip()).name.strip().casefold()
+    """The calling chair.
+
+    Inside an install tree this is the address from nexus.md. Outside it, the
+    basename, case-folded. An empty string means the folder sits in the tree
+    and is not a chair.
+    """
+    folder = Path(str(working_folder).strip())
+    from insitu.address import derive_key, is_within, registry_root
+
+    reg = registry_root()
+    if reg is not None and is_within(reg, folder):
+        derived = derive_key(reg, folder)
+        return derived or ""
+    return folder.name.strip().casefold()
 
 
 def check_map_write(
@@ -352,10 +432,37 @@ def check_map_write(
         return None, PRE_INIT_WARNING
 
     chair = chair_key(folder)
+    if not chair:
+        return (
+            {
+                "ok": False,
+                "error": "not_in_registry",
+                "working_folder": folder,
+                "detail": (
+                    "working folder is inside the install tree and is not a "
+                    "chair in nexus.md."
+                ),
+            },
+            None,
+        )
+    target = _canonical_target(project)
     if config.is_admin(chair):
-        return None, None
+        if _admin_covers(chair, target):
+            return None, None
+        return (
+            {
+                "ok": False,
+                "error": "admin_scope",
+                "chair": chair,
+                "project": target,
+                "detail": (
+                    f"admin {chair!r} writes maps for that nexus and addresses "
+                    f"under it, not {target!r}."
+                ),
+            },
+            None,
+        )
 
-    target = _norm(project)
     if chair == target:
         return None, None
 

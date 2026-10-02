@@ -9,6 +9,7 @@ from pathlib import Path
 
 from insitu.store import SKILL_PAYLOAD_DIRS, read_yaml, skill_payload_paths
 
+from insitu.address import derive_key, is_within, registry_root, resolve, load_tree
 from insitu.identity import InvalidIdentity, validate_project_key
 from insitu.models import Skill, Vault
 from insitu.resolve import iter_composed_skills, resolve_protocol
@@ -322,39 +323,91 @@ def materialize(
     vault = _as_vault(vault_or_root)
     work = Path(working_folder)
 
-    raw_key = project if project is not None else work.name
-    try:
-        key = validate_project_key(raw_key)
-    except InvalidIdentity as exc:
-        return {
-            "ok": False,
-            "error": "invalid_identity",
-            "value": raw_key,
-            "reason": str(exc),
-        }
+    reg = registry_root()
+    inside = reg is not None and is_within(reg, work)
+    if inside:
+        derived = derive_key(reg, work)
+        if derived is None:
+            return {
+                "ok": False,
+                "error": "not_in_registry",
+                "working_folder": str(work),
+                "detail": (
+                    "working folder is inside the install tree and is not a "
+                    "chair in nexus.md. materialize will not guess a key from "
+                    "the folder name."
+                ),
+            }
+        if project is not None:
+            try:
+                named = validate_project_key(project)
+            except InvalidIdentity as exc:
+                return {
+                    "ok": False,
+                    "error": "invalid_identity",
+                    "value": project,
+                    "reason": str(exc),
+                }
+            tree = load_tree(reg)
+            located = resolve(tree, named) if tree is not None else None
+            named_address = located.address if located is not None else named
+            if named_address != derived:
+                return {
+                    "ok": False,
+                    "error": "folder_project_mismatch",
+                    "project": named_address,
+                    "folder": work.name,
+                    "working_folder": str(work),
+                    "detail": (
+                        f"working folder {work.name!r} is the chair {derived!r} "
+                        f"in nexus.md, not {named_address!r}."
+                    ),
+                }
+        key = derived
+    else:
+        raw_key = project if project is not None else work.name
+        try:
+            key = validate_project_key(raw_key)
+        except InvalidIdentity as exc:
+            return {
+                "ok": False,
+                "error": "invalid_identity",
+                "value": raw_key,
+                "reason": str(exc),
+            }
+        if "/" in key:
+            return {
+                "ok": False,
+                "error": "registry_required",
+                "project": key,
+                "detail": (
+                    "an address key is derived from nexus.md. Set INSITU_ROOT "
+                    "to the install root that holds that file."
+                ),
+            }
 
-    # A named project must be the project this folder belongs to. Everywhere
-    # else working_folder identifies the caller; here it is the destination,
-    # and the operator gate only compares the two for a bound chair. An admin
-    # is waved past that check, so without this one an admin sweep can write
-    # one project's protocol over another project's checkout, and the skill
-    # prune below would delete the generated skills it found there. Project key
-    # is defined as the folder basename, so a mismatch is an error for every
-    # class, including a pre-init vault.
-    if project is not None and _folder_key(work) != key:
-        return {
-            "ok": False,
-            "error": "folder_project_mismatch",
-            "project": key,
-            "folder": work.name,
-            "working_folder": str(work),
-            "detail": (
-                f"working folder {work.name!r} is not the checkout for {key!r}. "
-                "materialize writes into the folder it is given, so that "
-                "folder's basename must be the project key. A sweep names each "
-                "project's own checkout."
-            ),
-        }
+        # A named project must be the project this folder belongs to. Everywhere
+        # else working_folder identifies the caller; here it is the destination,
+        # and the operator gate only compares the two for a bound chair. An admin
+        # is waved past that check, so without this one an admin sweep can write
+        # one project's protocol over another project's checkout, and the skill
+        # prune below would delete the generated skills it found there. Outside
+        # an install tree the project key is the folder basename, so a mismatch
+        # is an error for every class, including a pre-init vault.
+        if project is not None and _folder_key(work) != key:
+            return {
+                "ok": False,
+                "error": "folder_project_mismatch",
+                "project": key,
+                "folder": work.name,
+                "working_folder": str(work),
+                "detail": (
+                    f"working folder {work.name!r} is not the checkout for {key!r}. "
+                    "materialize writes into the folder it is given, so that "
+                    "folder's basename must be the project key. A sweep names each "
+                    "project's own checkout."
+                ),
+            }
 
     if not work.exists():
         return {

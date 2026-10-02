@@ -107,8 +107,11 @@ Forty-five tools. The list, the hint set on each one, and what it returns are in
 On initialize the server returns a short operating note: session start is `resolve_protocol` to inspect, and `materialize` writes the composed protocol. That note lives in the server. This page does not repeat it.
 
 Every mutating tool takes `working_folder`. A **bound** chair (the default) may
-write only the map whose key matches that folder's basename; an **admin** chair
-may name another.
+write only its own map. Outside an install that key is the folder's basename.
+When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address
+from that file, and a unique basename still resolves. An **admin** chair may
+name another key in its scope: any key for the top nexus, and its own address
+plus the addresses under it for any other admin.
 
 Articles, roles, and skills belong to no single map, so they are gated by reach
 instead: creating is always allowed, and editing or deleting one is refused once

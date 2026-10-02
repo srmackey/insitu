@@ -3,7 +3,7 @@
 This is insurance, not the injector. `materialize` never writes this file.
 
 - Insitu holds standing "who you are here" guidance as articles and project-mapped skills, and composes a project protocol.
-- Project key is this folder's basename.
+- Project key is this folder's basename. When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address from that file; a unique basename still resolves.
 - Treat generated `PROTOCOL.md` and host adapters (`.grok/rules/insitu-protocol.md`, `.claude/rules/insitu-protocol.md`, `.cursor/rules/insitu-protocol.mdc`) as binding. Do not edit them.
 - If those files are missing or the header looks stale, call `materialize`. `materialize` never writes `AGENTS.md` or `CLAUDE.md`. Other missing host files are the router's job: retrieve the multi-platform pack and write them.
 - If the user asks Insitu status of this folder, call `project_status`. Do not walk the other inspect tools for that. Do not call it at session start.

@@ -8,6 +8,7 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ### Added
 
+- When `INSITU_ROOT` points at a folder with `nexus.md`, the project key is the address from that file (`nexus` or `nexus/node`). On disk `/` is `~`. A unique bare name still opens that map. A sensitive nexus imposes class `sensitive` on its own map and every map under it. An admin covers that nexus and the addresses under it; the top nexus admin covers the shelf. Without `INSITU_ROOT`, the key stays the working-folder basename.
 - Security policy: how to report a vulnerability, and what the local process can touch.
 - The tool list, with the hint set on each tool, lives in `docs/tools.md`. The README states the trust boundary and how to launch the server.
 
