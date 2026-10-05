@@ -39,7 +39,7 @@ This repo ships no real personal data. A vault holds someone's standing guidance
 | `DESIGN.md` | How the system is structured and how it works |
 | `src/insitu/` | Server package |
 | `tests/` | pytest |
-| `install/` | Global routers and MCP config examples |
+| `install/` | Install procedure, server block, and global routers |
 | `examples/vault/` | Fictional example vault (tests and docs) |
 | `articles/`, `skills/` | Public contract (how other chairs use Insitu). Canonical home. |
 | `provisions/pack.yaml` | Extract list for `harvest_provisions`. Provision version, not the server version. |

@@ -56,33 +56,18 @@ uv run insitu --vault examples/vault
 
 Keep a personal vault outside the checkout.
 
-### Add the server to a host
+### Add the server
 
-See `install/mcp.json.examples.md` for Cursor, Claude Code, and Grok. Cursor and Claude Code use JSON. Grok uses TOML. Typical JSON shape:
+The procedure is [`install/README.md`](install/README.md). The block is [`install/mcp.json.examples.md`](install/mcp.json.examples.md). Host files come from `platforms.yaml` next to `nexus.md`. With no environment file, user-global host config is left alone, and project instructions land on `agents` through `materialize`.
 
-```json
-{
-  "mcpServers": {
-    "insitu": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/insitu", "insitu"],
-      "env": { "INSITU_HOME": "/path/to/your/vault" }
-    }
-  }
-}
+```yaml
+command: uv
+args: ["run", "--directory", "/path/to/insitu", "insitu"]
+env:
+  INSITU_HOME: /path/to/your/vault
 ```
 
-### Routers (once, user-global)
-
-A router tells the host that Insitu exists. It is not the project protocol. It also says: rematerialize the generated pack if it is missing or stale; retrieve the multi-platform pack and write other missing host files.
-
-| Host | Copy from | Copy to |
-|------|-----------|---------|
-| Cursor | `install/routers/cursor.mdc` | `~/.cursor/rules/insitu-router.mdc` |
-| Claude | `install/routers/claude.md` | `~/.claude/rules/insitu-router.md` |
-| Grok | `install/routers/grok.md` | `~/.grok/rules/insitu-router.md` |
-
-Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent.
+A router tells the host that Insitu exists. It is not the project protocol. The install pass places it from `install/routers/`. Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent.
 
 When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `enabled` in that file chooses the hosts, and each stored definition says where the adapter and the skills go. From an existing project checkout, call `materialize`. That writes `PROTOCOL.md`, one adapter for each definition it can apply, and skill copies into each project skill path that definition names. A missing environment file writes `AGENTS.md` (when Insitu may own that file) and does not invent host skill trees. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
 

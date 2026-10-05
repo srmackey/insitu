@@ -495,15 +495,9 @@ The router is small and almost never changes, and it does not contain the knowle
 
 ### 11.1 Routers
 
-Routers live in the **server repo** under `install/routers/`, which is their one home, and are copied or symlinked into user-global rule directories. `materialize` does not rewrite them.
+Routers live in the server repo under `install/routers/`, which is their one home. The install procedure copies each one into the directory named by that platform's user-scoped instruction path in `platforms.yaml`. `materialize` does not rewrite them. The procedure is `install/README.md`.
 
-| Host | Install destination | Format |
-|------|---------------------|--------|
-| Cursor | `~/.cursor/rules/insitu-router.mdc` | `alwaysApply: true` |
-| Claude | `~/.claude/rules/insitu-router.md` | Markdown, no `paths` |
-| Grok | `~/.grok/rules/insitu-router.md` | Markdown |
-
-`install/` also ships MCP config examples and an optional `AGENTS.md` hook snippet: ten lines, insurance, not the injector.
+`install/` also ships the server block and an optional `AGENTS.md` sample: ten lines, insurance, not the injector.
 
 ### 11.2 MCP after startup
 
