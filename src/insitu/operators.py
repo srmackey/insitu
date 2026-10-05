@@ -6,8 +6,8 @@ folder. `admin` may name other project keys and other working folders,
 and is the only class that may grant or revoke.
 
 The store is `config/operators.yaml` in the vault, alongside
-`pack-repos.yaml` and `surfaces.yaml`. Vault state, not install-folder
-state, because INSITU_HOME moves and the code checkout is shared.
+`pack-repos.yaml`. Vault state, not install-folder state, because
+INSITU_HOME moves and the code checkout is shared.
 
 A vault with no config file is pre-init. It behaves as the server did
 before this module existed, and says so. Failing closed instead would

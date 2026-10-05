@@ -3,7 +3,67 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
 import yaml
+
+PLATFORM_DEFS = {
+    "grok": {
+        "instructions": [
+            {
+                "scope": "project",
+                "path": ".grok/rules/insitu-protocol.md",
+                "format": "markdown",
+            }
+        ],
+        "skills": [{"scope": "project", "path": ".grok/skills"}],
+    },
+    "claude": {
+        "instructions": [
+            {
+                "scope": "project",
+                "path": ".claude/rules/insitu-protocol.md",
+                "format": "markdown",
+            }
+        ],
+        "skills": [{"scope": "project", "path": ".claude/skills"}],
+    },
+    "cursor": {
+        "instructions": [
+            {
+                "scope": "project",
+                "path": ".cursor/rules/insitu-protocol.mdc",
+                "format": "mdc",
+            }
+        ],
+        "skills": [{"scope": "project", "path": ".cursor/skills"}],
+    },
+}
+
+
+def write_platforms(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    enabled: list[str],
+    extra: dict | None = None,
+) -> Path:
+    """Point INSITU_ROOT at a throwaway install with these enabled definitions."""
+    root = tmp_path / "install"
+    root.mkdir(exist_ok=True)
+    (root / "nexus.md").write_text("name: example\n", encoding="utf-8")
+    catalog = {
+        name: PLATFORM_DEFS[name] for name in enabled if name in PLATFORM_DEFS
+    }
+    if extra:
+        catalog.update(extra)
+    (root / "platforms.yaml").write_text(
+        yaml.safe_dump(
+            {"enabled": list(enabled), "platforms": catalog},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    return root
 
 FIXTURE_PACKS = Path(__file__).resolve().parent / "fixtures" / "packs"
 

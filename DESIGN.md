@@ -89,7 +89,6 @@ vault/
 │       ├── map.yaml
 │       └── notes.md              # optional free-form project notes
 ├── config/
-│   ├── surfaces.yaml             # which host adapters materialize writes
 │   ├── operators.yaml            # operator classes
 │   └── pack-repos.yaml           # optional; zero to many pack repos
 └── library/                      # pulled pack versions
@@ -101,6 +100,7 @@ vault/
 
 ```text
 <working-folder>/
+├── AGENTS.md                     # default surface, when platforms.yaml is absent
 ├── PROTOCOL.md                   # portable canon (always written)
 ├── .grok/rules/insitu-protocol.md
 ├── .grok/skills/<id>/            # generated copies
@@ -110,7 +110,7 @@ vault/
 └── .cursor/skills/<id>/
 ```
 
-Only adapters listed in `config/surfaces.yaml` are written (§10). Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
+Which adapters are written is `platforms.yaml` beside `nexus.md`, not a vault file (§10). Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
 
 Folders under `articles/` are a human convention. They are not a type system and do not change load behavior. **Roles** are a type system: they change composition. Do not treat an article folder as a role.
 
@@ -225,7 +225,7 @@ User-facing language is "install capability X 1.0," "install identity x at 1.1,"
 
 ### 6.3 Operator classes
 
-Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml` and `surfaces.yaml`. This is vault state rather than install-folder state, because `INSITU_HOME` moves and the code checkout is shared. It is a discipline gate against casual cross-map writes, not a security boundary: the file is hand-editable by anything with a shell.
+Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml`. This is vault state rather than install-folder state, because `INSITU_HOME` moves and the code checkout is shared. It is a discipline gate against casual cross-map writes, not a security boundary: the file is hand-editable by anything with a shell.
 
 ```yaml
 default_class: bound
@@ -421,47 +421,60 @@ MCP cannot put text into the system prompt. Only the host can. A constitution li
 
 Hard rules that must fire even if Insitu is down (privacy, never-fabricate, discretion) stay in the hand-authored constitution. `materialize` never edits those files.
 
-### 10.1 Surfaces config
+### 10.1 Which hosts
 
-Which host adapters `materialize` writes is a vault-level fact — which agents this instance actually runs — not a per-project one.
+Which adapters `materialize` writes is an environment fact, which hosts this install runs, not a per-project one and not a vault file.
+
+The file is `platforms.yaml`, next to `nexus.md`. `INSITU_ROOT` is that folder. `materialize` reads it on every call. `config/surfaces.yaml` is not read.
+
+`enabled` is the list of names. `platforms` stores, for each name, the project instruction path and the project skill directory. A server entry in that file is for install, not for this call. A user-scoped path is not written here.
 
 ```yaml
-# config/surfaces.yaml
-surfaces:
+enabled:
   - grok
-  - claude
-  - cursor
+platforms:
+  grok:
+    instructions:
+      - scope: project
+        path: .grok/rules/insitu-protocol.md
+        format: markdown
+    skills:
+      - scope: project
+        path: .grok/skills
 ```
 
-Those three names are the known set, and an unknown name is a hard error (`unknown_surface`).
+The result includes `platform_source: platforms`. A name with no stored definition, or a definition this call cannot apply, is listed on `unapplied` and the other names are still written. `PROTOCOL.md` is still written. There is no closed set of host names.
 
-When `INSITU_ROOT` names an install root that has `platforms.yaml`, the `enabled` list in that file is the list of surface names. `config/surfaces.yaml` is not read. The result includes `platform_source: platforms`. Definitions under `platforms` are stored and not applied yet, so adapter paths stay the three paths in §10.2. An explicit empty `enabled` list writes `PROTOCOL.md` only.
+An explicit `enabled: []` writes `PROTOCOL.md` only. It does not add the default file below.
 
-When that file is absent, or `INSITU_ROOT` is unset, `config/surfaces.yaml` is still the list. If that file is also missing, `materialize` writes `PROTOCOL.md` only and returns `no_surfaces_configured`. Existing `.grok/`, `.claude/`, or `.cursor/` trees may be mentioned as a hint in that warning, but they do not cause an adapter to be written. Two vaults can still list different surfaces only in that fallback.
+When `platforms.yaml` is absent, or `INSITU_ROOT` is unset, the result is `platform_source: default` and `platform: agents`. That one write is `AGENTS.md` at the project root, and only when the file is missing or already opens with the Insitu stamp. An existing file without that stamp is left as it is, and the result says so on `unchanged`. No skill directory is created.
 
 ### 10.2 Outputs
 
 `materialize` always writes `<working-folder>/PROTOCOL.md`. That file is the portable canon: humans read it, adapters derive from it, non-MCP environments consume it. It is **not** auto-loaded by any host, so it is not the injector.
 
-In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
+In the same call, for each project instruction the plan can apply, it writes that file. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
 
-| Surface | Path (under working folder) | Format |
-|---------|-----------------------------|--------|
-| `grok` | `.grok/rules/insitu-protocol.md` | Full markdown. Grok does not expand `@path` imports, so a body of `@PROTOCOL.md` would inject that string rather than the pack. |
-| `claude` | `.claude/rules/insitu-protocol.md` | Full markdown, **no** `paths` frontmatter: a `paths` field would make it on-demand. Rules without `paths` load at launch at the same priority as `CLAUDE.md`. |
-| `cursor` | `.cursor/rules/insitu-protocol.mdc` | Full body after YAML frontmatter carrying `alwaysApply: true` and a short description. A plain `.md` in that folder is ignored by Cursor. |
+The path and the format come from the stored definition. `format: markdown` is the protocol body. `format: mdc` is YAML frontmatter (`alwaysApply: true` and a short description) and then the body, which is what Cursor loads. A format this call does not know is `unapplied`, not a guess.
+
+Two formats this environment already stores:
+
+| Format | What is written |
+|--------|-----------------|
+| `markdown` | The protocol body. Used for `.grok/rules/insitu-protocol.md`, `.claude/rules/insitu-protocol.md`, and the default `AGENTS.md`. A Claude rule has no `paths` frontmatter, because a `paths` field would make it on-demand. |
+| `mdc` | Frontmatter, then the body. Used for `.cursor/rules/insitu-protocol.mdc`. A plain `.md` in that folder is ignored by Cursor. |
 
 **The on-demand index rides with the core.** §9 puts an index of the on-demand set on the resolved protocol, and the generated files carry it too, as a leading `# On demand` section: id, estimated cost, and description, and no bodies. The distinction matters because a tool result is not what a session holds. The host loads the generated file, so an index that reached only `resolve_protocol` would leave an on-demand article associated with a chair and unreachable from inside it, since knowing when the work calls for one requires knowing the set exists. A chair whose on-demand list is empty gets no section rather than an empty heading.
 
-Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`; a one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
+Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `CLAUDE.md` and `CLAUDE.local.md` are never written. `AGENTS.md` is written only as the `agents` platform, and only when it is missing or already stamped. A hand-authored `AGENTS.md` stays. A one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
 
 Do not gitignore host adapters that must load, because Grok skips gitignored instruction files during discovery. Personal or work-unsafe content in a committed adapter is a vault-composition problem — use a work-safe vault or a work-safe `core` — not a gitignore problem.
 
-**Skills.** After the protocol adapters, for each enabled surface and each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that surface's skills directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in `PROTOCOL.md`.
+**Skills.** After the protocol adapters, for each applied platform whose definition has a project skill path, and for each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in `PROTOCOL.md`. The default `agents` platform has no skill path, so a missing environment file does not create one.
 
-Orphan cleanup is stamp-scoped: under each enabled surface's skills root, a subdirectory whose `SKILL.md` body opens with the Insitu stamp, and whose name is not in the composed skill list, is deleted. Every other directory is left alone.
+Orphan cleanup is stamp-scoped: under each applied skill root, a subdirectory whose `SKILL.md` body opens with the Insitu stamp, and whose name is not in the composed skill list, is deleted. Every other directory is left alone.
 
-With no surfaces configured, `PROTOCOL.md` is written alone and no skill directories are touched; a project with a non-empty `skills:` list also gets `skills_need_surfaces`. The result payload reports `skills` and `skills_removed`.
+When `enabled` names a platform that was applied and the project composes skills, but none of those definitions has a project skill path, the result warns `skills_need_surfaces`. The result payload reports `skills` and `skills_removed`.
 
 **If an adapter cannot be written** — a locked file, a write that does not finish — that adapter is skipped with `adapter_locked` or `adapter_write_failed`, and `PROTOCOL.md` is still written. Prefer running `materialize` from a process that does not hold those files open.
 

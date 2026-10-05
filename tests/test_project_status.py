@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
+import pytest
 
 from helpers import (
     seed_pack_repo,
+    write_article,
     write_pack_repos,
+    write_platforms,
     write_project,
     write_role,
-    write_article,
 )
 
 from insitu.library import install_capability
@@ -126,13 +127,10 @@ def test_first_wins_attributes_duplicate_to_earlier_source(
 
 
 def test_disk_current_when_header_matches_live_compose(
-    vault: Path, tmp_path: Path
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(vault)
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok", "claude"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok", "claude"])
     work = tmp_path / "river-ledger"
     work.mkdir()
     assert materialize(vault, work)["ok"] is True
@@ -176,13 +174,10 @@ def test_disk_stale_when_header_article_list_differs(
 
 
 def test_missing_adapter_does_not_clear_current_if_protocol_matches(
-    vault: Path, tmp_path: Path
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(vault)
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok", "claude"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok", "claude"])
     work = tmp_path / "river-ledger"
     work.mkdir()
     assert materialize(vault, work)["ok"] is True

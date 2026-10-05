@@ -282,7 +282,6 @@ def test_project_status_card_names_the_class_and_what_it_did(tmp_path: Path) -> 
 def test_the_generated_header_carries_the_classes(tmp_path: Path) -> None:
     vault = _vault(tmp_path)
     _sensitive(vault)
-    (vault / "config" / "surfaces.yaml").write_text("surfaces: []\n", encoding="utf-8")
     folder = tmp_path / "gno"
     folder.mkdir()
     write_project(vault, "gno", core=[], include_global=False)

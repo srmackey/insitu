@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
-from helpers import write_article, write_project
+import pytest
+from helpers import write_article, write_platforms, write_project
 
 from insitu.materialize import materialize, render_on_demand
-
-SURFACES = {"surfaces": ["grok", "claude", "cursor"]}
 
 
 def _seed(vault: Path) -> None:
@@ -29,17 +27,18 @@ def _seed(vault: Path) -> None:
     )
 
 
-def _work(tmp_path: Path, vault: Path) -> Path:
-    (vault / "config").mkdir(parents=True, exist_ok=True)
-    (vault / "config" / "surfaces.yaml").write_text(yaml.safe_dump(SURFACES), encoding="utf-8")
+def _work(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    write_platforms(monkeypatch, tmp_path, ["grok", "claude", "cursor"])
     work = tmp_path / "river-ledger"
     work.mkdir()
     return work
 
 
-def test_the_index_names_the_article_its_cost_and_when_to_pull(vault: Path, tmp_path: Path) -> None:
+def test_the_index_names_the_article_its_cost_and_when_to_pull(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _seed(vault)
-    work = _work(tmp_path, vault)
+    work = _work(tmp_path, monkeypatch)
     assert materialize(vault, work, project="river-ledger")["ok"] is True
 
     protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
@@ -54,9 +53,11 @@ def test_the_index_names_the_article_its_cost_and_when_to_pull(vault: Path, tmp_
     assert "ON-DEMAND-BODY" not in protocol
 
 
-def test_every_surface_carries_it_since_the_adapter_is_what_loads(vault: Path, tmp_path: Path) -> None:
+def test_every_surface_carries_it_since_the_adapter_is_what_loads(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _seed(vault)
-    work = _work(tmp_path, vault)
+    work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
     for rel in (
         ".grok/rules/insitu-protocol.md",
@@ -68,18 +69,22 @@ def test_every_surface_carries_it_since_the_adapter_is_what_loads(vault: Path, t
         assert "`methodology/river-survey`" in text, rel
 
 
-def test_the_index_sits_between_the_header_and_the_doctrine(vault: Path, tmp_path: Path) -> None:
+def test_the_index_sits_between_the_header_and_the_doctrine(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _seed(vault)
-    work = _work(tmp_path, vault)
+    work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
     protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
     assert protocol.index("-->") < protocol.index("# On demand") < protocol.index("CORE-BODY")
 
 
-def test_a_chair_with_nothing_on_demand_gets_no_heading(vault: Path, tmp_path: Path) -> None:
+def test_a_chair_with_nothing_on_demand_gets_no_heading(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     write_article(vault, "interaction/summary-first", "CORE-BODY")
     write_project(vault, "river-ledger", core=["interaction/summary-first"])
-    work = _work(tmp_path, vault)
+    work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
     protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
     assert "On demand" not in protocol
@@ -88,12 +93,14 @@ def test_a_chair_with_nothing_on_demand_gets_no_heading(vault: Path, tmp_path: P
     assert protocol.index("-->") < protocol.index("CORE-BODY")
 
 
-def test_a_chair_with_no_core_still_gets_its_index(vault: Path, tmp_path: Path) -> None:
+def test_a_chair_with_no_core_still_gets_its_index(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The two lists are independent. A chair may carry nothing and still be able
     # to reach for something.
     write_article(vault, "methodology/river-survey", "ON-DEMAND-BODY")
     write_project(vault, "river-ledger", on_demand=["methodology/river-survey"])
-    work = _work(tmp_path, vault)
+    work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
     protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
     assert "# On demand" in protocol
