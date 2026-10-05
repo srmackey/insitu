@@ -80,6 +80,14 @@ def test_readme_documents_install() -> None:
     assert "INSITU_HOME" in text
     assert "--vault" in text
     assert "mcp.json" in text
-    assert "~/.cursor/rules/insitu-router.mdc" in text
-    assert "~/.claude/rules/insitu-router.md" in text
-    assert "~/.grok/rules/insitu-router.md" in text
+    assert "platforms.yaml" in text
+    manual = (ROOT / "install" / "README.md").read_text(encoding="utf-8")
+    block = (ROOT / "install" / "mcp.json.examples.md").read_text(encoding="utf-8")
+    design = (ROOT / "DESIGN.md").read_text(encoding="utf-8")
+    for doc in (text, manual, block, design):
+        assert "~/.cursor/" not in doc
+        assert "~/.claude" not in doc
+        assert "~/.grok" not in doc
+    assert "platforms.yaml" in manual
+    assert "insitu-router" in manual
+    assert "do not edit user-global" in manual.lower()
