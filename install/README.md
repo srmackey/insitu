@@ -33,3 +33,13 @@ Skip a definition you cannot apply, say which one, and continue with the other n
 Project-scoped `instructions` and `skills` entries are `materialize`, not this pass.
 
 `install/AGENTS.md` is a sample constitution. Copying it is by hand. `materialize` writes a project's `AGENTS.md` only when that file is missing or already stamped, and it never writes `CLAUDE.md`.
+
+## Maintenance
+
+Add, remove, and a moved checkout all run the pass above.
+
+**Add.** Put the name on `enabled`. Run this pass, and the same pass for each other public product already installed. The pass writes a missing definition before it upserts. Then `materialize` the running projects.
+
+**Remove.** Take the name off `enabled`. Dry-run first. For that name's server entries, list this product's key under `key`, and list the user-global router file this product wrote. Write nothing. Every other key in the host file stays. On the real remove, delete only those keys and that router file.
+
+**Path refresh.** The checkout moved. Run the pass again so this product's block uses the current path. Upsert this product's key. Leave every other key alone.
