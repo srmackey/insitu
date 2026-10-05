@@ -7,26 +7,20 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from insitu.store import SKILL_PAYLOAD_DIRS, read_yaml, skill_payload_paths
+from insitu.store import SKILL_PAYLOAD_DIRS, VaultReadError, read_yaml, skill_payload_paths
 
+from insitu.address import derive_key, is_within, registry_root, resolve, load_tree
 from insitu.identity import InvalidIdentity, validate_project_key
 from insitu.models import Skill, Vault
 from insitu.resolve import iter_composed_skills, resolve_protocol
 from insitu.store import load_vault
 
-KNOWN_SURFACES = {
-    "grok": Path(".grok") / "rules" / "insitu-protocol.md",
-    "claude": Path(".claude") / "rules" / "insitu-protocol.md",
-    "cursor": Path(".cursor") / "rules" / "insitu-protocol.mdc",
-}
-
-SKILL_ROOTS = {
-    "grok": Path(".grok") / "skills",
-    "claude": Path(".claude") / "skills",
-    "cursor": Path(".cursor") / "skills",
-}
-
-CONSTITUTION_NAMES = frozenset({"AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"})
+# CLAUDE.md is never a write target. AGENTS.md is written only under
+# stamp-or-missing, which is applied whenever that file is the destination.
+NEVER_WRITE = frozenset({"CLAUDE.md", "CLAUDE.local.md"})
+APPLY_FORMATS = frozenset({"markdown", "mdc"})
+KNOWN_WRITES = frozenset({"stamp-or-missing"})
+AGENTS_PLATFORM = "agents"
 ADAPTER_WRITE_TIMEOUT_SECONDS = 8
 
 
@@ -144,14 +138,14 @@ def _write_mapped_skills(
     vault,
     work: Path,
     key: str,
-    surfaces: list[str],
+    roots: list[tuple[str, Path]],
     skills: list[Skill],
 ) -> tuple[list[dict], list[dict]]:
     written_paths: dict[str, list[str]] = {skill.id: [] for skill in skills}
     removed: list[dict] = []
     composed = {skill.id for skill in skills}
-    for name in surfaces:
-        root = work / SKILL_ROOTS[name]
+    for name, rel in roots:
+        root = work / rel
         if root.is_dir():
             for child in list(root.iterdir()):
                 if not child.is_dir():
@@ -266,15 +260,205 @@ def _write_text_bounded(path: Path, text: str, *, timeout: float) -> str | None:
     return None
 
 
-def _read_surfaces(vault_root: Path) -> tuple[list[str] | None, dict | None]:
-    path = vault_root / "config" / "surfaces.yaml"
+class PlatformPlan:
+    """What this call will write, and which enabled names it will not.
+
+    ``source`` is ``platforms`` when ``platforms.yaml`` supplied ``enabled``,
+    and ``default`` when that file is absent. An empty ``enabled`` list is a
+    real list: no writes, and not the default.
+    """
+
+    def __init__(
+        self,
+        source: str,
+        writes: list[tuple[str, Path, str, str | None]],
+        skills: list[tuple[str, Path]],
+        unapplied: list[dict],
+    ) -> None:
+        self.source = source
+        self.writes = writes
+        self.skills = skills
+        self.unapplied = unapplied
+
+
+def _platforms_invalid(path: Path) -> dict:
+    return {
+        "ok": False,
+        "error": "platforms_invalid",
+        "path": str(path),
+        "detail": "platforms.yaml needs an enabled list of platform names.",
+    }
+
+
+def _agents_definition() -> dict:
+    return {
+        "instructions": [
+            {
+                "scope": "project",
+                "path": "AGENTS.md",
+                "format": "markdown",
+                "write": "stamp-or-missing",
+            }
+        ]
+    }
+
+
+def carries_insitu_stamp(text: str) -> bool:
+    """True when the file opens with an Insitu generated-file comment."""
+    stripped = text.lstrip("\ufeff").lstrip()
+    if not stripped.startswith("<!--"):
+        return False
+    end = stripped.find("-->")
+    if end < 0:
+        return False
+    return "insitu-generated:" in stripped[:end]
+
+
+def _project_rel(raw: object) -> tuple[Path | None, str | None]:
+    if not isinstance(raw, str) or not raw.strip():
+        return None, "missing_path"
+    path = Path(raw)
+    if path.is_absolute() or ".." in path.parts:
+        return None, "path_escapes"
+    return path, None
+
+
+def _instruction_writes(
+    platform: str, definition: dict
+) -> tuple[list[tuple[str, Path, str, str | None]], list[dict]]:
+    """Project instruction files this definition can apply, and the ones it cannot."""
+    entries = definition.get("instructions") or []
+    if not isinstance(entries, list):
+        return [], [{"platform": platform, "reason": "instructions_not_a_list"}]
+    writes: list[tuple[str, Path, str, str | None]] = []
+    problems: list[dict] = []
+    saw_project = False
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("scope") != "project":
+            continue
+        saw_project = True
+        raw_path = entry.get("path")
+        rel, err = _project_rel(raw_path)
+        shown = rel.as_posix() if rel is not None else raw_path
+        if err or rel is None:
+            item: dict = {"platform": platform, "reason": err or "missing_path"}
+            if isinstance(shown, str):
+                item["path"] = shown
+            problems.append(item)
+            continue
+        if rel.name in NEVER_WRITE:
+            problems.append(
+                {"platform": platform, "reason": "constitution", "path": rel.as_posix()}
+            )
+            continue
+        fmt = entry.get("format")
+        if not isinstance(fmt, str) or fmt not in APPLY_FORMATS:
+            problems.append(
+                {
+                    "platform": platform,
+                    "reason": "unknown_format",
+                    "path": rel.as_posix(),
+                }
+            )
+            continue
+        mode = entry.get("write")
+        if mode is not None and (not isinstance(mode, str) or mode not in KNOWN_WRITES):
+            problems.append(
+                {
+                    "platform": platform,
+                    "reason": "unknown_write",
+                    "path": rel.as_posix(),
+                }
+            )
+            continue
+        if rel.name == "AGENTS.md":
+            mode = "stamp-or-missing"
+        writes.append((platform, rel, fmt, mode if isinstance(mode, str) else None))
+    if not saw_project and not problems:
+        problems.append({"platform": platform, "reason": "no_project_instruction"})
+    return writes, problems
+
+
+def _skill_roots(
+    platform: str, definition: dict
+) -> tuple[list[tuple[str, Path]], list[dict]]:
+    entries = definition.get("skills") or []
+    if not isinstance(entries, list):
+        return [], [{"platform": platform, "reason": "skills_not_a_list"}]
+    roots: list[tuple[str, Path]] = []
+    problems: list[dict] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("scope") != "project":
+            continue
+        raw_path = entry.get("path")
+        rel, err = _project_rel(raw_path)
+        if err or rel is None:
+            item = {"platform": platform, "reason": err or "missing_path"}
+            if isinstance(raw_path, str):
+                item["path"] = raw_path
+            problems.append(item)
+            continue
+        roots.append((platform, rel))
+    return roots, problems
+
+
+def _plan_definition(platform: str, definition: object) -> tuple[
+    list[tuple[str, Path, str, str | None]],
+    list[tuple[str, Path]],
+    list[dict],
+]:
+    if not isinstance(definition, dict):
+        return [], [], [{"platform": platform, "reason": "not_a_definition"}]
+    writes, problems = _instruction_writes(platform, definition)
+    if not writes:
+        return [], [], problems
+    roots, skill_problems = _skill_roots(platform, definition)
+    return writes, roots, problems + skill_problems
+
+
+def plan_platforms() -> tuple[PlatformPlan | None, dict | None]:
+    """The apply plan for this process's install root.
+
+    No environment file, and no ``INSITU_ROOT``, both mean the ``agents``
+    default. A present file that is not a usable list is an error. The vault
+    ``config/surfaces.yaml`` is not a list.
+    """
+    reg = registry_root()
+    if reg is None:
+        writes, roots, problems = _plan_definition(AGENTS_PLATFORM, _agents_definition())
+        return PlatformPlan("default", writes, roots, problems), None
+    path = reg / "platforms.yaml"
     if not path.is_file():
-        return None, None
-    data = read_yaml(path)
-    if not isinstance(data, dict):
-        data = {}
-    names = list(data.get("surfaces") or [])
-    return [str(name) for name in names], None
+        writes, roots, problems = _plan_definition(AGENTS_PLATFORM, _agents_definition())
+        return PlatformPlan("default", writes, roots, problems), None
+    try:
+        data = read_yaml(path)
+    except VaultReadError:
+        return None, _platforms_invalid(path)
+    if not isinstance(data, dict) or not isinstance(data.get("enabled"), list):
+        return None, _platforms_invalid(path)
+    catalog = data.get("platforms")
+    if catalog is None:
+        catalog = {}
+    if not isinstance(catalog, dict):
+        return None, _platforms_invalid(path)
+    names: list[str] = []
+    for name in data["enabled"]:
+        if not isinstance(name, str) or not name.strip():
+            return None, _platforms_invalid(path)
+        names.append(name)
+    writes: list[tuple[str, Path, str, str | None]] = []
+    roots: list[tuple[str, Path]] = []
+    unapplied: list[dict] = []
+    for name in names:
+        if name not in catalog:
+            unapplied.append({"platform": name, "reason": "no_definition"})
+            continue
+        got, skill_roots, problems = _plan_definition(name, catalog[name])
+        writes.extend(got)
+        roots.extend(skill_roots)
+        unapplied.extend(problems)
+    return PlatformPlan("platforms", writes, roots, unapplied), None
 
 
 def _render_protocol(vault_root: Path, resolved: dict) -> str:
@@ -322,39 +506,91 @@ def materialize(
     vault = _as_vault(vault_or_root)
     work = Path(working_folder)
 
-    raw_key = project if project is not None else work.name
-    try:
-        key = validate_project_key(raw_key)
-    except InvalidIdentity as exc:
-        return {
-            "ok": False,
-            "error": "invalid_identity",
-            "value": raw_key,
-            "reason": str(exc),
-        }
+    reg = registry_root()
+    inside = reg is not None and is_within(reg, work)
+    if inside:
+        derived = derive_key(reg, work)
+        if derived is None:
+            return {
+                "ok": False,
+                "error": "not_in_registry",
+                "working_folder": str(work),
+                "detail": (
+                    "working folder is inside the install tree and is not a "
+                    "chair in nexus.md. materialize will not guess a key from "
+                    "the folder name."
+                ),
+            }
+        if project is not None:
+            try:
+                named = validate_project_key(project)
+            except InvalidIdentity as exc:
+                return {
+                    "ok": False,
+                    "error": "invalid_identity",
+                    "value": project,
+                    "reason": str(exc),
+                }
+            tree = load_tree(reg)
+            located = resolve(tree, named) if tree is not None else None
+            named_address = located.address if located is not None else named
+            if named_address != derived:
+                return {
+                    "ok": False,
+                    "error": "folder_project_mismatch",
+                    "project": named_address,
+                    "folder": work.name,
+                    "working_folder": str(work),
+                    "detail": (
+                        f"working folder {work.name!r} is the chair {derived!r} "
+                        f"in nexus.md, not {named_address!r}."
+                    ),
+                }
+        key = derived
+    else:
+        raw_key = project if project is not None else work.name
+        try:
+            key = validate_project_key(raw_key)
+        except InvalidIdentity as exc:
+            return {
+                "ok": False,
+                "error": "invalid_identity",
+                "value": raw_key,
+                "reason": str(exc),
+            }
+        if "/" in key:
+            return {
+                "ok": False,
+                "error": "registry_required",
+                "project": key,
+                "detail": (
+                    "an address key is derived from nexus.md. Set INSITU_ROOT "
+                    "to the install root that holds that file."
+                ),
+            }
 
-    # A named project must be the project this folder belongs to. Everywhere
-    # else working_folder identifies the caller; here it is the destination,
-    # and the operator gate only compares the two for a bound chair. An admin
-    # is waved past that check, so without this one an admin sweep can write
-    # one project's protocol over another project's checkout, and the skill
-    # prune below would delete the generated skills it found there. Project key
-    # is defined as the folder basename, so a mismatch is an error for every
-    # class, including a pre-init vault.
-    if project is not None and _folder_key(work) != key:
-        return {
-            "ok": False,
-            "error": "folder_project_mismatch",
-            "project": key,
-            "folder": work.name,
-            "working_folder": str(work),
-            "detail": (
-                f"working folder {work.name!r} is not the checkout for {key!r}. "
-                "materialize writes into the folder it is given, so that "
-                "folder's basename must be the project key. A sweep names each "
-                "project's own checkout."
-            ),
-        }
+        # A named project must be the project this folder belongs to. Everywhere
+        # else working_folder identifies the caller; here it is the destination,
+        # and the operator gate only compares the two for a bound chair. An admin
+        # is waved past that check, so without this one an admin sweep can write
+        # one project's protocol over another project's checkout, and the skill
+        # prune below would delete the generated skills it found there. Outside
+        # an install tree the project key is the folder basename, so a mismatch
+        # is an error for every class, including a pre-init vault.
+        if project is not None and _folder_key(work) != key:
+            return {
+                "ok": False,
+                "error": "folder_project_mismatch",
+                "project": key,
+                "folder": work.name,
+                "working_folder": str(work),
+                "detail": (
+                    f"working folder {work.name!r} is not the checkout for {key!r}. "
+                    "materialize writes into the folder it is given, so that "
+                    "folder's basename must be the project key. A sweep names each "
+                    "project's own checkout."
+                ),
+            }
 
     if not work.exists():
         return {
@@ -384,35 +620,39 @@ def materialize(
     if not resolved["ok"]:
         return resolved
 
-    surfaces, _err = _read_surfaces(vault.root)
-    warnings: list[str] = []
-    if surfaces is None:
-        warnings.append("no_surfaces_configured")
-        if resolved.get("skills"):
-            warnings.append("skills_need_surfaces")
-        surfaces = []
-    else:
-        for name in surfaces:
-            if name not in KNOWN_SURFACES:
-                return {"ok": False, "error": "unknown_surface", "surface": name}
+    plan, err = plan_platforms()
+    if err is not None:
+        return err
+    assert plan is not None
 
     protocol_text = _render_protocol(vault.root, resolved)
     protocol_path = work / "PROTOCOL.md"
     protocol_path.write_text(protocol_text, encoding="utf-8")
 
+    warnings: list[str] = []
     adapters: list[dict] = []
-    for name in surfaces:
-        dest = work / KNOWN_SURFACES[name]
-        if dest.name in CONSTITUTION_NAMES:
-            return {
-                "ok": False,
-                "error": "constitution_guard",
-                "path": str(dest),
-            }
+    unchanged: list[dict] = []
+    for platform, rel, fmt, mode in plan.writes:
+        dest = work / rel
+        if mode == "stamp-or-missing" and dest.is_file():
+            try:
+                existing = dest.read_text(encoding="utf-8")
+            except OSError:
+                warnings.append("adapter_write_failed")
+                continue
+            if not carries_insitu_stamp(existing):
+                unchanged.append(
+                    {
+                        "platform": platform,
+                        "path": str(dest),
+                        "reason": "unstamped",
+                    }
+                )
+                continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         body = (
             _render_cursor_adapter(key, protocol_text)
-            if name == "cursor"
+            if fmt == "mdc"
             else protocol_text
         )
         write_error = _write_text_bounded(
@@ -421,17 +661,23 @@ def materialize(
         if write_error:
             warnings.append(write_error)
             continue
-        adapters.append({"surface": name, "path": str(dest)})
+        adapters.append({"surface": platform, "path": str(dest)})
 
     composed = iter_composed_skills(vault, vault.projects[key])
     if isinstance(composed, dict):
         return composed
     skills_written: list[dict] = []
     skills_removed: list[dict] = []
-    if surfaces:
+    if plan.skills:
         skills_written, skills_removed = _write_mapped_skills(
-            vault, work, key, surfaces, composed
+            vault, work, key, plan.skills, composed
         )
+    elif (
+        composed
+        and plan.source == "platforms"
+        and plan.writes
+    ):
+        warnings.append("skills_need_surfaces")
 
     result: dict = {
         "ok": True,
@@ -441,13 +687,11 @@ def materialize(
         "skills": skills_written,
         "skills_removed": skills_removed,
         "warnings": warnings,
+        "platform_source": plan.source,
+        "unapplied": plan.unapplied,
     }
-    if "no_surfaces_configured" in warnings:
-        detected = [
-            name
-            for name in (".grok", ".claude", ".cursor")
-            if (work / name).is_dir()
-        ]
-        if detected:
-            result["detected_host_dirs"] = detected
+    if unchanged:
+        result["unchanged"] = unchanged
+    if plan.source == "default":
+        result["platform"] = AGENTS_PLATFORM
     return result

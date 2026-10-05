@@ -1,6 +1,6 @@
 # Insitu router
 
-Insitu stores reusable articles and composes a project protocol. The project key is the working folder basename (`projects/<folder>/`).
+Insitu stores reusable articles and composes a project protocol. The project key is the working folder basename (`projects/<folder>/`). When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address from that file (`nexus` or `nexus/node`); a unique basename still resolves.
 
 The composed core lives in this checkout as `PROTOCOL.md` and as the host protocol file under `.claude/rules/insitu-protocol.md`. Treat that generated pack as binding. Do not edit it.
 

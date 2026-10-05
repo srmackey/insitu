@@ -22,8 +22,14 @@ def test_folds_project_key_case() -> None:
     assert validate_project_key("River") == "river"
 
 
+def test_accepts_one_address_separator() -> None:
+    assert validate_project_key("Pier/Skiff") == "pier/skiff"
+    assert validate_project_key("harbor/dock") == "harbor/dock"
+    assert validate_project_key("harbor\\dock") == "harbor/dock"
+
+
 def test_rejects_project_keys_outside_charset() -> None:
-    for key in ("has_underscore", "has space", "", ".", "..", "a/b"):
+    for key in ("has_underscore", "has space", "", ".", "..", "a/b/c", "a/../b", "../a", "a/~b"):
         with pytest.raises(InvalidIdentity):
             validate_project_key(key)
 

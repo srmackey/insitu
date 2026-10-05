@@ -8,8 +8,13 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ### Added
 
+- When `INSITU_ROOT` points at a folder with `nexus.md`, the project key is the address from that file (`nexus` or `nexus/node`). On disk `/` is `~`. A unique bare name still opens that map. A sensitive nexus imposes class `sensitive` on its own map and every map under it. An admin covers that nexus and the addresses under it; the top nexus admin covers the shelf. Without `INSITU_ROOT`, the key stays the working-folder basename.
 - Security policy: how to report a vulnerability, and what the local process can touch.
 - The tool list, with the hint set on each tool, lives in `docs/tools.md`. The README states the trust boundary and how to launch the server.
+
+### Changed
+
+- **`materialize` writes the hosts named in `platforms.yaml`.** `INSITU_ROOT` is the install root, and the file sits next to `nexus.md`. Each enabled definition supplies the project instruction path, the format, and any project skill directory. A definition the call cannot apply is returned on `unapplied`. The other names are still written. `config/surfaces.yaml` is not read. With no environment file the call writes `AGENTS.md` when that file is missing or already stamped, plus `PROTOCOL.md`, and reports `platform_source: default`. An existing unstamped `AGENTS.md` is left unchanged. `CLAUDE.md` is never written. An explicit empty `enabled` list writes `PROTOCOL.md` only.
 
 ## [0.24.3] - 2026-09-17
 

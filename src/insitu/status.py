@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from insitu.identity import GLOBAL_PROJECT, InvalidIdentity, validate_project_key
-from insitu.materialize import KNOWN_SURFACES, _read_surfaces, parse_header
+from insitu.materialize import parse_header, plan_platforms
 from insitu.models import Vault
 from insitu.resolve import attributed_core_sources, resolve_protocol
 from insitu.store import load_vault
@@ -218,13 +218,12 @@ def project_status(
                 protocol["project"] == key and protocol["articles"] == live_ids
             )
 
-    surfaces, _err = _read_surfaces(vault.root)
+    plan, err = plan_platforms()
+    if err is not None:
+        return err
     adapters: list[dict] = []
-    if surfaces:
-        for name in surfaces:
-            rel = KNOWN_SURFACES.get(name)
-            if rel is None:
-                continue
+    if plan is not None:
+        for name, rel, _fmt, _mode in plan.writes:
             dest = work / rel
             adapters.append(
                 {

@@ -46,7 +46,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 | **Provision** | Anything Insitu provides to a project, at any grain: an article, a role, a skill, a pack, or a member pulled out of one. It names a relationship rather than a size, so it sits above the rows below rather than beside them. Use it when the grain is not the point — "which provisions does this project subscribe to?" — and use the specific noun when it is. |
 | **Article** | One portable section of standing agent guidance. A markdown file in the vault. Composed into a protocol. |
 | **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
-| **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. |
+| **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. An address `nexus/node` is stored as `projects/nexus~node/`. |
 | **`_global`** | A distinguished project whose composed core is automatically included in every other project's protocol, unless the project opts out. Keep it very small: only articles that truly transcend projects. |
 | **Role** | A named, ordered pack of articles and skills. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
 | **Core** | Articles always injected into the protocol. |
@@ -89,7 +89,6 @@ vault/
 │       ├── map.yaml
 │       └── notes.md              # optional free-form project notes
 ├── config/
-│   ├── surfaces.yaml             # which host adapters materialize writes
 │   ├── operators.yaml            # operator classes
 │   └── pack-repos.yaml           # optional; zero to many pack repos
 └── library/                      # pulled pack versions
@@ -101,6 +100,7 @@ vault/
 
 ```text
 <working-folder>/
+├── AGENTS.md                     # default surface, when platforms.yaml is absent
 ├── PROTOCOL.md                   # portable canon (always written)
 ├── .grok/rules/insitu-protocol.md
 ├── .grok/skills/<id>/            # generated copies
@@ -110,7 +110,7 @@ vault/
 └── .cursor/skills/<id>/
 ```
 
-Only adapters listed in `config/surfaces.yaml` are written (§10). Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
+Which adapters are written is `platforms.yaml` beside `nexus.md`, not a vault file (§10). Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
 
 Folders under `articles/` are a human convention. They are not a type system and do not change load behavior. **Roles** are a type system: they change composition. Do not treat an article folder as a role.
 
@@ -118,19 +118,21 @@ Folders under `articles/` are a human convention. They are not a type system and
 
 ## 5. Project identity
 
-The project key **is** the directory name under `projects/`.
+The project key **is** the directory name under `projects/`. An address `nexus/node` is stored as `projects/nexus~node/`, so a nexus map and a child map stay siblings.
 
-**Convention.** The working folder's basename is the project key. Mixed-case folder names fold to lowercase (`ProjectName/` loads `projects/projectname/`). Work in `river-ledger/` and the server loads `projects/river-ledger/`. No extra binding file is required for the common case.
+**Convention.** Outside an install tree, the working folder's basename is the project key. Mixed-case folder names fold to lowercase (`ProjectName/` loads `projects/projectname/`). Work in `river-ledger/` and the server loads `projects/river-ledger/`.
+
+When `INSITU_ROOT` points at a folder that has `nexus.md`, the key is the address derived from that file. A nested nexus is addressed by its own name (`pier`). A node of that nexus is `pier/skiff`. The folder basename is not the key. A unique bare name still resolves (`skiff` loads `pier/skiff` when only one node has that name). An ambiguous bare name does not. A two-segment address whose second part is itself a nexus does not resolve; use that nexus's own name. `INSITU_ROOT` is the install tree, not a second vault.
 
 **Labels, not identity.** `map.yaml` may carry `repo`, `name`, and `aka` for display and colloquial lookup. They do not change which project is selected.
 
-**Miss.** If no `projects/<folder>/` exists, `resolve_protocol` returns a structured miss naming the key it tried and the path that was missing. It does not scan the article catalog, and it does not return an empty protocol that looks like success.
+**Miss.** If no `projects/<dirname>/` exists, `resolve_protocol` returns a structured miss naming the key it tried and the path that was missing. An address names the encoded dirname (`projects/pier~skiff/` for `pier/skiff`). It does not scan the article catalog, and it does not return an empty protocol that looks like success.
 
 **Vault root** is a server concern, not a field on the project map: `INSITU_HOME`, else `--vault`, else `~/.insitu`. One vault per process. A project lives inside a vault; it does not point at one. Pointing the process at another vault is how demos work.
 
-**Charset.** Project keys, article path segments, role ids, pack ids, and skill ids are `a-z`, `0-9`, `-`. Skill ids are a single path segment. `_global` is the only reserved `_` name. Reject `..`, absolute paths, and anything that would escape `articles/`, `provenance/`, `projects/`, `roles/`, `library/`, or `skills/`.
+**Charset.** Each project-key segment, article path segment, role id, pack id, and skill id is `a-z`, `0-9`, `-`. A project key is one segment, or two segments with a single `/`. Article ids may have several segments. Skill ids, role ids, and pack ids are one segment. `_global` is the only reserved `_` name. Reject `..`, a `~` in a segment, absolute paths, and anything that would escape `articles/`, `provenance/`, `projects/`, `roles/`, `library/`, or `skills/`.
 
-**Not in v1:** a repo-local override file, for a checkout whose folder name is not the project key or a per-repo vault pointer. Add it when a real checkout needs it.
+**Not in v1:** a repo-local override file, or a per-repo vault pointer. An install that has `nexus.md` already derives the key from the tree.
 
 ---
 
@@ -223,7 +225,7 @@ User-facing language is "install capability X 1.0," "install identity x at 1.1,"
 
 ### 6.3 Operator classes
 
-Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml` and `surfaces.yaml`. This is vault state rather than install-folder state, because `INSITU_HOME` moves and the code checkout is shared. It is a discipline gate against casual cross-map writes, not a security boundary: the file is hand-editable by anything with a shell.
+Two classes, stored in `config/operators.yaml` beside `pack-repos.yaml`. This is vault state rather than install-folder state, because `INSITU_HOME` moves and the code checkout is shared. It is a discipline gate against casual cross-map writes, not a security boundary: the file is hand-editable by anything with a shell.
 
 ```yaml
 default_class: bound
@@ -243,7 +245,7 @@ A chair holds a **set** of classes. `admin` and `bound` are the rights ladder an
 
 | Rights | Mutate maps | Mutate shared objects | `materialize` | Grant / revoke |
 |---|---|---|---|---|
-| **admin** | any project key | yes | any project, into that project's own checkout | yes |
+| **admin** | any project key when no install root is set; otherwise this nexus and the addresses under it, and any key for the top nexus | yes | any project, into that project's own checkout | yes |
 | **bound** (default) | this project only | only what no other map composes | this folder only | no |
 
 **An obligation is composed because of what the chair is, not what it chose.** It appears in no `map.yaml`, and `include_global: false` does not shed it — opting out of `_global` is a choice, and an obligation is the thing that is not. Order is in §8.
@@ -256,9 +258,9 @@ Where one held class imposes what another forbids, the prohibition wins and `val
 
 `validate` also reports `missing_obligation` and `missing_prohibition` for a declaration naming an article that does not exist. The first is the sharper one: an obligation that resolves nowhere fails resolution for every chair in that class at once.
 
-**The calling chair** is the basename of `working_folder`, case-folded. Every mutating map tool requires it, and a bound chair whose key is not `project` gets `chair_bound`. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
+**The calling chair** is the address derived from `working_folder` when that folder sits inside `INSITU_ROOT`, and the basename, case-folded, otherwise. A folder inside the tree that is not a chair is `not_in_registry`. Every mutating map tool requires the folder, and a bound chair whose key is not `project` gets `chair_bound`. An admin of a nexus writes maps for that nexus and addresses under it. The admin of the top nexus writes any map. An admin outside that prefix gets `admin_scope`. A sensitive nexus imposes class `sensitive` on its own map and every map under it. `sensitive` is a class, not a third rights rung. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
 
-**`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. A named `project` must match the destination folder's basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. This is a check rather than a preference because the project key is *defined* as the folder basename (§5). A sweep names each project's own checkout, so correct usage never meets the refusal.
+**`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. Inside an install, a named `project` must be that folder's address (a unique bare name counts). Outside it, the named project must match the folder basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. An address key with no `INSITU_ROOT` is `registry_required`. A sweep names each project's own checkout, so correct usage never meets the refusal.
 
 The destination must already exist and be a directory. A missing path is `working_folder_missing`; a file is `working_folder_not_directory`. Both results name the path and tell the caller to stop and ask which folder this project lives in. `materialize` does not create checkouts. Creating a missing folder is how a relative project key and the wrong cwd become a second tree of generated host files.
 
@@ -401,7 +403,7 @@ Native vault skills use `link_skill`; pack skills use `install_skill`. Either re
 
 **Deletes are user-gated.** `delete_*` and `remove_pack` preview without writing unless `confirm=true` carries the preview's `expected`. Deleting an article unlinks it from role files and maps, then removes the article and its why-log. Deleting a project removes `projects/<key>/` only; articles and roles stay, and `_global` cannot be deleted (`cannot_delete_global`).
 
-**Every write result includes `affects_projects`,** and previews may carry the same list. After an authoring write, if the working-folder basename is in that list, rematerialize and start a new session.
+**Every write result includes `affects_projects`,** and previews may carry the same list. After an authoring write, if this chair's project key is in that list, rematerialize and start a new session.
 
 **Every mutating tool takes `working_folder`** (§6.3). Inspect tools do not.
 
@@ -419,43 +421,60 @@ MCP cannot put text into the system prompt. Only the host can. A constitution li
 
 Hard rules that must fire even if Insitu is down (privacy, never-fabricate, discretion) stay in the hand-authored constitution. `materialize` never edits those files.
 
-### 10.1 Surfaces config
+### 10.1 Which hosts
 
-Which host adapters `materialize` writes is a vault-level fact — which agents this instance actually runs — not a per-project one.
+Which adapters `materialize` writes is an environment fact, which hosts this install runs, not a per-project one and not a vault file.
+
+The file is `platforms.yaml`, next to `nexus.md`. `INSITU_ROOT` is that folder. `materialize` reads it on every call. `config/surfaces.yaml` is not read.
+
+`enabled` is the list of names. `platforms` stores, for each name, the project instruction path and the project skill directory. A server entry in that file is for install, not for this call. A user-scoped path is not written here.
 
 ```yaml
-# config/surfaces.yaml
-surfaces:
+enabled:
   - grok
-  - claude
-  - cursor
+platforms:
+  grok:
+    instructions:
+      - scope: project
+        path: .grok/rules/insitu-protocol.md
+        format: markdown
+    skills:
+      - scope: project
+        path: .grok/skills
 ```
 
-Those three names are the known set, and an unknown name is a hard error. If the file is missing, `materialize` writes `PROTOCOL.md` only and returns `no_surfaces_configured`. Existing `.grok/`, `.claude/`, or `.cursor/` trees may be mentioned as a hint in that warning, but they do not cause an adapter to be written. The file is the lock. A work vault and a home vault can list different surfaces.
+The result includes `platform_source: platforms`. A name with no stored definition, or a definition this call cannot apply, is listed on `unapplied` and the other names are still written. `PROTOCOL.md` is still written. There is no closed set of host names.
+
+An explicit `enabled: []` writes `PROTOCOL.md` only. It does not add the default file below.
+
+When `platforms.yaml` is absent, or `INSITU_ROOT` is unset, the result is `platform_source: default` and `platform: agents`. That one write is `AGENTS.md` at the project root, and only when the file is missing or already opens with the Insitu stamp. An existing file without that stamp is left as it is, and the result says so on `unchanged`. No skill directory is created.
 
 ### 10.2 Outputs
 
 `materialize` always writes `<working-folder>/PROTOCOL.md`. That file is the portable canon: humans read it, adapters derive from it, non-MCP environments consume it. It is **not** auto-loaded by any host, so it is not the injector.
 
-In the same call, for each configured surface, it writes the adapter below. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
+In the same call, for each project instruction the plan can apply, it writes that file. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
 
-| Surface | Path (under working folder) | Format |
-|---------|-----------------------------|--------|
-| `grok` | `.grok/rules/insitu-protocol.md` | Full markdown. Grok does not expand `@path` imports, so a body of `@PROTOCOL.md` would inject that string rather than the pack. |
-| `claude` | `.claude/rules/insitu-protocol.md` | Full markdown, **no** `paths` frontmatter: a `paths` field would make it on-demand. Rules without `paths` load at launch at the same priority as `CLAUDE.md`. |
-| `cursor` | `.cursor/rules/insitu-protocol.mdc` | Full body after YAML frontmatter carrying `alwaysApply: true` and a short description. A plain `.md` in that folder is ignored by Cursor. |
+The path and the format come from the stored definition. `format: markdown` is the protocol body. `format: mdc` is YAML frontmatter (`alwaysApply: true` and a short description) and then the body, which is what Cursor loads. A format this call does not know is `unapplied`, not a guess.
+
+Two formats this environment already stores:
+
+| Format | What is written |
+|--------|-----------------|
+| `markdown` | The protocol body. Used for `.grok/rules/insitu-protocol.md`, `.claude/rules/insitu-protocol.md`, and the default `AGENTS.md`. A Claude rule has no `paths` frontmatter, because a `paths` field would make it on-demand. |
+| `mdc` | Frontmatter, then the body. Used for `.cursor/rules/insitu-protocol.mdc`. A plain `.md` in that folder is ignored by Cursor. |
 
 **The on-demand index rides with the core.** §9 puts an index of the on-demand set on the resolved protocol, and the generated files carry it too, as a leading `# On demand` section: id, estimated cost, and description, and no bodies. The distinction matters because a tool result is not what a session holds. The host loads the generated file, so an index that reached only `resolve_protocol` would leave an on-demand article associated with a chair and unreachable from inside it, since knowing when the work calls for one requires knowing the set exists. A chair whose on-demand list is empty gets no section rather than an empty heading.
 
-Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`; a one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
+Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `CLAUDE.md` and `CLAUDE.local.md` are never written. `AGENTS.md` is written only as the `agents` platform, and only when it is missing or already stamped. A hand-authored `AGENTS.md` stays. A one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
 
 Do not gitignore host adapters that must load, because Grok skips gitignored instruction files during discovery. Personal or work-unsafe content in a committed adapter is a vault-composition problem — use a work-safe vault or a work-safe `core` — not a gitignore problem.
 
-**Skills.** After the protocol adapters, for each enabled surface and each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that surface's skills directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in `PROTOCOL.md`.
+**Skills.** After the protocol adapters, for each applied platform whose definition has a project skill path, and for each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in `PROTOCOL.md`. The default `agents` platform has no skill path, so a missing environment file does not create one.
 
-Orphan cleanup is stamp-scoped: under each enabled surface's skills root, a subdirectory whose `SKILL.md` body opens with the Insitu stamp, and whose name is not in the composed skill list, is deleted. Every other directory is left alone.
+Orphan cleanup is stamp-scoped: under each applied skill root, a subdirectory whose `SKILL.md` body opens with the Insitu stamp, and whose name is not in the composed skill list, is deleted. Every other directory is left alone.
 
-With no surfaces configured, `PROTOCOL.md` is written alone and no skill directories are touched; a project with a non-empty `skills:` list also gets `skills_need_surfaces`. The result payload reports `skills` and `skills_removed`.
+When `enabled` names a platform that was applied and the project composes skills, but none of those definitions has a project skill path, the result warns `skills_need_surfaces`. The result payload reports `skills` and `skills_removed`.
 
 **If an adapter cannot be written** — a locked file, a write that does not finish — that adapter is skipped with `adapter_locked` or `adapter_write_failed`, and `PROTOCOL.md` is still written. Prefer running `materialize` from a process that does not hold those files open.
 

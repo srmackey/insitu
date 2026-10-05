@@ -8,6 +8,7 @@ from pathlib import Path
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
+    project_dirname,
     validate_project_key,
     validate_role_id,
     validate_skill_id,
@@ -394,7 +395,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
             "ok": False,
             "error": "project_missing",
             "project": key,
-            "missing_path": str(vault.root / "projects" / key),
+            "missing_path": str(vault.root / "projects" / project_dirname(key)),
         }
 
     proj = vault.projects[key]

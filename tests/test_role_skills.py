@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
-from helpers import write_article, write_project, write_role, write_skill
+from helpers import write_article, write_platforms, write_project, write_role, write_skill
 
 from insitu.catalog import get_role, list_roles, list_skills, where_used_skill
 from insitu.materialize import materialize
@@ -172,14 +173,13 @@ def test_link_skill_already_composed_via_role(vault: Path) -> None:
     assert result["error"] == "already_linked"
 
 
-def test_materialize_writes_role_carried_skill(vault: Path) -> None:
+def test_materialize_writes_role_carried_skill(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _close_books(vault)
     _clerk_role(vault, skills=["close-books"])
     write_project(vault, "river-ledger", roles=["clerk"])
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok"])
     work = vault.parent / "river-ledger"
     work.mkdir()
     result = materialize(vault, work, project="river-ledger")

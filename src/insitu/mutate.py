@@ -21,6 +21,7 @@ from insitu.provisions import conflict_refusal, prohibition_refusal, provenance_
 from insitu.identity import (
     GLOBAL_PROJECT,
     InvalidIdentity,
+    project_dirname,
     validate_project_key,
     validate_role_id,
     validate_skill_id,
@@ -1271,7 +1272,7 @@ def create_project(
         data["skills"] = skill_ids
     if include_global is not None:
         data["include_global"] = include_global
-    folder = vault_root / "projects" / key
+    folder = vault_root / "projects" / project_dirname(key)
     folder.mkdir(parents=True, exist_ok=True)
     map_path = folder / "map.yaml"
     map_path.write_text(

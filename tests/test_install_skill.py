@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import frontmatter
+import pytest
 import yaml
 
-from helpers import seed_pack_repo, write_pack_repos, write_project, write_skill
+from helpers import seed_pack_repo, write_pack_repos, write_platforms, write_project, write_skill
 
 from insitu.catalog import get_skill, list_skills
 from insitu.library import (
@@ -139,13 +140,12 @@ def test_install_skill_after_capability_is_a_second_record(tmp_path: Path) -> No
     assert [row["id"] for row in resolved["skills"]] == ["close-hatch"]
 
 
-def test_materialize_writes_pack_skill_from_shelf(tmp_path: Path) -> None:
+def test_materialize_writes_pack_skill_from_shelf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     vault = _with_repo(tmp_path)
     assert install_skill(vault, "alpha", "close-hatch", version="0.1.0")["ok"] is True
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok", "claude"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok", "claude"])
     work = tmp_path / "alpha"
     work.mkdir()
     result = materialize(vault, work, project="alpha")

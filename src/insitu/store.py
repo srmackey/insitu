@@ -11,9 +11,9 @@ import yaml
 
 from insitu.identity import (
     InvalidIdentity,
+    project_key_from_dirname,
     validate_pack_id,
     validate_pack_version,
-    validate_project_key,
     validate_role_id,
     validate_skill_id,
     validate_article_id,
@@ -143,6 +143,42 @@ def load_on_demand_list(raw: dict[str, Any]) -> list[str]:
     return []
 
 
+class ProjectMap(dict):
+    """Project maps keyed by address, with a unique bare name as an alias.
+
+    Iteration stays on the stored keys. A lookup of a bare name resolves only
+    when exactly one stored address uses it.
+    """
+
+    def __init__(self, projects: dict[str, Project], aliases: dict[str, str]):
+        super().__init__(projects)
+        self.aliases = aliases
+
+    def _canon(self, key: object) -> str:
+        text = str(key)
+        if dict.__contains__(self, text):
+            return text
+        folded = text.casefold()
+        if dict.__contains__(self, folded):
+            return folded
+        target = self.aliases.get(folded)
+        if target and dict.__contains__(self, target):
+            return target
+        return text
+
+    def get(self, key, default=None):
+        canon = self._canon(key)
+        if dict.__contains__(self, canon):
+            return dict.__getitem__(self, canon)
+        return default
+
+    def __getitem__(self, key):
+        return dict.__getitem__(self, self._canon(key))
+
+    def __contains__(self, key: object) -> bool:
+        return dict.__contains__(self, self._canon(key))
+
+
 def _load_projects(root: Path) -> dict[str, Project]:
     projects: dict[str, Project] = {}
     projects_root = root / "projects"
@@ -150,7 +186,7 @@ def _load_projects(root: Path) -> dict[str, Project]:
         return projects
     for folder in sorted(p for p in projects_root.iterdir() if p.is_dir()):
         try:
-            key = validate_project_key(folder.name)
+            key = project_key_from_dirname(folder.name)
         except InvalidIdentity:
             continue
         map_path = folder / "map.yaml"
@@ -179,7 +215,19 @@ def _load_projects(root: Path) -> dict[str, Project]:
             skills=_as_str_list(raw.get("skills")),
             raw=dict(raw),
         )
-    return projects
+    return _with_aliases(projects)
+
+
+def _with_aliases(projects: dict[str, Project]) -> dict[str, Project]:
+    from insitu.address import bare_alias_map, registry_root
+
+    root = registry_root()
+    if root is None:
+        return projects
+    aliases = bare_alias_map(root, set(projects))
+    if not aliases:
+        return projects
+    return ProjectMap(projects, aliases)
 
 
 def load_import_records(raw: dict[str, Any]) -> list[ImportRecord]:

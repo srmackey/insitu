@@ -82,15 +82,15 @@ A router tells the host that Insitu exists. It is not the project protocol. It a
 | Claude | `install/routers/claude.md` | `~/.claude/rules/insitu-router.md` |
 | Grok | `install/routers/grok.md` | `~/.grok/rules/insitu-router.md` |
 
-Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md`.
+Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent.
 
-Enable host adapters in the vault with `config/surfaces.yaml` (`grok`, `claude`, `cursor`). From an existing project checkout, call `materialize`. That writes `PROTOCOL.md` plus adapter files under `.grok/rules/`, `.claude/rules/`, and `.cursor/rules/`, and generated skill copies under `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/` for each mapped skill. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
+When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `enabled` in that file chooses the hosts, and each stored definition says where the adapter and the skills go. From an existing project checkout, call `materialize`. That writes `PROTOCOL.md`, one adapter for each definition it can apply, and skill copies into each project skill path that definition names. A missing environment file writes `AGENTS.md` (when Insitu may own that file) and does not invent host skill trees. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
 
 ## Working with an agent
 
 Once the server, vault, and router are in place, you talk to the agent in the project folder. Insitu keys the project off that folder's name.
 
-**First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. Constitutions and other host files this host loads are not that output; the router retrieves the multi-platform pack and writes those if they are missing. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change an article, skill, or the project map in the vault, then materialize again.
+**First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. With no `platforms.yaml`, the adapter is `AGENTS.md` when that file is missing or already stamped. `CLAUDE.md` is not that output. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change an article, skill, or the project map in the vault, then materialize again.
 
 **Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some articles are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use summary-first") instead of a path.
 
@@ -107,8 +107,11 @@ Forty-five tools. The list, the hint set on each one, and what it returns are in
 On initialize the server returns a short operating note: session start is `resolve_protocol` to inspect, and `materialize` writes the composed protocol. That note lives in the server. This page does not repeat it.
 
 Every mutating tool takes `working_folder`. A **bound** chair (the default) may
-write only the map whose key matches that folder's basename; an **admin** chair
-may name another.
+write only its own map. Outside an install that key is the folder's basename.
+When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address
+from that file, and a unique basename still resolves. An **admin** chair may
+name another key in its scope: any key for the top nexus, and its own address
+plus the addresses under it for any other admin.
 
 Articles, roles, and skills belong to no single map, so they are gated by reach
 instead: creating is always allowed, and editing or deleting one is refused once

@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import frontmatter
+import pytest
 import yaml
 
-from helpers import write_project, write_role, write_skill, write_article
+from helpers import write_article, write_platforms, write_project, write_role, write_skill
 
 from insitu.catalog import get_project, get_skill, list_skills, where_used_skill
 from insitu.materialize import materialize
@@ -157,14 +158,11 @@ def test_global_skills_not_inherited(vault: Path) -> None:
 
 
 def test_materialize_writes_skill_trees_stamp_after_frontmatter(
-    vault: Path, tmp_path: Path
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _close_books(vault)
     _seed_project(vault, skills=["close-books"])
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok", "claude"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok", "claude"])
     work = tmp_path / "river-ledger"
     work.mkdir()
     result = materialize(vault, work, project="river-ledger")
@@ -191,14 +189,11 @@ def test_materialize_writes_skill_trees_stamp_after_frontmatter(
 
 
 def test_materialize_orphan_cleanup_leaves_unstamped(
-    vault: Path, tmp_path: Path
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _close_books(vault)
     _seed_project(vault, skills=["close-books"])
-    (vault / "config" / "surfaces.yaml").write_text(
-        yaml.safe_dump({"surfaces": ["grok"]}),
-        encoding="utf-8",
-    )
+    write_platforms(monkeypatch, tmp_path, ["grok"])
     work = tmp_path / "river-ledger"
     work.mkdir()
     first = materialize(vault, work, project="river-ledger")
@@ -226,9 +221,10 @@ def test_materialize_skills_need_surfaces_warning(vault: Path, tmp_path: Path) -
     work.mkdir()
     result = materialize(vault, work, project="river-ledger")
     assert result["ok"] is True
-    assert "no_surfaces_configured" in result["warnings"]
-    assert "skills_need_surfaces" in result["warnings"]
+    assert result["platform_source"] == "default"
+    assert "skills_need_surfaces" not in result["warnings"]
     assert (work / "PROTOCOL.md").is_file()
+    assert (work / "AGENTS.md").is_file()
     assert not (work / ".grok").exists()
     assert result["skills"] == []
 

@@ -75,10 +75,13 @@ INSTRUCTIONS = """\
 Insitu stores reusable articles of standing guidance and project-mapped skills,
 and composes a project protocol.
 
-Project key is the working folder basename (projects/<folder>/). Session start is
-resolve_protocol for inspect; materialize writes PROTOCOL.md plus host adapters
-and mapped skill copies. Pull on-demand articles with get_article. list_articles
-shows the catalog and sizes. list_skills is the skill catalog, not session start.
+When INSITU_ROOT points at an install that has nexus.md, the project key is the
+address derived from that file: the nexus's own name, or nexus/node. On disk a
+slash is ~ (projects/nexus~node/). Outside that tree the key stays the working
+folder basename. Session start is resolve_protocol for inspect; materialize writes
+PROTOCOL.md plus host adapters and mapped skill copies. Pull on-demand articles
+with get_article. list_articles shows the catalog and sizes. list_skills is the
+skill catalog, not session start.
 """
 
 mcp = FastMCP("Insitu", instructions=INSTRUCTIONS)
