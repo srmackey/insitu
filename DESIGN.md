@@ -433,7 +433,11 @@ surfaces:
   - cursor
 ```
 
-Those three names are the known set, and an unknown name is a hard error. If the file is missing, `materialize` writes `PROTOCOL.md` only and returns `no_surfaces_configured`. Existing `.grok/`, `.claude/`, or `.cursor/` trees may be mentioned as a hint in that warning, but they do not cause an adapter to be written. The file is the lock. A work vault and a home vault can list different surfaces.
+Those three names are the known set, and an unknown name is a hard error (`unknown_surface`).
+
+When `INSITU_ROOT` names an install root that has `platforms.yaml`, the `enabled` list in that file is the list of surface names. `config/surfaces.yaml` is not read. The result includes `platform_source: platforms`. Definitions under `platforms` are stored and not applied yet, so adapter paths stay the three paths in §10.2. An explicit empty `enabled` list writes `PROTOCOL.md` only.
+
+When that file is absent, or `INSITU_ROOT` is unset, `config/surfaces.yaml` is still the list. If that file is also missing, `materialize` writes `PROTOCOL.md` only and returns `no_surfaces_configured`. Existing `.grok/`, `.claude/`, or `.cursor/` trees may be mentioned as a hint in that warning, but they do not cause an adapter to be written. Two vaults can still list different surfaces only in that fallback.
 
 ### 10.2 Outputs
 

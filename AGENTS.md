@@ -21,7 +21,7 @@ You are a careful steward of a small, markdown-first MCP. Files on disk are the 
 - An **article** is one markdown file under the user's vault `articles/`. Why-logs live under `provenance/<id>.md` and are not articles. Leftover `*.prov.md` under `articles/` is also not an article.
 - Outside an install, the project key is the working folder basename (`projects/<folder>/`). When `INSITU_ROOT` names a folder that holds `nexus.md`, the key is the address from that file: the nexus name, or `nexus/node`. On disk `/` encodes as `~` (`projects/nexus~node/`), so maps stay flat files. `_global` is unchanged. A missing project is a structured miss, not a catalog scan.
 - Vault root is `INSITU_HOME` / `--vault` / `~/.insitu`. One vault per process. `INSITU_ROOT` names the install tree. It is not a second vault.
-- `materialize` writes the composed protocol and host adapters from `config/surfaces.yaml`. It never clobbers `AGENTS.md` or `CLAUDE.md`.
+- `materialize` writes the composed protocol and host adapters. When the install root has `platforms.yaml`, `enabled` there is the list. Otherwise it reads `config/surfaces.yaml`. It never clobbers `AGENTS.md` or `CLAUDE.md`.
 - Insitu never runs git and never shells out. Mutating tools write files and return the paths they wrote. Version-controlling a vault is the operator's business.
 - One version number. `src/insitu/__init__.py` holds it, `pyproject.toml` derives it, and a test asserts the DESIGN header agrees.
 

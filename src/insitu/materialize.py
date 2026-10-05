@@ -7,7 +7,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from insitu.store import SKILL_PAYLOAD_DIRS, read_yaml, skill_payload_paths
+from insitu.store import SKILL_PAYLOAD_DIRS, VaultReadError, read_yaml, skill_payload_paths
 
 from insitu.address import derive_key, is_within, registry_root, resolve, load_tree
 from insitu.identity import InvalidIdentity, validate_project_key
@@ -278,6 +278,62 @@ def _read_surfaces(vault_root: Path) -> tuple[list[str] | None, dict | None]:
     return [str(name) for name in names], None
 
 
+def _platforms_invalid(path: Path) -> dict:
+    return {
+        "ok": False,
+        "error": "platforms_invalid",
+        "path": str(path),
+        "detail": "platforms.yaml needs an enabled list of platform names.",
+    }
+
+
+def _read_platforms_enabled() -> tuple[list[str] | None, dict | None]:
+    """The environment list, when the install root has platforms.yaml.
+
+    ``(None, None)`` means there is no environment file to read. A present
+    file with no usable ``enabled`` list is an error, not a fall-through
+    to the vault file.
+    """
+    reg = registry_root()
+    if reg is None:
+        return None, None
+    path = reg / "platforms.yaml"
+    if not path.is_file():
+        return None, None
+    try:
+        data = read_yaml(path)
+    except VaultReadError:
+        return None, _platforms_invalid(path)
+    if not isinstance(data, dict) or not isinstance(data.get("enabled"), list):
+        return None, _platforms_invalid(path)
+    names: list[str] = []
+    for name in data["enabled"]:
+        if not isinstance(name, str) or not name.strip():
+            return None, _platforms_invalid(path)
+        names.append(name)
+    return names, None
+
+
+def read_enabled_surfaces(
+    vault_root: Path,
+) -> tuple[list[str] | None, dict | None, str | None]:
+    """Surface names, an error result, and which file supplied the names.
+
+    The source is ``platforms`` when ``platforms.yaml`` supplied ``enabled``,
+    ``surfaces`` when the vault file did, and ``None`` when neither configures
+    a list. An empty ``enabled`` list is a real list.
+    """
+    names, err = _read_platforms_enabled()
+    if err is not None:
+        return None, err, None
+    if names is not None:
+        return names, None, "platforms"
+    surfaces, _err = _read_surfaces(vault_root)
+    if surfaces is None:
+        return None, None, None
+    return surfaces, None, "surfaces"
+
+
 def _render_protocol(vault_root: Path, resolved: dict) -> str:
     header = render_header(
         vault_root,
@@ -437,7 +493,9 @@ def materialize(
     if not resolved["ok"]:
         return resolved
 
-    surfaces, _err = _read_surfaces(vault.root)
+    surfaces, err, source = read_enabled_surfaces(vault.root)
+    if err is not None:
+        return err
     warnings: list[str] = []
     if surfaces is None:
         warnings.append("no_surfaces_configured")
@@ -495,6 +553,8 @@ def materialize(
         "skills_removed": skills_removed,
         "warnings": warnings,
     }
+    if source == "platforms":
+        result["platform_source"] = "platforms"
     if "no_surfaces_configured" in warnings:
         detected = [
             name

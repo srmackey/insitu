@@ -265,3 +265,98 @@ def test_a_mixed_case_folder_still_matches_its_lowercase_key(
 
     assert result["ok"] is True
     assert (work / "PROTOCOL.md").is_file()
+
+
+def _environment(tmp_path: Path, text: str | None) -> Path:
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "nexus.md").write_text("name: example\n", encoding="utf-8")
+    if text is not None:
+        (root / "platforms.yaml").write_text(text, encoding="utf-8")
+    return root
+
+
+def test_platforms_yaml_enabled_replaces_the_vault_list(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(vault)
+    (vault / "config" / "surfaces.yaml").write_text(
+        yaml.safe_dump({"surfaces": ["cursor"]}),
+        encoding="utf-8",
+    )
+    root = _environment(tmp_path, "enabled:\n  - grok\n")
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is True
+    assert result["platform_source"] == "platforms"
+    assert (work / ".grok" / "rules" / "insitu-protocol.md").is_file()
+    assert not (work / ".cursor").exists()
+    assert not (work / ".claude").exists()
+
+
+def test_an_empty_enabled_list_does_not_fall_through_to_surfaces(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(vault)
+    (vault / "config" / "surfaces.yaml").write_text(
+        yaml.safe_dump({"surfaces": ["cursor"]}),
+        encoding="utf-8",
+    )
+    root = _environment(tmp_path, "enabled: []\n")
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is True
+    assert result["platform_source"] == "platforms"
+    assert "no_surfaces_configured" not in result["warnings"]
+    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / ".cursor").exists()
+
+
+def test_a_bad_platforms_file_is_not_the_vault_list(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(vault)
+    (vault / "config" / "surfaces.yaml").write_text(
+        yaml.safe_dump({"surfaces": ["grok"]}),
+        encoding="utf-8",
+    )
+    root = _environment(tmp_path, "enabled: grok\n")
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is False
+    assert result["error"] == "platforms_invalid"
+    assert not (work / "PROTOCOL.md").exists()
+    assert not (work / ".grok").exists()
+
+
+def test_a_missing_platforms_file_still_reads_surfaces(
+    vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(vault)
+    (vault / "config" / "surfaces.yaml").write_text(
+        yaml.safe_dump({"surfaces": ["grok"]}),
+        encoding="utf-8",
+    )
+    root = _environment(tmp_path, None)
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+
+    result = materialize(vault, work, project="river-ledger")
+
+    assert result["ok"] is True
+    assert "platform_source" not in result
+    assert (work / ".grok" / "rules" / "insitu-protocol.md").is_file()
+    assert not (work / ".claude").exists()

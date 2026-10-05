@@ -12,6 +12,10 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 - Security policy: how to report a vulnerability, and what the local process can touch.
 - The tool list, with the hint set on each tool, lives in `docs/tools.md`. The README states the trust boundary and how to launch the server.
 
+### Changed
+
+- **`materialize` reads `enabled` from `platforms.yaml` when that file sits next to `nexus.md`.** `INSITU_ROOT` is the install root. In that case `config/surfaces.yaml` is not read, and the result includes `platform_source: platforms`. A name outside `grok`, `claude`, and `cursor` is still `unknown_surface`. Adapter paths are unchanged. When the environment file is absent, `config/surfaces.yaml` is still the list.
+
 ## [0.24.3] - 2026-09-17
 
 ### Fixed
