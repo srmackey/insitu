@@ -24,7 +24,7 @@ Size reports on articles and on the composed protocol tell you when to trim. Ski
 - A **role** is a named, ordered pack of articles and skills a project can include as a unit.
 - A **project map** selects articles as core (always loaded) or on-demand (pulled when the work needs them), plus imported packs and mapped skills.
 - A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
-- A **skill** is a procedure the host discovers as `/name`. `materialize` copies composed skills into `.grok/skills/`, `.claude/skills/`, and `.cursor/skills/`.
+- A **skill** is a procedure the host discovers as `/name`. `materialize` copies composed skills into the project skill directory each enabled host names in `platforms.yaml`. With no environment file, no skill directory is created.
 - A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_article` pull it and write this map. A single-article install may land in `core` or `on_demand`.
 
 ## Install
@@ -73,7 +73,7 @@ When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `ena
 
 ## Working with an agent
 
-Once the server, vault, and router are in place, you talk to the agent in the project folder. Insitu keys the project off that folder's name.
+Once the server, vault, and router are in place, you talk to the agent in the project folder. Outside an install, Insitu keys the project off that folder's name. When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address from that file.
 
 **First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. With no `platforms.yaml`, the adapter is `AGENTS.md` when that file is missing or already stamped. `CLAUDE.md` is not that output. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change an article, skill, or the project map in the vault, then materialize again.
 

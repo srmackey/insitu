@@ -9,7 +9,7 @@ The other three hints are one of four sets:
 | Read | true | false | true |
 | Create | false | false | false |
 | Write | false | false | true |
-| Delete | false | false | true |
+| Delete | false | true | true |
 
 Create refuses when the object already exists, so a repeat is not a no-op. Delete previews first and removes the object only when `confirm` is true. Write repeats with the same arguments leave the files as they are.
 

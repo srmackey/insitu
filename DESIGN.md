@@ -100,17 +100,11 @@ vault/
 
 ```text
 <working-folder>/
-├── AGENTS.md                     # default surface, when platforms.yaml is absent
 ├── PROTOCOL.md                   # portable canon (always written)
-├── .grok/rules/insitu-protocol.md
-├── .grok/skills/<id>/            # generated copies
-├── .claude/rules/insitu-protocol.md
-├── .claude/skills/<id>/
-├── .cursor/rules/insitu-protocol.mdc
-└── .cursor/skills/<id>/
+└── AGENTS.md                     # default surface, only when platforms.yaml is absent and the file is missing or already stamped
 ```
 
-Which adapters are written is `platforms.yaml` beside `nexus.md`, not a vault file (§10). Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
+Any other adapter or skill copy is a path in `platforms.yaml` beside `nexus.md` (§10). There is no fixed set of host folders. Install assets (routers, MCP config examples) ship with the **server**, not inside each user's vault (§11).
 
 Folders under `articles/` are a human convention. They are not a type system and do not change load behavior. **Roles** are a type system: they change composition. Do not treat an article folder as a role.
 
