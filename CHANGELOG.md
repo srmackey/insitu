@@ -6,6 +6,14 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-08
+
+### Changed
+
+- The tool list marks delete tools destructive. A repeat still removes the object only after confirm.
+- Skill copies follow the project skill path in `platforms.yaml`. The README and DESIGN no longer show three host folders as the files `materialize` always writes. With no environment file, no skill directory is created.
+- The working-with-an-agent section states the project key the same way as the tool section: the folder name, or the address from `nexus.md` when `INSITU_ROOT` is set.
+
 ## [0.25.0] - 2026-10-08
 
 ### Added
