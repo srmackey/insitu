@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.24**
+**Version 0.25**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
