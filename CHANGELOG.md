@@ -6,9 +6,16 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-21
+
+### Added
+
+- `insitu-core` 0.7.1 adds `methodology/product-provisions`. The pack stays a theme, so a chair takes that member on its own.
+
 ### Changed
 
 - The public contract lives under `provisions/` (`articles/`, `skills/`). `provisions/pack.yaml` points at those files. The shelf copy is unchanged.
+- A chair that includes `_global` receives that map's imported core articles, after its roles and before its own core. On-demand imports and skills on `_global` stay on that map.
 
 ## [0.25.1] - 2026-10-08
 

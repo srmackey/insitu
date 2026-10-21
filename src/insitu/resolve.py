@@ -71,14 +71,32 @@ def expand_role_field(
     return first_wins(*groups)
 
 
-def composed_global_core(vault: Vault) -> list[str] | dict:
+def composed_global_segments(
+    vault: Vault,
+) -> tuple[list[str], list[tuple[str, PackVersion]], list[str]] | dict:
+    """Injection order for `_global`: role core, imported core, native core.
+
+    Import on-demand and skills stay on `_global`. A chair receives the core
+    members only, and only when it includes global.
+    """
     if GLOBAL_PROJECT not in vault.projects:
-        return []
+        return [], [], []
     global_proj = vault.projects[GLOBAL_PROJECT]
     expanded = expand_role_field(vault, global_proj.roles, "core")
     if isinstance(expanded, dict):
         return expanded
-    return first_wins(expanded, global_proj.core)
+    imported = expand_import_field(vault, global_proj.imports, "core")
+    if isinstance(imported, dict):
+        return imported
+    return expanded, imported, list(global_proj.core)
+
+
+def composed_global_core(vault: Vault) -> list[str] | dict:
+    segments = composed_global_segments(vault)
+    if isinstance(segments, dict):
+        return segments
+    roles, imported, native = segments
+    return first_wins(roles, [article_id for article_id, _pack in imported], native)
 
 
 def _identity_error(value: str, exc: InvalidIdentity) -> dict:
@@ -410,12 +428,14 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         vault = load_vault(vault.root)
         proj = vault.projects[key]
     include_global = False if key == GLOBAL_PROJECT else proj.include_global
-    global_core: list[str] = []
+    global_roles: list[str] = []
+    global_imports: list[tuple[str, PackVersion]] = []
+    global_native: list[str] = []
     if include_global:
-        composed = composed_global_core(vault)
-        if isinstance(composed, dict):
-            return composed
-        global_core = composed
+        segments = composed_global_segments(vault)
+        if isinstance(segments, dict):
+            return segments
+        global_roles, global_imports, global_native = segments
 
     # Imposed sets run broadest to narrowest, and both run ahead of anything
     # the map chose. `_global` is the universal imposition and can be opted
@@ -461,8 +481,24 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
 
     core_items: list[dict] = []
     seen_core: set[str] = set()
-    for raw_id in first_wins(global_core, obligation_core, role_core):
-        if _drop(raw_id, "core"):
+    for raw_id in global_roles:
+        if raw_id in seen_core or _drop(raw_id, "core"):
+            continue
+        found = _lookup_article(vault, raw_id)
+        if isinstance(found, dict):
+            return found
+        core_items.append(_core_item(found))
+        seen_core.add(found.id)
+    for raw_id, pack in global_imports:
+        if raw_id in seen_core or _drop(raw_id, "core"):
+            continue
+        found = _lookup_article(vault, raw_id, pack=pack)
+        if isinstance(found, dict):
+            return found
+        core_items.append(_core_item(found))
+        seen_core.add(found.id)
+    for raw_id in first_wins(global_native, obligation_core, role_core):
+        if raw_id in seen_core or _drop(raw_id, "core"):
             continue
         found = _lookup_article(vault, raw_id)
         if isinstance(found, dict):
@@ -529,6 +565,16 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
     skills_size = total_size([skill.content for skill in composed_skills])
     skills_size["count"] = skills_size.pop("article_count")
 
+    notices = import_notices(vault, proj.imports)
+    if include_global and GLOBAL_PROJECT in vault.projects:
+        seen_pins = {(item["pack"], item["pinned"]) for item in notices}
+        for item in import_notices(vault, vault.projects[GLOBAL_PROJECT].imports):
+            pin = (item["pack"], item["pinned"])
+            if pin in seen_pins:
+                continue
+            notices.append(item)
+            seen_pins.add(pin)
+
     result = {
         "ok": True,
         "project": key,
@@ -540,7 +586,7 @@ def resolve_protocol(vault_or_root: Vault | Path | str, project: str) -> dict:
         "on_demand": on_demand_items,
         "skills": skill_items,
         "skills_size": skills_size,
-        "newer_available": import_notices(vault, proj.imports),
+        "newer_available": notices,
     }
     # Warn, never refuse. A write is refused where someone chose it; by the time
     # a conflict reaches resolution it may have arrived from an upstream pack on

@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.25**
+**Version 0.26**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -335,7 +335,7 @@ updated: 2026-08-16
 ## 8. Resolution
 
 ```
-global_composed = expand(_global.roles).core + _global.core       # if _global exists
+global_composed = expand(_global.roles).core + expand(_global.imports).core + _global.core
 imposed         = obligations of every class this chair holds      # §6.3
 
 protocol.core =
@@ -357,7 +357,7 @@ protocol.on_demand =
 
 Imposed sets run broadest to narrowest, and both run ahead of anything the map chose. `_global` is the universal imposition and can be opted out of; a class obligation is narrower and cannot, so it sits after `_global` and before the first thing this project asked for.
 
-`expand(roles)` walks the project's `roles:` list in order and concatenates each role's `core` (or `on_demand`). `include_global` injects `_global`'s **composed** core, roles already expanded, not the raw `_global.core` list. `_global.on_demand` is never pulled into another project.
+`expand(roles)` walks the project's `roles:` list in order and concatenates each role's `core` (or `on_demand`). `include_global` injects `_global`'s composed core: its roles expanded, then its imported core articles, then its own core list. `_global.on_demand` is never pulled into another project. An import's `on_demand` list and any skills on `_global` stay on that map.
 
 - **Order is preserved**, and order is injection order. Where guidance conflicts, later entries refine earlier ones: project articles take precedence over roles and imports, and roles over `_global`.
 - **Duplicates:** the first occurrence wins and later ones are dropped. `validate` reports them; `fix=true` removes them from map-local copies only.

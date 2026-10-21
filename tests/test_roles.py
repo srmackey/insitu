@@ -412,3 +412,114 @@ def test_get_project_exposes_roles(vault: Path) -> None:
     assert result["ok"] is True
     assert result["roles"] == ["clerk"]
     assert "CLERK-CORE-BODY" not in str(result)
+
+
+def _shelf_article(vault: Path, pack: str, version: str, article_id: str, body: str) -> None:
+    root = vault / "library" / pack / version
+    rel = Path(*article_id.split("/")).with_suffix(".md")
+    path = root / "articles" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "---\n"
+        f"id: {article_id}\n"
+        "title: Shelf\n"
+        "description: Shelf article\n"
+        "---\n\n"
+        f"{body}\n",
+        encoding="utf-8",
+    )
+    manifest = root / "pack.yaml"
+    if not manifest.exists():
+        manifest.write_text(
+            f"id: {pack}\nname: Shelf\nkind: theme\nversion: {version}\n"
+            f"articles:\n  - {article_id}\n",
+            encoding="utf-8",
+        )
+
+
+def test_global_import_enters_a_chair_between_roles_and_core(vault: Path) -> None:
+    _seed_composed(vault)
+    _shelf_article(vault, "shelf-kit", "0.1.0", "methodology/dock-rule", "DOCK-BODY")
+    _shelf_article(vault, "shelf-kit", "0.2.0", "methodology/dock-rule", "DOCK-NEWER")
+    write_project(
+        vault,
+        "_global",
+        roles=["voice"],
+        core=["interaction/summary-first"],
+        imports=[
+            {
+                "pack": "shelf-kit",
+                "version": "0.1.0",
+                "articles": ["methodology/dock-rule"],
+                "on_demand": ["methodology/dock-rule"],
+                "skills": ["close-hatch"],
+            }
+        ],
+    )
+    write_project(
+        vault,
+        "harbor-notes",
+        core=["interaction/how-i-work-with-ai"],
+        include_global=True,
+    )
+    result = resolve_protocol(vault, "harbor-notes")
+    assert result["ok"] is True
+    assert [item["id"] for item in result["core"]] == [
+        "interaction/voice",
+        "methodology/dock-rule",
+        "interaction/summary-first",
+        "interaction/how-i-work-with-ai",
+    ]
+    dock = next(item for item in result["core"] if item["id"] == "methodology/dock-rule")
+    assert "DOCK-BODY" in dock["content"]
+    assert [item["id"] for item in result["on_demand"]] == []
+    assert result["skills"] == []
+    assert result["newer_available"] == [
+        {"pack": "shelf-kit", "pinned": "0.1.0", "newer": "0.2.0"}
+    ]
+
+
+def test_include_global_false_skips_a_global_import(vault: Path) -> None:
+    _shelf_article(vault, "shelf-kit", "0.1.0", "methodology/dock-rule", "DOCK-BODY")
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
+    write_project(
+        vault,
+        "_global",
+        imports=[
+            {
+                "pack": "shelf-kit",
+                "version": "0.1.0",
+                "articles": ["methodology/dock-rule"],
+            }
+        ],
+    )
+    write_project(
+        vault,
+        "harbor-notes",
+        core=["interaction/how-i-work-with-ai"],
+        include_global=False,
+    )
+    result = resolve_protocol(vault, "harbor-notes")
+    assert result["ok"] is True
+    assert [item["id"] for item in result["core"]] == ["interaction/how-i-work-with-ai"]
+    assert result["newer_available"] == []
+
+
+def test_broken_global_import_fails_the_chair(vault: Path) -> None:
+    write_article(vault, "interaction/how-i-work-with-ai", "P")
+    write_project(
+        vault,
+        "_global",
+        imports=[
+            {
+                "pack": "missing-kit",
+                "version": "0.1.0",
+                "articles": ["methodology/dock-rule"],
+            }
+        ],
+    )
+    write_project(vault, "harbor-notes", core=["interaction/how-i-work-with-ai"])
+    result = resolve_protocol(vault, "harbor-notes")
+    assert result["ok"] is False
+    assert result["error"] == "broken_pin"
+    assert result["pack"] == "missing-kit"
