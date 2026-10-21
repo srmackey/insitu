@@ -6,6 +6,10 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+### Changed
+
+- The public contract lives under `provisions/` (`articles/`, `skills/`). `provisions/pack.yaml` points at those files. The shelf copy is unchanged.
+
 ## [0.25.1] - 2026-10-08
 
 ### Changed
