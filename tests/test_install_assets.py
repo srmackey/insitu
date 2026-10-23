@@ -69,7 +69,7 @@ def test_routers_two_layer_bootstrap() -> None:
         assert host_id in text
         assert "never writes" in text
         assert "AGENTS.md" in text
-        assert "pack is not installed" in text
+        assert "not installed; say so" in text
         assert "Do not put pack bodies" in text
 
 

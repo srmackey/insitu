@@ -144,7 +144,7 @@ core:                             # ordered; always injected
 on_demand:                        # associated but not auto-injected
   - knowledge/deep-domain-x
 imports:                          # optional; capability / article installs
-  - pack: system-development
+  - pack: domainprime
     version: 0.1.0                # or latest; omit members = whole capability
   # - pack: voices
   #   version: 1.1
@@ -485,7 +485,7 @@ Two artifacts, different jobs. Do not mix them.
 | **Router** | Insitu exists; the generated protocol is binding; `get_article` for on-demand; rematerialize when the header is stale | User-global, every project on this machine | Installed once from `install/routers/` |
 | **Protocol pack** | The composed `core` text for *this* project | The working folder | `materialize` |
 
-The router is small and almost never changes, and it does not contain the knowledge. The protocol pack is the composed core. A global protocol pack would put the wrong "who I am here" into the wrong tree. Other host files — constitutions, skill trees, this-node bits — are not `materialize` output; when they are missing, the router tells the agent to retrieve them from the multi-platform pack rather than inventing them.
+The router is small and almost never changes, and it does not contain the knowledge. The protocol pack is the composed core. A global protocol pack would put the wrong "who I am here" into the wrong tree. Other host files — constitutions, skill trees, this-node bits — are not `materialize` output; when they are missing, the router tells the agent to retrieve them from the host articles rather than inventing them.
 
 ### 11.1 Routers
 
