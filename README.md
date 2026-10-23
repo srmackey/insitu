@@ -1,10 +1,43 @@
 # Insitu
 
-Insitu gives an AI client a vault of reusable guidance and composes the right piece for the project it is sitting in.
+Insitu keeps your AI instructions and skills in one vault, and every project subscribes to exactly the set it needs, so guidance stops drifting between projects.
 
-Not a wiki, not a bulletin, and not a model of a codebase. It does not run git and it does not use the network.
+## The problem
+
+You already have directions for how an agent should work with you. The pain is reuse. The same guidance needs to show up in more than one place, but not the same set every time. Copies drift. A new repo starts without the ones you meant to bring. You notice after the agent has already gone the wrong way.
+
+## What you get
+
+- **Write it once.** Each piece of guidance is one markdown file in one vault. Fix it there and every project that uses it gets the fix.
+- **A deliberate set per project.** Each project picks its own mix: always-loaded guidance, guidance pulled only when the work needs it, bundled roles, and `/name` skills. Not a paste of everything.
+- **Every AI client, its own format.** Insitu writes the project's set into the files each client already loads. Name the clients you use once, and every project adapts to each.
+- **Guardrails on shared rules.** A rule that other projects depend on can't be quietly edited from inside one project.
+- **A size check.** Reports tell you when a project's loaded guidance has grown heavier than it should be.
+
+## A day with it
+
+This walks through the sample vault that ships in [`examples/vault`](examples/vault), with two made-up repos, `harbor-notes` and `river-ledger`.
+
+Each repo carries a different set from the same vault. `summary-first`, how the agent reports back, is global guidance: `river-ledger` takes it, `harbor-notes` opts out. `small-diffs` is always loaded in `harbor-notes` but only on demand in `river-ledger`. `river-ledger` also wears the `clerk` role for its bookkeeping guidance and maps a `/close-books` skill that `harbor-notes` never sees.
+
+In the morning you ask the agent in `river-ledger` to materialize. Insitu writes the composed set into the files your AI client loads, and copies `/close-books` into that client's skill folder. Switch clients after lunch and the same set is waiting there, in that client's format.
+
+Late in the day you decide `small-diffs` should be stricter. You edit the one article in the vault, and each repo that carries it picks up the change the next time it materializes. With operators set up, an attempt to make that edit from inside `harbor-notes` is refused, because `river-ledger` composes the article too.
+
+## Part of Domain Prime
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/domain-prime-dark.svg">
+  <img alt="Where Insitu sits in the Domain Prime tree: every chair can subscribe to its own set." src="docs/domain-prime-light.svg" width="760">
+</picture>
+
+Insitu is one of four engines in [Domain Prime](https://github.com/srmackey/domainprime), a local-first system for running many AI projects as a tree. Every chair in the tree, the top included, can subscribe to its own set of instructions from one shared vault. It also runs on its own: point it at any folder and it works without the rest. Terms like chair and nexus are defined in the [glossary](https://github.com/srmackey/domainprime/blob/main/docs/glossary.md).
+
+## How it works
 
 Insitu is a portable MCP server. One vault holds the reusable pieces of how an agent should work with you. A project map names which of those pieces apply in this folder. The server composes them into a protocol and writes that core into files the host already loads.
+
+It is not a wiki, not a bulletin, and not a model of a codebase. It does not run git and it does not use the network.
 
 The vault holds five kinds of thing:
 
@@ -12,13 +45,9 @@ The vault holds five kinds of thing:
 - **Roles.** Named packs of articles and skills a kind of project includes as a unit (`node`, `repo`, and the like).
 - **Projects.** A map per working folder: core articles, on-demand articles, imported packs, and skills.
 - **Skills.** Procedures the host should expose as `/name`. Carried by a role or mapped on the project. Copied into host skill directories on `materialize`. Not concatenated into the protocol.
-- **Packs.** Versioned capabilities authored outside the vault (system-development, multi-platform, and the like). Installed onto a shelf, then imported by a project.
+- **Packs.** Versioned capabilities authored outside the vault. Each Domain Prime product ships one as its public contract (insitu-core, envoy, context-forge, brain-forge). Installed onto a shelf, then imported by a project.
 
-You already have directions for how an agent should work with you. The pain is reuse. The same guidance needs to show up in more than one place, but not the same set every time. Copies drift. A new repo starts without the ones you meant to bring. You notice after the agent has already gone the wrong way.
-
-Size reports on articles and on the composed protocol tell you when to trim. Skills have their own size summary. They do not go into the protocol token count.
-
-## How it works
+How they fit together:
 
 - An **article** is one markdown file of standing guidance.
 - A **role** is a named, ordered pack of articles and skills a project can include as a unit.
@@ -26,6 +55,8 @@ Size reports on articles and on the composed protocol tell you when to trim. Ski
 - A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
 - A **skill** is a procedure the host discovers as `/name`. `materialize` copies composed skills into the project skill directory each enabled host names in `platforms.yaml`. With no environment file, no skill directory is created.
 - A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_article` pull it and write this map. A single-article install may land in `core` or `on_demand`.
+
+Size reports on articles and on the composed protocol tell you when to trim. Skills have their own size summary. They do not go into the protocol token count.
 
 ## Install
 

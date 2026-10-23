@@ -45,8 +45,12 @@ if [ -f "$deny" ]; then
   while IFS= read -r term; do
     [ -z "$term" ] && continue
     case "$term" in \#*) continue ;; esac
-    if printf '%s\n' "$added" | grep -qiF -- "$term"; then
-      bad "staged content contains a denylisted term (line $(printf '%s\n' "$added" | grep -niF -- "$term" | head -1 | cut -d: -f1) of the staged additions)"
+    # Whole-token match. A substring check lets a short slug fire inside
+    # ordinary English (the letters of ignored contain a three-letter token).
+    escaped=$(printf '%s' "$term" | sed 's/[][\\.^$*+?(){}|]/\\&/g')
+    pattern="(^|[^A-Za-z0-9])${escaped}([^A-Za-z0-9]|$)"
+    if printf '%s\n' "$added" | grep -qiE -- "$pattern"; then
+      bad "staged content contains a denylisted term (line $(printf '%s\n' "$added" | grep -niE -- "$pattern" | head -1 | cut -d: -f1) of the staged additions)"
     fi
   done < "$deny"
 else

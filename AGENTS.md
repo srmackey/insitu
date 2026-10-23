@@ -30,7 +30,8 @@ You are a careful steward of a small, markdown-first MCP. Files on disk are the 
 This repo ships no real personal data. A vault holds someone's standing guidance, so treat vault contents as private by default.
 
 - Docs, comments, examples, and tests use fictional vault vocabulary. `examples/vault/` is a fictional example vault, and it is the only one that ships.
-- Do not commit a real vault's contents, filesystem paths, or project names.
+- Do not commit a real vault's contents, filesystem paths, or the names of a real install's projects.
+- Insitu is part of Domain Prime. Naming and linking the other Domain Prime repos (domainprime, envoy, context-forge, brain-forge) is fine. Names from a real install that runs them are not.
 
 ## Layout
 
