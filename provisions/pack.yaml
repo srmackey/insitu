@@ -1,7 +1,7 @@
 id: insitu-core
 name: Insitu core
 kind: theme
-version: 0.7.1
+version: 0.7.2
 articles:
   - id: methodology/insitu-orientation
     path: provisions/articles/methodology/insitu-orientation.md
@@ -14,3 +14,5 @@ articles:
 skills:
   - id: protocol-audit
     path: provisions/skills/protocol-audit/SKILL.md
+  - id: tree-card
+    path: provisions/skills/tree-card/SKILL.md
