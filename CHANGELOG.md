@@ -6,6 +6,10 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+### Added
+
+- `insitu-core` 0.7.2 adds the skill `tree-card`. It writes a nested markdown list of the vault's subscriptions. The project keys are the tree, and each chair's articles and skills nest under that chair. The pack stays a theme, so a chair takes the skill on its own.
+
 ## [0.26.0] - 2026-10-21
 
 ### Added
