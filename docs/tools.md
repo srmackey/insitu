@@ -46,7 +46,7 @@ Create refuses when the object already exists, so a repeat is not a no-op. Delet
 | `update_project` | Write | Incrementally update a project map. Attach/detach role writes immediately and reports members, weight, and affects_projects. |
 | `grant` | Write | Admin only: set the classes a project holds. One name or a list; the set replaces what was there. Rights are the union. |
 | `revoke` | Write | Admin only: drop a project back to the default class. Cannot revoke the last admin. |
-| `materialize` | Write | Write PROTOCOL.md and configured host adapters into an existing checkout. The folder must already exist. A missing path is working_folder_missing. materialize does not create checkouts. |
+| `materialize` | Write | Write PROTOCOL.md and configured host adapters into an existing checkout. The folder must already exist. A missing path is working_folder_missing. materialize does not create checkouts. When the Claude adapter is written for a map that has a role, inside an install, also merge claudeMdExcludes into .claude/settings.local.json. A map with no role is skipped. |
 | `install_capability` | Write | This project uses the whole pack at version or latest. Pull onto the shelf if needed. Refused on a conflict with what this project composes, or between the pack's own members. |
 | `install_article` | Write | This project uses one article from a pack version. Pull onto the shelf if needed. target is core or on_demand. |
 | `uninstall_capability` | Write | Drop this map's whole-capability record. Shelf unchanged. |

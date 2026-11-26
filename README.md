@@ -98,7 +98,7 @@ env:
   INSITU_HOME: /path/to/your/vault
 ```
 
-A router tells the host that Insitu exists. It is not the project protocol. The install pass places it from `install/routers/`. Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent.
+A router tells the host that Insitu exists. It is not the project protocol. The install pass places it from `install/routers/`. Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent. For a map that has a role, inside an install, it also merges `claudeMdExcludes` into `.claude/settings.local.json` so a Claude session keeps this chair's rules and drops ancestor rule files. A map with no role does not get that list.
 
 When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `enabled` in that file chooses the hosts, and each stored definition says where the adapter and the skills go. From an existing project checkout, call `materialize`. That writes `PROTOCOL.md`, one adapter for each definition it can apply, and skill copies into each project skill path that definition names. A missing environment file writes `AGENTS.md` (when Insitu may own that file) and does not invent host skill trees. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
 

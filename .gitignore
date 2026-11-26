@@ -11,3 +11,16 @@ build/
 .vscode/
 uv.lock
 PROTOCOL.md
+project.yaml
+
+# Skill copies stay ignored. Grok still loads them.
+# Rules stay visible. Grok skips a gitignored file when it loads rules.
+.claude/*
+!.claude/rules/
+!.claude/rules/**
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+.grok/*
+!.grok/rules/
+!.grok/rules/**

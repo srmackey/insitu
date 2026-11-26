@@ -10,6 +10,7 @@ from pathlib import Path
 from insitu.store import SKILL_PAYLOAD_DIRS, VaultReadError, read_yaml, skill_payload_paths
 
 from insitu.address import derive_key, is_within, registry_root, resolve, load_tree
+from insitu.claude_excludes import merge_excludes, rule_globs
 from insitu.identity import InvalidIdentity, validate_project_key
 from insitu.models import Skill, Vault
 from insitu.resolve import iter_composed_skills, resolve_protocol
@@ -679,6 +680,11 @@ def materialize(
     ):
         warnings.append("skills_need_surfaces")
 
+    exclude_fields, exclude_warnings = _claude_excludes(
+        vault, key, work, plan, inside=inside
+    )
+    warnings.extend(exclude_warnings)
+
     result: dict = {
         "ok": True,
         "project": key,
@@ -694,4 +700,36 @@ def materialize(
         result["unchanged"] = unchanged
     if plan.source == "default":
         result["platform"] = AGENTS_PLATFORM
+    result.update(exclude_fields)
     return result
+
+
+def _writes_claude(plan: PlatformPlan) -> bool:
+    return any(platform == "claude" for platform, *_rest in plan.writes)
+
+
+def _claude_excludes(vault, key: str, work: Path, plan: PlatformPlan, *, inside: bool):
+    """Merge ancestor rule excludes when this chair has its own protocol.
+
+    A map with no role is skipped: that chair still loads an ancestor protocol,
+    and an exclude would drop it. The install root has no ancestor inside the
+    tree, so it is skipped too. Shims are not in the list.
+    """
+    if not inside or not _writes_claude(plan):
+        return {}, []
+    project = vault.projects.get(key)
+    if project is None or not project.roles:
+        return {"claude_excludes_skipped": "no_role"}, []
+    reg = registry_root()
+    if reg is None:
+        return {}, []
+    globs = rule_globs(work, reg)
+    if not globs:
+        return {"claude_excludes_skipped": "no_ancestor"}, []
+    path, error = merge_excludes(work, globs)
+    if error:
+        return {}, [error]
+    if path is None:
+        return {}, []
+    return {"claude_excludes": str(path)}, []
+
