@@ -111,7 +111,8 @@ def test_materialize_reads_the_encoded_project_dir(
 
     result = materialize(vault, work)
     assert result["ok"] is True
-    assert (work / "PROTOCOL.md").is_file()
+    assert (work / "AGENTS.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
     assert (vault / "projects" / "pier~skiff" / "map.yaml").is_file()
     assert not (vault / "projects" / "pier" / "skiff").exists()
 

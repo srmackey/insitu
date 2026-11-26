@@ -41,7 +41,7 @@ def test_the_index_names_the_article_its_cost_and_when_to_pull(
     work = _work(tmp_path, monkeypatch)
     assert materialize(vault, work, project="river-ledger")["ok"] is True
 
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert "# On demand" in protocol
     assert "`methodology/river-survey`" in protocol
     # The description is the trigger surface: without it the id says nothing
@@ -75,7 +75,7 @@ def test_the_index_sits_between_the_header_and_the_doctrine(
     _seed(vault)
     work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert protocol.index("-->") < protocol.index("# On demand") < protocol.index("CORE-BODY")
 
 
@@ -86,7 +86,7 @@ def test_a_chair_with_nothing_on_demand_gets_no_heading(
     write_project(vault, "river-ledger", core=["interaction/summary-first"])
     work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert "On demand" not in protocol
     # An empty section would be weight for nothing, and the header still ends
     # where the doctrine begins.
@@ -102,7 +102,7 @@ def test_a_chair_with_no_core_still_gets_its_index(
     write_project(vault, "river-ledger", on_demand=["methodology/river-survey"])
     work = _work(tmp_path, monkeypatch)
     materialize(vault, work, project="river-ledger")
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert "# On demand" in protocol
     assert protocol.endswith("\n")
 

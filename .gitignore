@@ -10,7 +10,6 @@ build/
 .ruff_cache/
 .vscode/
 uv.lock
-PROTOCOL.md
 project.yaml
 
 # Skill copies stay ignored. Grok still loads them.

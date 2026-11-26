@@ -52,7 +52,7 @@ How they fit together:
 - An **article** is one markdown file of standing guidance.
 - A **role** is a named, ordered pack of articles and skills a project can include as a unit.
 - A **project map** selects articles as core (always loaded) or on-demand (pulled when the work needs them), plus imported packs and mapped skills.
-- A **protocol** is composed, never a catalog row. `materialize` writes `PROTOCOL.md` plus host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
+- A **protocol** is composed, never a catalog row. `materialize` writes it into the host adapters so the core is in the session. `resolve_protocol` inspects the same composition.
 - A **skill** is a procedure the host discovers as `/name`. `materialize` copies composed skills into the project skill directory each enabled host names in `platforms.yaml`. With no environment file, no skill directory is created.
 - A **pack** is a versioned bundle on the vault shelf (`library/<id>/<version>/`). `install_capability` / `install_article` pull it and write this map. A single-article install may land in `core` or `on_demand`.
 
@@ -100,13 +100,13 @@ env:
 
 A router tells the host that Insitu exists. It is not the project protocol. The install pass places it from `install/routers/`. Optional: paste `install/AGENTS.md` into a constitution file by hand. `materialize` never writes `CLAUDE.md` or `CLAUDE.local.md`. It writes the project `AGENTS.md` only when that file is missing or already carries the Insitu stamp, which is what a checkout gets when `platforms.yaml` is absent. For a map that has a role, inside an install, it also merges `claudeMdExcludes` into `.claude/settings.local.json` so a Claude session keeps this chair's rules and drops ancestor rule files. A map with no role does not get that list.
 
-When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `enabled` in that file chooses the hosts, and each stored definition says where the adapter and the skills go. From an existing project checkout, call `materialize`. That writes `PROTOCOL.md`, one adapter for each definition it can apply, and skill copies into each project skill path that definition names. A missing environment file writes `AGENTS.md` (when Insitu may own that file) and does not invent host skill trees. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
+When `INSITU_ROOT` points at a folder with `nexus.md` and `platforms.yaml`, `enabled` in that file chooses the hosts, and each stored definition says where the adapter and the skills go. From an existing project checkout, call `materialize`. That writes one adapter for each definition it can apply, and skill copies into each project skill path that definition names. A missing environment file writes `AGENTS.md` (when Insitu may own that file) and does not invent host skill trees. If the folder is missing, the call is refused (`working_folder_missing`); it does not create one.
 
 ## Working with an agent
 
 Once the server, vault, and router are in place, you talk to the agent in the project folder. Outside an install, Insitu keys the project off that folder's name. When `INSITU_ROOT` points at a folder with `nexus.md`, the key is the address from that file.
 
-**First time in a checkout.** Ask the agent to materialize this project's protocol. That writes `PROTOCOL.md`, the host adapter files, and mapped skill copies. With no `platforms.yaml`, the adapter is `AGENTS.md` when that file is missing or already stamped. `CLAUDE.md` is not that output. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change an article, skill, or the project map in the vault, then materialize again.
+**First time in a checkout.** Ask the agent to materialize this project's protocol. That writes the host adapter files and mapped skill copies. With no `platforms.yaml`, the adapter is `AGENTS.md` when that file is missing or already stamped. `CLAUDE.md` is not that output. Later sessions load the core on their own. Do not edit the generated protocol or skill files. Change an article, skill, or the project map in the vault, then materialize again.
 
 **Day to day.** The core is already in the session. Treat it as binding. Mapped skills are already in the host skill directories; treat `/name` as binding. Some articles are only *on-demand*: listed, not loaded. When the work needs one, ask the agent to pull it. You can name the guidance ("use summary-first") instead of a path.
 

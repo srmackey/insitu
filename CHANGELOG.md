@@ -11,6 +11,10 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 - `materialize` merges `claudeMdExcludes` into `.claude/settings.local.json` when it writes the Claude adapter for a map that has a role and the checkout is inside the install. The list names ancestor `.claude/rules` directories. A map with no role is skipped. Other keys in the settings file stay. `CLAUDE.md` is still never written.
 - `insitu-core` 0.7.2 adds the skill `tree-card`. It writes a nested markdown list of the vault's subscriptions. The project keys are the tree, and each chair's articles and skills nest under that chair. The pack stays a theme, so a chair takes the skill on its own.
 
+### Removed
+
+- `materialize` no longer writes `PROTOCOL.md`. The composed protocol goes straight into the host adapters. A leftover `PROTOCOL.md` is removed (`protocol_removed`). `project_status` reads a generated adapter header to decide whether that pack is current. An explicit empty `enabled` list writes nothing.
+
 ## [0.26.0] - 2026-10-21
 
 ### Added

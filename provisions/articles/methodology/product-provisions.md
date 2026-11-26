@@ -19,7 +19,7 @@ This is the trigger. It is generic: install or update of a checkout. Do not name
 
 ## Presence
 
-Insitu tools in **this sitting**, not `PROTOCOL.md` on disk.
+Insitu tools in **this sitting**, not a generated host file on disk.
 
 Call `harvest_provisions` with that checkout as `working_folder`.
 

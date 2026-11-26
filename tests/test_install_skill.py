@@ -163,7 +163,7 @@ def test_materialize_writes_pack_skill_from_shelf(
     assert "skill: close-hatch" in body
     assert "CLOSE-0.1.0" in body
     assert (work / ".grok" / "skills" / "close-hatch" / "scripts" / "seal.py").is_file()
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert "Seal the hatch" not in protocol
 
 
