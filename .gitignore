@@ -13,13 +13,9 @@ uv.lock
 project.yaml
 
 # Skill copies stay ignored. Grok still loads them.
-# Rules stay visible. Grok skips a gitignored file when it loads rules.
-.claude/*
-!.claude/rules/
-!.claude/rules/**
-.cursor/*
-!.cursor/rules/
-!.cursor/rules/**
+# Grok skips a gitignored rule file. Claude and Cursor still load one.
+.claude/
+.cursor/
 .grok/*
 !.grok/rules/
 !.grok/rules/**
