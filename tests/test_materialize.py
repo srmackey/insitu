@@ -32,11 +32,14 @@ def test_materialize_writes_protocol_and_adapters(
     claude_md = work / "CLAUDE.md"
     agents.write_bytes(b"keep-agents\n")
     claude_md.write_bytes(b"keep-claude\n")
+    (work / "PROTOCOL.md").write_text("LEFTOVER\n", encoding="utf-8")
 
     result = materialize(vault, work, project="river-ledger")
     assert result["ok"] is True
+    assert not (work / "PROTOCOL.md").exists()
+    assert result["protocol_removed"]
 
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     header, _, _rest = protocol.partition("-->")
     assert str(vault.resolve()) in header or str(vault) in header
     assert "river-ledger" in header
@@ -85,7 +88,7 @@ def test_no_environment_file_writes_agents_and_leaves_a_constitution(
         }
     ]
     assert agents.read_bytes() == b"keep-agents\n"
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
     assert not (work / ".grok").exists()
     assert not (work / ".claude").exists()
     assert not (work / ".cursor").exists()
@@ -138,7 +141,7 @@ def test_a_name_without_a_definition_is_reported_and_the_rest_still_write(
     assert result["ok"] is True
     assert result["platform_source"] == "platforms"
     assert {"platform": "notepad", "reason": "no_definition"} in result["unapplied"]
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
     assert (work / ".grok" / "rules" / "insitu-protocol.md").is_file()
     assert not (work / "AGENTS.md").exists()
 
@@ -150,12 +153,13 @@ def test_generated_header_carries_no_git_ref(vault: Path, tmp_path: Path) -> Non
     work.mkdir()
     result = materialize(vault, work, project="river-ledger")
     assert result["ok"] is True
-    header = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    header = (work / "AGENTS.md").read_text(encoding="utf-8")
+    assert not (work / "PROTOCOL.md").exists()
     assert "git:" not in header
     assert "timestamp:" in header and "articles:" in header
 
 
-def test_materialize_skips_locked_adapter_still_writes_protocol(
+def test_materialize_skips_locked_adapter(
     vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(vault)
@@ -172,8 +176,7 @@ def test_materialize_skips_locked_adapter_still_writes_protocol(
     monkeypatch.setattr(Path, "write_text", maybe_lock)
     result = materialize(vault, work, project="river-ledger")
     assert result["ok"] is True
-    assert (work / "PROTOCOL.md").is_file()
-    assert "GLOBAL-CORE-BODY" in (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    assert not (work / "PROTOCOL.md").exists()
     assert not (work / ".grok" / "rules" / "insitu-protocol.md").exists()
     assert "adapter_locked" in result["warnings"] or any(
         w.startswith("adapter_") for w in result["warnings"]
@@ -201,7 +204,7 @@ def test_materialize_skips_hanging_adapter_write(
     monkeypatch.setattr(Path, "write_text", hang_adapter)
     result = materialize(vault, work, project="river-ledger")
     assert result["ok"] is True
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
     assert "adapter_locked" in result["warnings"]
     assert result["adapters"] == []
 
@@ -303,7 +306,8 @@ def test_a_mixed_case_folder_still_matches_its_lowercase_key(
     result = materialize(vault, work, project="river-ledger")
 
     assert result["ok"] is True
-    assert (work / "PROTOCOL.md").is_file()
+    assert (work / "AGENTS.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
 
 
 def _environment(tmp_path: Path, text: str | None) -> Path:
@@ -355,7 +359,8 @@ def test_an_empty_enabled_list_does_not_fall_through_to_surfaces(
     assert result["ok"] is True
     assert result["platform_source"] == "platforms"
     assert "no_surfaces_configured" not in result["warnings"]
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
+    assert result["adapters"] == []
     assert not (work / "AGENTS.md").exists()
     assert not (work / ".cursor").exists()
 
@@ -499,7 +504,8 @@ def test_claude_md_is_never_written(
         "reason": "constitution",
         "path": "CLAUDE.md",
     } in result["unapplied"]
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
+    assert result["adapters"] == []
 
 
 def test_a_path_that_escapes_the_checkout_is_not_written(

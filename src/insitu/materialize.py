@@ -1,4 +1,4 @@
-"""Write PROTOCOL.md and host adapters (DESIGN.md §10)."""
+"""Write host adapters for the composed protocol (DESIGN.md §10)."""
 
 from __future__ import annotations
 
@@ -302,6 +302,19 @@ def _agents_definition() -> dict:
             }
         ]
     }
+
+
+def _remove_legacy_protocol(work: Path, warnings: list[str]) -> str | None:
+    """Drop a leftover PROTOCOL.md. The adapters are the copies a host loads."""
+    path = work / "PROTOCOL.md"
+    if not path.is_file():
+        return None
+    try:
+        path.unlink()
+    except OSError:
+        warnings.append("protocol_remove_failed")
+        return None
+    return str(path)
 
 
 def carries_insitu_stamp(text: str) -> bool:
@@ -627,10 +640,9 @@ def materialize(
     assert plan is not None
 
     protocol_text = _render_protocol(vault.root, resolved)
-    protocol_path = work / "PROTOCOL.md"
-    protocol_path.write_text(protocol_text, encoding="utf-8")
 
     warnings: list[str] = []
+    protocol_removed = _remove_legacy_protocol(work, warnings)
     adapters: list[dict] = []
     unchanged: list[dict] = []
     for platform, rel, fmt, mode in plan.writes:
@@ -688,7 +700,6 @@ def materialize(
     result: dict = {
         "ok": True,
         "project": key,
-        "protocol_path": str(protocol_path),
         "adapters": adapters,
         "skills": skills_written,
         "skills_removed": skills_removed,
@@ -696,6 +707,8 @@ def materialize(
         "platform_source": plan.source,
         "unapplied": plan.unapplied,
     }
+    if protocol_removed:
+        result["protocol_removed"] = protocol_removed
     if unchanged:
         result["unchanged"] = unchanged
     if plan.source == "default":

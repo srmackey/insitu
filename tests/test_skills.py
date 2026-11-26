@@ -184,7 +184,7 @@ def test_materialize_writes_skill_trees_stamp_after_frontmatter(
     assert "Run /close-books at end of day." in body
     assert (work / ".grok" / "skills" / "close-books" / "scripts" / "close.py").is_file()
     assert not (work / ".grok" / "skills" / "close-books" / "notes.md").exists()
-    protocol = (work / "PROTOCOL.md").read_text(encoding="utf-8")
+    protocol = (work / ".grok" / "rules" / "insitu-protocol.md").read_text(encoding="utf-8")
     assert "Run /close-books at end of day." not in protocol
 
 
@@ -223,7 +223,7 @@ def test_materialize_skills_need_surfaces_warning(vault: Path, tmp_path: Path) -
     assert result["ok"] is True
     assert result["platform_source"] == "default"
     assert "skills_need_surfaces" not in result["warnings"]
-    assert (work / "PROTOCOL.md").is_file()
+    assert not (work / "PROTOCOL.md").exists()
     assert (work / "AGENTS.md").is_file()
     assert not (work / ".grok").exists()
     assert result["skills"] == []

@@ -31,7 +31,7 @@ Insitu owns **user operating context**: who the user is *as it affects how an ag
 
 **Inclusion test (host-document test).** A file is an article if you would put it in a Cursor rule, an `AGENTS.md`, or a `CLAUDE.md` so the agent operates differently toward you or the work. Style, method, constraint, and interaction-relevant identity are kinds of content, not different kinds of object. A movie log or a full biography fails the test: that is wiki or primer material.
 
-A **skill** is not an article. Concatenating it into `PROTOCOL.md` would not create a slash command.
+A **skill** is not an article. Concatenating it into the protocol would not create a slash command.
 
 Insitu does **not** model engineering or system context: repository knowledge, component ontologies, system facts (auth, security posture, integration quirks), or cross-repo task composition. That is the domain of a dev-context system, and the two are expected to run side by side as separate MCP servers.
 
@@ -45,7 +45,7 @@ Rule of thumb: if it describes *how to work with the user*, it belongs in Insitu
 |---------|----------|
 | **Provision** | Anything Insitu provides to a project, at any grain: an article, a role, a skill, a pack, or a member pulled out of one. It names a relationship rather than a size, so it sits above the rows below rather than beside them. Use it when the grain is not the point — "which provisions does this project subscribe to?" — and use the specific noun when it is. |
 | **Article** | One portable section of standing agent guidance. A markdown file in the vault. Composed into a protocol. |
-| **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` to `PROTOCOL.md` plus host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
+| **Protocol** | The assembled, project-specific "how to work with me" document. Not an authored source file. Produced by `resolve_protocol` and written by `materialize` into the host adapters. Hosts each have their own name for the equivalent loaded text (rule, constitution, `CLAUDE.md`). |
 | **Project** | A named binding that selects which articles make up a protocol. The project key is the directory name under `projects/`. An address `nexus/node` is stored as `projects/nexus~node/`. |
 | **`_global`** | A distinguished project whose composed core is automatically included in every other project's protocol, unless the project opts out. Keep it very small: only articles that truly transcend projects. |
 | **Role** | A named, ordered pack of articles and skills. A project includes a role instead of listing every member. Membership lives in `roles/<id>.yaml` and nowhere else. |
@@ -100,7 +100,6 @@ vault/
 
 ```text
 <working-folder>/
-├── PROTOCOL.md                   # portable canon (always written)
 └── AGENTS.md                     # default surface, only when platforms.yaml is absent and the file is missing or already stamped
 ```
 
@@ -437,17 +436,17 @@ platforms:
         path: .grok/skills
 ```
 
-The result includes `platform_source: platforms`. A name with no stored definition, or a definition this call cannot apply, is listed on `unapplied` and the other names are still written. `PROTOCOL.md` is still written. There is no closed set of host names.
+The result includes `platform_source: platforms`. A name with no stored definition, or a definition this call cannot apply, is listed on `unapplied` and the other names are still written. There is no closed set of host names.
 
-An explicit `enabled: []` writes `PROTOCOL.md` only. It does not add the default file below.
+An explicit `enabled: []` writes nothing. It does not add the default file below. A leftover `PROTOCOL.md` is removed.
 
 When `platforms.yaml` is absent, or `INSITU_ROOT` is unset, the result is `platform_source: default` and `platform: agents`. That one write is `AGENTS.md` at the project root, and only when the file is missing or already opens with the Insitu stamp. An existing file without that stamp is left as it is, and the result says so on `unchanged`. No skill directory is created.
 
 ### 10.2 Outputs
 
-`materialize` always writes `<working-folder>/PROTOCOL.md`. That file is the portable canon: humans read it, adapters derive from it, non-MCP environments consume it. It is **not** auto-loaded by any host, so it is not the injector.
+`materialize` renders the composed protocol in memory and writes that text into each host adapter the plan can apply. There is no separate canon file. A leftover `PROTOCOL.md` is removed, and the result names that path on `protocol_removed`. The adapters are what a host loads.
 
-In the same call, for each project instruction the plan can apply, it writes that file. All adapters are **full-body copies** of the composed core plus a generated header and the on-demand index. Pointers (`@PROTOCOL.md`) are allowed only where a host expands `@path` at launch, and even there a full body is written so every enabled surface is deterministic without depending on import expansion.
+Each adapter is a full copy of the composed core plus a generated header and the on-demand index. A full body is written on every adapter, so a host does not depend on import expansion.
 
 The path and the format come from the stored definition. `format: markdown` is the protocol body. `format: mdc` is YAML frontmatter (`alwaysApply: true` and a short description) and then the body, which is what Cursor loads. A format this call does not know is `unapplied`, not a guess.
 
@@ -460,19 +459,19 @@ Two formats this environment already stores:
 
 **The on-demand index rides with the core.** §9 puts an index of the on-demand set on the resolved protocol, and the generated files carry it too, as a leading `# On demand` section: id, estimated cost, and description, and no bodies. The distinction matters because a tool result is not what a session holds. The host loads the generated file, so an index that reached only `resolve_protocol` would leave an on-demand article associated with a chair and unreachable from inside it, since knowing when the work calls for one requires knowing the set exists. A chair whose on-demand list is empty gets no section rather than an empty heading.
 
-Generated files carry a header (vault root, timestamp, project key, article ids in order) for staleness detection. `CLAUDE.md` and `CLAUDE.local.md` are never written. `AGENTS.md` is written only as the `agents` platform, and only when it is missing or already stamped. A hand-authored `AGENTS.md` stays. A one-line `@PROTOCOL.md` inside an existing `CLAUDE.md` is a human or one-time-install edit.
+Generated files carry a header (vault root, timestamp, project key, article ids in order). `project_status` compares that article list with a live compose. It reads the first generated adapter whose header parses. A hand-authored file is not that source. `CLAUDE.md` and `CLAUDE.local.md` are never written. `AGENTS.md` is written only as the `agents` platform, and only when it is missing or already stamped. A hand-authored `AGENTS.md` stays.
 
 When the Claude adapter is written, the checkout is inside the install, and the map has a role, `materialize` also merges `claudeMdExcludes` into `.claude/settings.local.json`. The list names each ancestor directory inside the install that has `.claude/rules`, in every path spelling the OS reports, and it does not name this chair's own rules or any shim. The glob includes the folder that contains the install, so a nested checkout with the same name does not match the install root. Other keys in the file stay. A file that is not a JSON object is left alone and the result warns `claude_excludes_invalid`. A map with no role is skipped (`claude_excludes_skipped: no_role`): that chair is still using an ancestor protocol, and an exclude would drop it. The install root has no ancestor inside the tree (`no_ancestor`). The result names the settings path on `claude_excludes` when the list is in place. The settings file is not a generated protocol copy and carries no stamp.
 
 Do not gitignore host adapters that must load, because Grok skips gitignored instruction files during discovery. Personal or work-unsafe content in a committed adapter is a vault-composition problem — use a work-safe vault or a work-safe `core` — not a gitignore problem.
 
-**Skills.** After the protocol adapters, for each applied platform whose definition has a project skill path, and for each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in `PROTOCOL.md`. The default `agents` platform has no skill path, so a missing environment file does not create one.
+**Skills.** After the protocol adapters, for each applied platform whose definition has a project skill path, and for each composed skill, `materialize` writes the allowlisted files (`SKILL.md`, `scripts/`, `references/`) into that directory. `SKILL.md` is the vault file with a generated stamp inserted after the closing frontmatter fence; the frontmatter is otherwise byte-identical. It never writes to a user-global skills directory, and never puts skill bodies in the protocol. The default `agents` platform has no skill path, so a missing environment file does not create one.
 
 Orphan cleanup is stamp-scoped: under each applied skill root, a subdirectory whose `SKILL.md` body opens with the Insitu stamp, and whose name is not in the composed skill list, is deleted. Every other directory is left alone.
 
 When `enabled` names a platform that was applied and the project composes skills, but none of those definitions has a project skill path, the result warns `skills_need_surfaces`. The result payload reports `skills` and `skills_removed`.
 
-**If an adapter cannot be written** — a locked file, a write that does not finish — that adapter is skipped with `adapter_locked` or `adapter_write_failed`, and `PROTOCOL.md` is still written. Prefer running `materialize` from a process that does not hold those files open.
+**If an adapter cannot be written** (a locked file, or a write that does not finish) that adapter is skipped with `adapter_locked` or `adapter_write_failed`. That host has no copy until a later call writes it. Prefer running `materialize` from a process that does not hold those files open.
 
 Regenerate when the vault or the project map changes. A SessionStart hook that runs `materialize` is a freshness helper, not the injector: hosts read rules at session start, so a hook that writes afterward helps the *next* session.
 

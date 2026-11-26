@@ -30,6 +30,61 @@ def _fmt_list(ids: list[str]) -> str:
     return ", ".join(ids) if ids else "none"
 
 
+def _adapter_label(path: str) -> str:
+    parts = Path(path).parts
+    if len(parts) >= 3 and parts[-2] == "rules":
+        return "/".join(parts[-3:])
+    return Path(path).name
+
+
+def _read_generated_protocol(work: Path, plan) -> dict:
+    """Staleness reads a generated adapter header. A hand-authored file is not one.
+
+    The first adapter whose header parses wins. A file that claims the Insitu
+    stamp and does not parse is unparseable. PROTOCOL.md is not a source.
+    """
+    chosen: tuple[Path, dict] | None = None
+    broken: Path | None = None
+    writes = () if plan is None else plan.writes
+    for _name, rel, _fmt, _mode in writes:
+        dest = work / rel
+        if not dest.is_file():
+            continue
+        try:
+            text = dest.read_text(encoding="utf-8")
+        except OSError:
+            if broken is None:
+                broken = dest
+            continue
+        header = parse_header(text)
+        if header is not None:
+            chosen = (dest, header)
+            break
+        if "insitu-generated:" in text and broken is None:
+            broken = dest
+    protocol: dict = {
+        "path": "",
+        "present": False,
+        "timestamp": None,
+        "project": None,
+        "articles": [],
+        "matches": False,
+    }
+    if chosen is not None:
+        dest, header = chosen
+        protocol["path"] = str(dest)
+        protocol["present"] = True
+        protocol["timestamp"] = header.get("timestamp")
+        protocol["project"] = header.get("project")
+        protocol["articles"] = list(header.get("articles") or [])
+        return protocol
+    if broken is not None:
+        protocol["path"] = str(broken)
+        protocol["present"] = True
+        protocol["unparseable"] = True
+    return protocol
+
+
 def _fmt_size(size: dict) -> str:
     n = size.get("article_count", 0)
     raw_bytes = int(size.get("bytes") or 0)
@@ -115,11 +170,12 @@ def _render_card(result: dict) -> str:
         lines.append("")
     proto = disk["protocol"]
     n = result["size"].get("article_count", 0)
+    label = _adapter_label(proto["path"]) if proto.get("path") else "the host protocol"
     if not proto["present"]:
-        lines.append("On disk: PROTOCOL.md is missing. Not materialized.")
+        lines.append("On disk: the host protocol is missing. Not materialized.")
     elif proto.get("unparseable"):
         lines.append(
-            "On disk: PROTOCOL.md is present but the header is unparseable. Pack is stale."
+            f"On disk: `{label}` is present but the header is unparseable. Pack is stale."
         )
     elif disk["current"]:
         ts = proto.get("timestamp") or "unknown"
@@ -145,13 +201,13 @@ def _render_card(result: dict) -> str:
             missing_bit = f" Host adapters missing: {', '.join(bits)}."
         current_bit = " Pack looks current." if not missing else ""
         lines.append(
-            f"On disk: PROTOCOL.md is generated ({ts}) and matches that "
+            f"On disk: `{label}` is generated ({ts}) and matches that "
             f"{n}-article list.{adapter_bit}{missing_bit}{current_bit}"
         )
     else:
         ts = proto.get("timestamp") or "unknown"
         lines.append(
-            f"On disk: PROTOCOL.md is generated ({ts}) but the header article "
+            f"On disk: `{label}` is generated ({ts}) but the header article "
             "list does not match live compose. Pack is stale."
         )
     return "\n".join(lines) + "\n"
@@ -197,30 +253,14 @@ def project_status(
     for row in sources:
         live_ids.extend(row["articles"])
 
-    protocol_path = work / "PROTOCOL.md"
-    protocol: dict = {
-        "path": str(protocol_path),
-        "present": protocol_path.is_file(),
-        "timestamp": None,
-        "project": None,
-        "articles": [],
-        "matches": False,
-    }
-    if protocol["present"]:
-        header = parse_header(protocol_path.read_text(encoding="utf-8"))
-        if header is None:
-            protocol["unparseable"] = True
-        else:
-            protocol["timestamp"] = header.get("timestamp")
-            protocol["project"] = header.get("project")
-            protocol["articles"] = list(header.get("articles") or [])
-            protocol["matches"] = (
-                protocol["project"] == key and protocol["articles"] == live_ids
-            )
-
     plan, err = plan_platforms()
     if err is not None:
         return err
+    protocol = _read_generated_protocol(work, plan)
+    if protocol["present"] and not protocol.get("unparseable"):
+        protocol["matches"] = (
+            protocol["project"] == key and protocol["articles"] == live_ids
+        )
     adapters: list[dict] = []
     if plan is not None:
         for name, rel, _fmt, _mode in plan.writes:

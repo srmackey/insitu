@@ -286,7 +286,8 @@ def test_the_generated_header_carries_the_classes(tmp_path: Path) -> None:
     folder.mkdir()
     write_project(vault, "gno", core=[], include_global=False)
     materialize(vault, working_folder=str(folder), project="gno")
-    text = (folder / "PROTOCOL.md").read_text(encoding="utf-8")
+    text = (folder / "AGENTS.md").read_text(encoding="utf-8")
+    assert not (folder / "PROTOCOL.md").exists()
     # Two chairs on the same map.yaml can compose differently; the header has
     # to carry what accounts for that.
     assert "classes: bound, sensitive" in text

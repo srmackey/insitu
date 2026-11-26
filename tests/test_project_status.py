@@ -191,6 +191,22 @@ def test_missing_adapter_does_not_clear_current_if_protocol_matches(
     assert "missing" in result["card"].lower()
 
 
+def test_hand_authored_agents_is_not_a_generated_protocol(
+    vault: Path, tmp_path: Path
+) -> None:
+    _seed(vault)
+    work = tmp_path / "river-ledger"
+    work.mkdir()
+    (work / "AGENTS.md").write_text("hand authored\n", encoding="utf-8")
+    (work / "PROTOCOL.md").write_text("LEFTOVER\n", encoding="utf-8")
+    assert materialize(vault, work)["ok"] is True
+    result = project_status(vault, work)
+    assert result["disk"]["protocol"]["present"] is False
+    assert result["disk"]["current"] is False
+    assert not (work / "PROTOCOL.md").exists()
+    assert (work / "AGENTS.md").read_text(encoding="utf-8") == "hand authored\n"
+
+
 def test_project_override_uses_named_map(vault: Path, tmp_path: Path) -> None:
     _seed(vault)
     work = tmp_path / "some-checkout"

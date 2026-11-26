@@ -79,7 +79,7 @@ When INSITU_ROOT points at an install that has nexus.md, the project key is the
 address derived from that file: the nexus's own name, or nexus/node. On disk a
 slash is ~ (projects/nexus~node/). Outside that tree the key stays the working
 folder basename. Session start is resolve_protocol for inspect; materialize writes
-PROTOCOL.md plus host adapters and mapped skill copies. Pull on-demand articles
+the host adapters and mapped skill copies. Pull on-demand articles
 with get_article. list_articles shows the catalog and sizes. list_skills is the
 skill catalog, not session start.
 """
@@ -700,7 +700,7 @@ def where_used(article_id: str) -> dict:
 
 @mcp.tool(annotations=WRITE_IDEMPOTENT)
 def materialize(working_folder: str, project: str | None = None) -> dict:
-    """Write PROTOCOL.md and configured host adapters into an existing checkout.
+    """Write the composed protocol into the host adapters for an existing checkout.
 
     The folder must already exist. A missing path is working_folder_missing:
     stop and ask which folder this project lives in. materialize does not

@@ -7,11 +7,11 @@ description: Insitu router. Treat the generated project protocol as binding.
 
 Insitu stores reusable articles and composes a project protocol. The project key is the working folder basename (`projects/<folder>/`).
 
-The composed core lives in this checkout as `PROTOCOL.md` and as the host protocol file under `.cursor/rules/insitu-protocol.mdc`. Treat that generated pack as binding. Do not edit it.
+The composed core lives in this checkout as the host protocol file under `.cursor/rules/insitu-protocol.mdc`. Treat that generated file as binding. Do not edit it.
 
-If the pack is missing, or its header is stale relative to the vault, call `materialize` (or `resolve_protocol` then `materialize`) before other work.
+If that file is missing, or its header is stale relative to the vault, call `materialize` (or `resolve_protocol` then `materialize`) before other work.
 
-`materialize` writes only that generated pack. It never writes `AGENTS.md` or `CLAUDE.md`. If other host files this host loads are missing, retrieve the host articles (`get_article` `platform/router-vs-pack` and `platform/cursor`) and write them here. Do not put pack bodies in this router. If those articles miss, they are not installed; say so. Do not invent files those articles do not name.
+`materialize` writes that generated file. It never writes `AGENTS.md` or `CLAUDE.md`. If other host files this host loads are missing, retrieve the host articles (`get_article` `platform/router-vs-pack` and `platform/cursor`) and write them here. Do not put pack bodies in this router. If those articles miss, they are not installed; say so. Do not invent files those articles do not name.
 
 If the user asks Insitu status of this folder, call `project_status`. Do not walk `get_project`, `resolve_protocol`, or `get_role` for that readout. Do not call it at session start.
 

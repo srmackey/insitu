@@ -14,7 +14,7 @@ The host list is `platforms.yaml`, next to `nexus.md`, in the folder `INSITU_ROO
 
 Do not edit user-global server config. Do not copy a router into a user rules directory.
 
-Project instructions land on `agents`. `materialize` writes `AGENTS.md` when that file is missing or already carries the Insitu stamp, plus `PROTOCOL.md`. An existing `AGENTS.md` without that stamp is left unchanged. `CLAUDE.md` is never written. No skill directory is created. An explicit `enabled: []` writes `PROTOCOL.md` only.
+Project instructions land on `agents`. `materialize` writes `AGENTS.md` when that file is missing or already carries the Insitu stamp. An existing `AGENTS.md` without that stamp is left unchanged. `CLAUDE.md` is never written. No skill directory is created. An explicit `enabled: []` writes nothing. A leftover `PROTOCOL.md` is removed.
 
 Recording the host this agent is running in is how a machine gets its first `enabled` name. Look up that one host's server file, key, format, and where it loads user-global instructions. Write them into `platforms.yaml`. Set `enabled` to that one name. Do not search the profile for other hosts. Then run the pass below for that name only.
 
