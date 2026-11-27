@@ -7,6 +7,7 @@ from pathlib import Path
 import frontmatter
 import yaml
 
+from insitu.address import load_tree, registry_root
 from insitu.affects import composed_id_sets, project_keys
 from insitu.identity import (
     GLOBAL_PROJECT,
@@ -240,6 +241,7 @@ def _collect_issues(vault: Vault) -> list[dict]:
         _collect_skill_map_issues(issues, vault, key)
 
     _collect_pack_tree_issues(issues, vault)
+    _collect_registry_issues(issues)
     _collect_skill_catalog_issues(issues, vault)
     _collect_role_skills_issues(issues, vault)
 
@@ -390,6 +392,32 @@ def _collect_class_issues(issues: list[dict], vault: Vault) -> None:
                         "prohibited_by": config.prohibiting_class(key, article_id),
                     }
                 )
+
+
+def _collect_registry_issues(issues: list[dict]) -> None:
+    """Every registry row says yes or no on sensitivity.
+
+    A blank or unreadable cell is never read as inherit, so it is an issue
+    rather than a quiet `no`. Only runs when INSITU_ROOT names an install.
+    """
+    reg = registry_root()
+    if reg is None:
+        return
+    tree = load_tree(reg)
+    if tree is None:
+        return
+    for nexus in sorted(tree.nexuses.values(), key=lambda n: n.name.casefold()):
+        for row in nexus.nodes:
+            if row.sensitive_cell.casefold() in {"yes", "no", "true", "false"}:
+                continue
+            issues.append(
+                {
+                    "kind": "registry_sensitive_unset",
+                    "nexus": nexus.name.casefold(),
+                    "node": row.name,
+                    "cell": row.sensitive_cell,
+                }
+            )
 
 
 def _collect_skill_map_issues(issues: list[dict], vault: Vault, project: str) -> None:

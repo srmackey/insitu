@@ -4,6 +4,10 @@ The folder tree is the hierarchy. nexus.md at the install root names the top
 nexus and its nodes. A node of kind nexus has its own nexus.md. An address is
 the nexus's own name, or that name, a slash, and a node's name. A nested
 nexus is addressed by its own name.
+
+Sensitivity belongs to a chair's own registry row. A nested nexus takes it
+from its row in the parent's nexus.md, a node from its row in its nexus's
+nexus.md. Neither passes it up or down.
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ class NodeRow:
     sensitive: bool
     services: tuple[str, ...]
     triggers: str
+    sensitive_cell: str = ""
 
 
 @dataclass(frozen=True)
@@ -210,7 +215,7 @@ def _node_loc(tree: Tree, nexus: Nexus, node: NodeRow) -> Located:
         project_dir=project,
         is_nexus=False,
         is_root=False,
-        sensitive=node.sensitive or nexus.sensitive,
+        sensitive=node.sensitive,
     )
 
 
@@ -298,6 +303,7 @@ def _nodes(text: str) -> list[NodeRow]:
         node_name = take(i_name)
         if not node_name:
             continue
+        sensitive_cell = take(i_sensitive)
         services = tuple(
             part.strip()
             for part in take(i_services).split(",")
@@ -309,9 +315,10 @@ def _nodes(text: str) -> list[NodeRow]:
                 path=take(i_path),
                 kind=(take(i_kind) or "node").casefold(),
                 status=(take(i_status) or "active").casefold(),
-                sensitive=take(i_sensitive).casefold() in {"yes", "true"},
+                sensitive=sensitive_cell.casefold() in {"yes", "true"},
                 services=services,
                 triggers=take(i_triggers),
+                sensitive_cell=sensitive_cell,
             )
         )
     return rows

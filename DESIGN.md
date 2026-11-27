@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.26**
+**Version 0.27**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -116,6 +116,8 @@ The project key **is** the directory name under `projects/`. An address `nexus/n
 **Convention.** Outside an install tree, the working folder's basename is the project key. Mixed-case folder names fold to lowercase (`ProjectName/` loads `projects/projectname/`). Work in `river-ledger/` and the server loads `projects/river-ledger/`.
 
 When `INSITU_ROOT` points at a folder that has `nexus.md`, the key is the address derived from that file. A nested nexus is addressed by its own name (`pier`). A node of that nexus is `pier/skiff`. The folder basename is not the key. A unique bare name still resolves (`skiff` loads `pier/skiff` when only one node has that name). An ambiguous bare name does not. A two-segment address whose second part is itself a nexus does not resolve; use that nexus's own name. `INSITU_ROOT` is the install tree, not a second vault.
+
+**Each row says whether its chair is sensitive.** The Sensitive cell belongs to that chair alone, node or nexus. A nested nexus reads its own row in the parent's `nexus.md`, a node reads its row in its nexus's file, and nothing passes up or down the tree. Every row says yes or no. A blank or unreadable cell is never read as inherit: `validate` reports it as `registry_sensitive_unset`.
 
 **Labels, not identity.** `map.yaml` may carry `repo`, `name`, and `aka` for display and colloquial lookup. They do not change which project is selected.
 
@@ -251,7 +253,7 @@ Where one held class imposes what another forbids, the prohibition wins and `val
 
 `validate` also reports `missing_obligation` and `missing_prohibition` for a declaration naming an article that does not exist. The first is the sharper one: an obligation that resolves nowhere fails resolution for every chair in that class at once.
 
-**The calling chair** is the address derived from `working_folder` when that folder sits inside `INSITU_ROOT`, and the basename, case-folded, otherwise. A folder inside the tree that is not a chair is `not_in_registry`. Every mutating map tool requires the folder, and a bound chair whose key is not `project` gets `chair_bound`. An admin of a nexus writes maps for that nexus and addresses under it. The admin of the top nexus writes any map. An admin outside that prefix gets `admin_scope`. A sensitive nexus imposes class `sensitive` on its own map and every map under it. `sensitive` is a class, not a third rights rung. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
+**The calling chair** is the address derived from `working_folder` when that folder sits inside `INSITU_ROOT`, and the basename, case-folded, otherwise. A folder inside the tree that is not a chair is `not_in_registry`. Every mutating map tool requires the folder, and a bound chair whose key is not `project` gets `chair_bound`. An admin of a nexus writes maps for that nexus and addresses under it. The admin of the top nexus writes any map. An admin outside that prefix gets `admin_scope`. A chair's classes come from its operator row and nowhere else. A registry row marked sensitive imposes no class, and a nexus passes none to the maps under it. `sensitive` is a class, not a third rights rung. `materialize` takes the same gate; naming no project means this folder's own map, which is always allowed.
 
 **`materialize` reads `working_folder` twice.** For the gate it is the calling chair; for the write it is the destination. Inside an install, a named `project` must be that folder's address (a unique bare name counts). Outside it, the named project must match the folder basename, for every class and in a pre-init vault. A mismatch is `folder_project_mismatch`, and nothing is written, not even the folder. An address key with no `INSITU_ROOT` is `registry_required`. A sweep names each project's own checkout, so correct usage never meets the refusal.
 

@@ -12,6 +12,7 @@ from insitu.identity import project_dirname, project_key_from_dirname
 from insitu.materialize import materialize
 from insitu.operators import check_map_write, load_operators
 from insitu.store import load_vault
+from insitu.validate import validate
 
 
 def _nexus(folder: Path, name: str, rows: list[str], parent: str | None = None) -> None:
@@ -164,8 +165,106 @@ def test_admin_scope_follows_the_nexus(
     assert top is None
 
     classes = load_operators(vault)
-    assert "sensitive" in classes.classes_for("pier/skiff")
-    assert "sensitive" in classes.classes_for("pier")
-    assert "sensitive" not in classes.classes_for("harbor/dock")
+    assert classes.classes_for("pier/skiff") == ["bound"]
+    assert classes.classes_for("harbor/dock") == ["bound"]
     assert classes.is_admin("pier") is True
     assert classes.is_admin("pier/skiff") is False
+
+
+def test_a_chair_takes_only_its_own_row(tmp_path: Path) -> None:
+    root = _coast(tmp_path)
+    _nexus(
+        root / "harbor",
+        "harbor",
+        [
+            "| dock | dock/ | node | active | no | status | the harbor dock |",
+            "| crane | crane/ | node | active | yes | status | the crane |",
+        ],
+        parent="coast",
+    )
+    tree = load_tree(root)
+    assert tree is not None
+
+    pier = resolve(tree, "pier")
+    skiff = resolve(tree, "pier/skiff")
+    assert pier is not None and pier.sensitive is True
+    assert skiff is not None and skiff.sensitive is False
+
+    harbor = resolve(tree, "harbor")
+    crane = resolve(tree, "harbor/crane")
+    assert harbor is not None and harbor.sensitive is False
+    assert crane is not None and crane.sensitive is True
+
+
+def test_a_sensitive_nexus_imposes_no_class(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _coast(tmp_path)
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    vault = tmp_path / "shelf"
+    (vault / "config").mkdir(parents=True)
+    (vault / "config" / "operators.yaml").write_text(
+        yaml.safe_dump({"default_class": "bound", "projects": {"coast": "admin"}}),
+        encoding="utf-8",
+    )
+
+    classes = load_operators(vault)
+    assert classes.classes_for("pier/skiff") == ["bound"]
+    assert classes.classes_for("pier") == ["bound"]
+
+
+def _empty_vault(tmp_path: Path) -> Path:
+    vault = tmp_path / "shelf"
+    (vault / "articles").mkdir(parents=True)
+    (vault / "projects").mkdir()
+    return vault
+
+
+def test_validate_flags_a_row_that_does_not_say_yes_or_no(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _coast(tmp_path)
+    _nexus(
+        root / "quay",
+        "quay",
+        [
+            "| buoy | buoy/ | node | active | no | status | the buoy |",
+            "| net | net/ | node | active |  | status | the net |",
+            "| oar | oar/ | node | active | maybe | status | the oar |",
+        ],
+        parent="coast",
+    )
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+
+    result = validate(_empty_vault(tmp_path))
+    flagged = [i for i in result["issues"] if i["kind"] == "registry_sensitive_unset"]
+    assert flagged == [
+        {"kind": "registry_sensitive_unset", "nexus": "quay", "node": "net", "cell": ""},
+        {"kind": "registry_sensitive_unset", "nexus": "quay", "node": "oar", "cell": "maybe"},
+    ]
+    assert result["ok"] is False
+
+
+def test_validate_flags_every_row_when_the_column_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "cove"
+    root.mkdir()
+    (root / "nexus.md").write_text(
+        "# nexus: cove\n\n| Node | Path | Kind |\n|---|---|---|\n| reef | reef/ | node |\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+
+    result = validate(_empty_vault(tmp_path))
+    assert [i["node"] for i in result["issues"] if i["kind"] == "registry_sensitive_unset"] == [
+        "reef"
+    ]
+
+
+def test_validate_is_quiet_on_a_complete_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("INSITU_ROOT", str(_coast(tmp_path)))
+    result = validate(_empty_vault(tmp_path))
+    assert not [i for i in result["issues"] if i["kind"] == "registry_sensitive_unset"]
