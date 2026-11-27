@@ -95,12 +95,15 @@ class OperatorConfig:
     def classes_for(self, project: str) -> list[str]:
         """The set of classes a chair holds. Unlisted keys take the default.
 
-        The operator row is the only source. A registry row marked sensitive
-        does not add the class here, and a sensitive nexus does not pass it
-        to the maps under it.
+        A chair whose own registry row is marked sensitive holds that class,
+        whether or not the operator row lists it. Only its own row counts: a
+        sensitive nexus does not pass the class to the maps under it.
         """
         held = self._row(project)
-        return list(held) if held else [self.default_class]
+        names = list(held) if held else [self.default_class]
+        if _row_is_sensitive(project) and "sensitive" not in names:
+            names.append("sensitive")
+        return names
 
     def _row(self, project: str) -> list[str] | None:
         norm = _norm(project)
@@ -234,6 +237,21 @@ def _admin_covers(chair: str, target: str) -> bool:
     if chair == tree.top.name.casefold():
         return True
     return target == chair or target.startswith(chair + "/")
+
+
+def _row_is_sensitive(project: str) -> bool:
+    """Whether the chair's own registry row says sensitive. A node's location
+    reads its own row only, so nothing here inherits from a nexus."""
+    from insitu.address import load_tree, registry_root, resolve
+
+    reg = registry_root()
+    if reg is None:
+        return False
+    tree = load_tree(reg)
+    if tree is None:
+        return False
+    located = resolve(tree, project)
+    return bool(located and located.sensitive)
 
 
 def config_path(root: str | Path) -> Path:

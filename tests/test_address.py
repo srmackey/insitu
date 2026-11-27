@@ -196,10 +196,19 @@ def test_a_chair_takes_only_its_own_row(tmp_path: Path) -> None:
     assert crane is not None and crane.sensitive is True
 
 
-def test_a_sensitive_nexus_imposes_no_class(
+def test_a_sensitive_row_imposes_the_class_on_its_own_chair_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = _coast(tmp_path)
+    _nexus(
+        root / "harbor",
+        "harbor",
+        [
+            "| dock | dock/ | node | active | no | status | the harbor dock |",
+            "| crane | crane/ | node | active | yes | status | the crane |",
+        ],
+        parent="coast",
+    )
     monkeypatch.setenv("INSITU_ROOT", str(root))
     vault = tmp_path / "shelf"
     (vault / "config").mkdir(parents=True)
@@ -209,8 +218,38 @@ def test_a_sensitive_nexus_imposes_no_class(
     )
 
     classes = load_operators(vault)
+    # A sensitive nexus row puts the class on that nexus and nowhere below it.
+    assert classes.classes_for("pier") == ["bound", "sensitive"]
     assert classes.classes_for("pier/skiff") == ["bound"]
-    assert classes.classes_for("pier") == ["bound"]
+    # A sensitive node row needs no operator row to hold the class.
+    assert classes.classes_for("harbor/crane") == ["bound", "sensitive"]
+    assert classes.classes_for("harbor/dock") == ["bound"]
+    assert classes.obligations_for("harbor/crane") == ([], [])
+
+
+def test_a_sensitive_row_adds_to_an_operator_row_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _coast(tmp_path)
+    monkeypatch.setenv("INSITU_ROOT", str(root))
+    vault = tmp_path / "shelf"
+    (vault / "config").mkdir(parents=True)
+    (vault / "config" / "operators.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "default_class": "bound",
+                "classes": {"sensitive": {"obligations": {"core": ["method/quiet"]}}},
+                "projects": {"coast": "admin", "pier": ["bound", "sensitive"]},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    classes = load_operators(vault)
+    assert classes.classes_for("pier") == ["bound", "sensitive"]
+    assert classes.obligations_for("pier") == (["method/quiet"], [])
+    assert classes.obligations_for("pier/skiff") == ([], [])
 
 
 def _empty_vault(tmp_path: Path) -> Path:
