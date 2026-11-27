@@ -6,6 +6,12 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-11-27
+
+### Fixed
+
+- A registry row marked sensitive adds the `sensitive` class to that chair again, as 0.26 did for a node's own row. 0.27.0 dropped that link, so a chair marked sensitive in `nexus.md` with no operator row composed none of the class's articles. Only the chair's own row counts: a sensitive nexus still passes nothing to the maps under it.
+
 ## [0.27.0] - 2026-11-27
 
 ### Added
