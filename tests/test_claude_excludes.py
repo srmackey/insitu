@@ -1,4 +1,4 @@
-"""Ancestor Claude rule excludes. Fictional trees only."""
+"""Ancestor Claude shim and rule excludes. Fictional trees only."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from helpers import PLATFORM_DEFS, write_article, write_role
-from insitu.claude_excludes import merge_excludes, rule_globs
+from insitu.claude_excludes import ancestor_globs, merge_excludes
 from insitu.identity import project_dirname
 from insitu.materialize import materialize
 
@@ -28,18 +28,37 @@ def _tree(tmp_path: Path) -> tuple[Path, Path]:
     (root / ".claude" / "rules").mkdir(parents=True)
     (root / "harbor" / ".claude" / "rules").mkdir(parents=True)
     (dock / ".claude" / "rules").mkdir(parents=True)
+    for folder in (root, root / "harbor", dock):
+        (folder / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
     return root, dock
 
 
-def test_globs_name_ancestors_in_each_spelling_and_not_the_chair(tmp_path: Path) -> None:
+def test_globs_name_ancestor_shims_and_rules_in_each_spelling_and_not_the_chair(
+    tmp_path: Path,
+) -> None:
     root, dock = _tree(tmp_path)
-    globs = rule_globs(dock, root, _spellings)
+    globs = ancestor_globs(dock, root, _spellings)
     assert globs == [
+        "**/Ada Lovelace/coast/CLAUDE.md",
+        "**/ADALOV~1/coast/CLAUDE.md",
         "**/Ada Lovelace/coast/.claude/rules/**",
         "**/ADALOV~1/coast/.claude/rules/**",
+        "**/Ada Lovelace/coast/harbor/CLAUDE.md",
+        "**/ADALOV~1/coast/harbor/CLAUDE.md",
         "**/Ada Lovelace/coast/harbor/.claude/rules/**",
         "**/ADALOV~1/coast/harbor/.claude/rules/**",
     ]
+
+
+def test_an_ancestor_with_only_a_shim_is_named(tmp_path: Path) -> None:
+    root = tmp_path / "people" / "coast"
+    dock = root / "harbor" / "dock"
+    dock.mkdir(parents=True)
+    (root / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
+    (root / "harbor" / "AGENTS.md").write_text("harbor\n", encoding="utf-8")
+    (dock / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
+    globs = ancestor_globs(dock, root, lambda path: [path])
+    assert globs == ["**/people/coast/CLAUDE.md"]
 
 
 def test_second_spelling_shortens_the_profile_and_leaves_the_rest(
@@ -58,7 +77,7 @@ def test_second_spelling_shortens_the_profile_and_leaves_the_rest(
 
     monkeypatch.setattr("insitu.claude_excludes._win_path", win_path)
     monkeypatch.setattr("insitu.claude_excludes.Path.home", staticmethod(lambda: home))
-    globs = rule_globs(dock, root)
+    globs = ancestor_globs(dock, root)
     assert globs == [
         "**/Ada Lovelace/coast/.claude/rules/**",
         "**/ADALOV~1/coast/.claude/rules/**",
@@ -71,7 +90,7 @@ def test_a_nested_name_does_not_collide_with_the_install_root(tmp_path: Path) ->
     nested = root / "dev" / "domainprime"
     (root / ".claude" / "rules").mkdir(parents=True)
     (nested / ".claude" / "rules").mkdir(parents=True)
-    globs = rule_globs(nested, root, lambda path: [path])
+    globs = ancestor_globs(nested, root, lambda path: [path])
     assert "**/DomainPrime/.claude/rules/**" not in globs
     assert globs == ["**/people/DomainPrime/.claude/rules/**"]
 
@@ -139,6 +158,8 @@ def _install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     (root / ".claude" / "rules").mkdir(parents=True)
     (root / "harbor" / ".claude" / "rules").mkdir(parents=True)
+    for folder in (root, root / "harbor"):
+        (folder / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
     (root / "platforms.yaml").write_text(
         yaml.safe_dump(
             {"enabled": ["claude"], "platforms": {"claude": PLATFORM_DEFS["claude"]}},
@@ -183,11 +204,13 @@ def test_materialize_merges_excludes_for_a_chair_with_a_role(
     assert result["claude_excludes"] == str(settings)
     loaded = json.loads(settings.read_text(encoding="utf-8"))
     assert loaded["permissions"]["allow"] == ["Bash(echo hi)"]
-    assert loaded["claudeMdExcludes"] == rule_globs(work, root)
+    assert loaded["claudeMdExcludes"] == ancestor_globs(work, root)
     assert any(item.endswith("/coast/.claude/rules/**") for item in loaded["claudeMdExcludes"])
     assert any(
         item.endswith("/coast/harbor/.claude/rules/**") for item in loaded["claudeMdExcludes"]
     )
+    assert any(item.endswith("/coast/CLAUDE.md") for item in loaded["claudeMdExcludes"])
+    assert any(item.endswith("/coast/harbor/CLAUDE.md") for item in loaded["claudeMdExcludes"])
     assert not any("/dock/" in item for item in loaded["claudeMdExcludes"])
     assert (work / "CLAUDE.md").exists() is False
 

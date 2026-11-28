@@ -1,6 +1,6 @@
 # Insitu
 
-**Version 0.27**
+**Version 0.28**
 
 Insitu is a portable MCP server for **situated identity**: who you are *here*. This document explains the system as it currently stands. What changed between versions is in `CHANGELOG.md`.
 
@@ -463,7 +463,7 @@ Two formats this environment already stores:
 
 Generated files carry a header (vault root, timestamp, project key, article ids in order). `project_status` compares that article list with a live compose. It reads the first generated adapter whose header parses. A hand-authored file is not that source. `CLAUDE.md` and `CLAUDE.local.md` are never written. `AGENTS.md` is written only as the `agents` platform, and only when it is missing or already stamped. A hand-authored `AGENTS.md` stays.
 
-When the Claude adapter is written, the checkout is inside the install, and the map has a role, `materialize` also merges `claudeMdExcludes` into `.claude/settings.local.json`. The list names each ancestor directory inside the install that has `.claude/rules`, in every path spelling the OS reports, and it does not name this chair's own rules or any shim. The glob includes the folder that contains the install, so a nested checkout with the same name does not match the install root. Other keys in the file stay. A file that is not a JSON object is left alone and the result warns `claude_excludes_invalid`. A map with no role is skipped (`claude_excludes_skipped: no_role`): that chair is still using an ancestor protocol, and an exclude would drop it. The install root has no ancestor inside the tree (`no_ancestor`). The result names the settings path on `claude_excludes` when the list is in place. The settings file is not a generated protocol copy and carries no stamp.
+When the Claude adapter is written, the checkout is inside the install, and the map has a role, `materialize` also merges `claudeMdExcludes` into `.claude/settings.local.json`. The list names each ancestor inside the install that has a `CLAUDE.md` shim or `.claude/rules`, shim first, in every path spelling the OS reports, and it does not name this chair's own files. An excluded shim takes its `@AGENTS.md` import with it, so ancestor constitutions stay out whether or not the start folder has Claude's external-import approval. The glob includes the folder that contains the install, so a nested checkout with the same name does not match the install root. Other keys in the file stay. A file that is not a JSON object is left alone and the result warns `claude_excludes_invalid`. A map with no role is skipped (`claude_excludes_skipped: no_role`): that chair is still using an ancestor protocol, and an exclude would drop it. The install root has no ancestor inside the tree (`no_ancestor`). The result names the settings path on `claude_excludes` when the list is in place. The settings file is not a generated protocol copy and carries no stamp.
 
 Do not gitignore the Grok adapter. Grok skips a gitignored rule file. Claude and Cursor adapters are gitignored, and those hosts still load them. Personal or work-unsafe content in a committed adapter is a vault-composition problem. Use a work-safe vault or a work-safe `core` to keep it out.
 
