@@ -6,6 +6,12 @@ Insitu is pre-1.0. A minor bump may break callers, and breaking changes are call
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-27
+
+### Changed
+
+- The `claudeMdExcludes` list that `materialize` writes now also names each ancestor's `CLAUDE.md` shim, not only its `.claude/rules`. An excluded shim takes its `@AGENTS.md` import with it, so a chair with its own protocol no longer picks up ancestor constitutions when its start folder has Claude's external-import approval. A map with no role still gets no list.
+
 ## [0.27.1] - 2026-11-27
 
 ### Fixed

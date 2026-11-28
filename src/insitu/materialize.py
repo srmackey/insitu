@@ -10,7 +10,7 @@ from pathlib import Path
 from insitu.store import SKILL_PAYLOAD_DIRS, VaultReadError, read_yaml, skill_payload_paths
 
 from insitu.address import derive_key, is_within, registry_root, resolve, load_tree
-from insitu.claude_excludes import merge_excludes, rule_globs
+from insitu.claude_excludes import ancestor_globs, merge_excludes
 from insitu.identity import InvalidIdentity, validate_project_key
 from insitu.models import Skill, Vault
 from insitu.resolve import iter_composed_skills, resolve_protocol
@@ -722,11 +722,11 @@ def _writes_claude(plan: PlatformPlan) -> bool:
 
 
 def _claude_excludes(vault, key: str, work: Path, plan: PlatformPlan, *, inside: bool):
-    """Merge ancestor rule excludes when this chair has its own protocol.
+    """Merge ancestor shim and rule excludes when this chair has its own protocol.
 
     A map with no role is skipped: that chair still loads an ancestor protocol,
     and an exclude would drop it. The install root has no ancestor inside the
-    tree, so it is skipped too. Shims are not in the list.
+    tree, so it is skipped too.
     """
     if not inside or not _writes_claude(plan):
         return {}, []
@@ -736,7 +736,7 @@ def _claude_excludes(vault, key: str, work: Path, plan: PlatformPlan, *, inside:
     reg = registry_root()
     if reg is None:
         return {}, []
-    globs = rule_globs(work, reg)
+    globs = ancestor_globs(work, reg)
     if not globs:
         return {"claude_excludes_skipped": "no_ancestor"}, []
     path, error = merge_excludes(work, globs)

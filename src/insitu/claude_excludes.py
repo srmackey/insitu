@@ -1,9 +1,13 @@
 """Claude instruction excludes for a chair that has its own protocol.
 
 `materialize` merges these into `.claude/settings.local.json`. The list names
-ancestor `.claude/rules` directories inside the install. It does not name this
-chair's rules, and it does not name shims. A map with no role is still using
-an ancestor protocol, so it gets no list.
+each ancestor inside the install that has a `CLAUDE.md` shim or a
+`.claude/rules` directory. It does not name this chair's own files. A map with
+no role is still using an ancestor protocol, so it gets no list.
+
+An excluded shim takes its `@AGENTS.md` import with it, so excluding ancestor
+shims keeps ancestor constitutions out whether or not the start folder has
+Claude's external-import approval.
 """
 
 from __future__ import annotations
@@ -12,9 +16,13 @@ import json
 import os
 from pathlib import Path
 
+SHIM = Path("CLAUDE.md")
 RULES_DIR = Path(".claude") / "rules"
 SETTINGS_REL = Path(".claude") / "settings.local.json"
 EXCLUDE_KEY = "claudeMdExcludes"
+
+# Per ancestor, in the order Claude loads them: the shim, then the rules.
+_TARGETS = ((SHIM, "/CLAUDE.md", Path.is_file), (RULES_DIR, "/.claude/rules/**", Path.is_dir))
 
 
 def _win_path(path: Path, kind: str) -> Path | None:
@@ -61,30 +69,35 @@ def path_spellings(path: Path) -> list[Path]:
     return found
 
 
-def ancestor_rule_dirs(working_folder: Path, install_root: Path) -> list[Path]:
-    """Ancestors inside the install that have `.claude/rules`, farthest first."""
+def ancestor_targets(working_folder: Path, install_root: Path) -> list[tuple[Path, str]]:
+    """Ancestors inside the install, farthest first, with the glob suffix of each
+    instruction file they hold: a `CLAUDE.md` shim, then `.claude/rules`."""
     work = working_folder.resolve()
     root = install_root.resolve()
-    found: list[Path] = []
+    chain: list[Path] = []
     current = work.parent
     while True:
         try:
             current.resolve().relative_to(root)
         except ValueError:
             break
-        if (current / RULES_DIR).is_dir():
-            found.append(current)
+        chain.append(current)
         if current.resolve() == root:
             break
         parent = current.parent
         if parent == current:
             break
         current = parent
-    found.reverse()
+    chain.reverse()
+    found: list[tuple[Path, str]] = []
+    for ancestor in chain:
+        for rel, suffix, exists in _TARGETS:
+            if exists(ancestor / rel):
+                found.append((ancestor, suffix))
     return found
 
 
-def _glob_for(spelled_ancestor: Path, spelled_root: Path) -> str | None:
+def _glob_for(spelled_ancestor: Path, spelled_root: Path, suffix: str) -> str | None:
     try:
         spelled_ancestor.relative_to(spelled_root)
     except ValueError:
@@ -94,25 +107,25 @@ def _glob_for(spelled_ancestor: Path, spelled_root: Path) -> str | None:
         relative = spelled_ancestor.relative_to(container.parent)
     except ValueError:
         relative = Path(container.name) / spelled_ancestor.relative_to(container)
-    return "**/" + relative.as_posix() + "/.claude/rules/**"
+    return "**/" + relative.as_posix() + suffix
 
 
-def rule_globs(
+def ancestor_globs(
     working_folder: Path,
     install_root: Path,
     spellings=path_spellings,
 ) -> list[str]:
-    """Globs for ancestor rule directories, one per path spelling.
+    """Globs for ancestor shims and rule directories, one per path spelling.
 
     The glob starts at the folder that contains the install, so a nested
     checkout whose name matches the install root does not collide with it.
     """
     globs: list[str] = []
     root_spellings = spellings(install_root)
-    for ancestor in ancestor_rule_dirs(working_folder, install_root):
+    for ancestor, suffix in ancestor_targets(working_folder, install_root):
         for spelled in spellings(ancestor):
             for spelled_root in root_spellings:
-                glob = _glob_for(spelled, spelled_root)
+                glob = _glob_for(spelled, spelled_root, suffix)
                 if glob is not None and glob not in globs:
                     globs.append(glob)
                     break
